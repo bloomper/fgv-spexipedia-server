@@ -22,7 +22,6 @@ import graphql.schema.DataFetchingEnvironment;
 import jakarta.persistence.OptimisticLockException;
 import nu.fgv.spexipedia.server.util.error.BadRequestException;
 import nu.fgv.spexipedia.server.util.error.ConflictException;
-import nu.fgv.spexipedia.server.util.error.DirectoryUnavailableException;
 import nu.fgv.spexipedia.server.util.error.ResourceNotFoundException;
 import nu.fgv.spexipedia.server.util.error.SpexregisterUnavailableException;
 import org.junit.jupiter.api.BeforeEach;
@@ -60,7 +59,7 @@ class GlobalExceptionResolverTest {
 
         messages.addMessage("error.forbidden", Locale.of("sv"), "Du har inte behörighet att göra det.");
         messages.addMessage("error.forbidden", Locale.ENGLISH, "You are not allowed to do that.");
-        messages.addMessage("error.album.notFound", Locale.of("sv"), "Albumet {0} finns inte.");
+        messages.addMessage("error.notFound.Spex", Locale.of("sv"), "Spexet {0} finns inte.");
         resolver = new GlobalExceptionResolver(messages);
         lenient().when(environment.getExecutionStepInfo().getPath()).thenReturn(ResultPath.rootPath());
         lenient().when(environment.getLocale()).thenReturn(Locale.of("sv"));
@@ -75,18 +74,17 @@ class GlobalExceptionResolverTest {
         assertThat(resolve(new AccessDeniedException("x")).getErrorType().toString()).isEqualTo("FORBIDDEN");
         assertThat(resolve(new AuthenticationCredentialsNotFoundException("x")).getErrorType().toString()).isEqualTo("UNAUTHORIZED");
         assertThat(resolve(new BadRequestException("error.x")).getErrorType().toString()).isEqualTo("BAD_REQUEST");
-        assertThat(resolve(new ResourceNotFoundException("error.album.notFound", 7)).getErrorType().toString()).isEqualTo("NOT_FOUND");
+        assertThat(resolve(new ResourceNotFoundException("error.notFound.Spex", 7)).getErrorType().toString()).isEqualTo("NOT_FOUND");
         assertThat(resolve(new ConflictException("error.x")).getErrorType().toString()).isEqualTo("CONFLICT");
         assertThat(resolve(new OptimisticLockingFailureException("x")).getErrorType().toString()).isEqualTo("CONFLICT");
         assertThat(resolve(new OptimisticLockException("x")).getErrorType().toString()).isEqualTo("CONFLICT");
         assertThat(resolve(new SpexregisterUnavailableException(new RuntimeException())).getErrorType().toString()).isEqualTo("SPEXREGISTER_UNAVAILABLE");
-        assertThat(resolve(new DirectoryUnavailableException(new RuntimeException())).getErrorType().toString()).isEqualTo("DIRECTORY_UNAVAILABLE");
         assertThat(resolve(new IllegalStateException("bug"))).isNull();
     }
 
     @Test
     void theMessageIsInTheRequestsLanguageWithItsArguments() {
-        assertThat(resolve(new ResourceNotFoundException("error.album.notFound", 7)).getMessage()).isEqualTo("Albumet 7 finns inte.");
+        assertThat(resolve(new ResourceNotFoundException("error.notFound.Spex", 7)).getMessage()).isEqualTo("Spexet 7 finns inte.");
 
         lenient().when(environment.getLocale()).thenReturn(Locale.ENGLISH);
         assertThat(resolve(new AccessDeniedException("x")).getMessage()).isEqualTo("You are not allowed to do that.");

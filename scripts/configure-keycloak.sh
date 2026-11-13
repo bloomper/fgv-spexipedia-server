@@ -13,7 +13,7 @@ set +a
 # Keycloak runs in fgv-infra-deploy's local stack
 infra_local=${INFRA_DEPLOY:-../../fgv-infra-deploy}/local
 admin=$(sed -n 's/^KEYCLOAK_ADMIN=//p' "$infra_local/.env")
-web_url=${WEB_URL:-http://localhost:3004}
+web_url=${WEB_URL:-http://localhost:3006}
 # The web's checkout next to this one, e.g. fgv-spexipedia-web next to fgv-spexipedia-server
 web_dir=${WEB_DIR:-../$(basename "$PWD" | sed 's/-server$/-web/')}
 

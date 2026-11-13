@@ -44,14 +44,14 @@ class MaintenanceServiceTest {
     @Test
     void readsTheSchedulesFromTheProperties() {
         final MockEnvironment environment = new MockEnvironment()
-                .withProperty(MaintenanceJob.SPEX_REFRESH.cronProperty(), " 0 15 3 * * * ")
+                .withProperty(MaintenanceJob.SEARCH_REBUILD.cronProperty(), " 0 15 3 * * * ")
                 .withProperty(MaintenanceJob.UPLOAD_CLEANUP.cronProperty(), "-");
 
         assertThat(service(environment).statuses())
                 .extracting(MaintenanceService.MaintenanceJobStatus::job, MaintenanceService.MaintenanceJobStatus::schedule)
                 .contains(
-                        tuple(MaintenanceJob.SPEX_REFRESH, "0 15 3 * * *"),
+                        tuple(MaintenanceJob.SEARCH_REBUILD, "0 15 3 * * *"),
                         tuple(MaintenanceJob.UPLOAD_CLEANUP, null),
-                        tuple(MaintenanceJob.UNSORTED_SCAN, null));
+                        tuple(MaintenanceJob.LINK_CHECK, null));
     }
 }

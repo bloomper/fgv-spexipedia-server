@@ -33,14 +33,14 @@ class MaintenanceJobsTest {
     @Test
     void recordsASuccessfulRun() {
         final AtomicInteger runs = new AtomicInteger();
-        final MaintenanceJobs jobs = new MaintenanceJobs(Map.of(MaintenanceJob.SPEX_REFRESH, runs::incrementAndGet));
+        final MaintenanceJobs jobs = new MaintenanceJobs(Map.of(MaintenanceJob.SEARCH_REBUILD, runs::incrementAndGet));
 
-        assertThat(jobs.lastRun(MaintenanceJob.SPEX_REFRESH)).isEmpty();
+        assertThat(jobs.lastRun(MaintenanceJob.SEARCH_REBUILD)).isEmpty();
 
-        jobs.spexRefresh();
+        jobs.searchRebuild();
 
         assertThat(runs).hasValue(1);
-        assertThat(jobs.lastRun(MaintenanceJob.SPEX_REFRESH)).hasValueSatisfying(run -> {
+        assertThat(jobs.lastRun(MaintenanceJob.SEARCH_REBUILD)).hasValueSatisfying(run -> {
             assertThat(run.finishedAt()).isNotNull();
             assertThat(run.succeeded()).isTrue();
         });
@@ -63,7 +63,7 @@ class MaintenanceJobsTest {
         final CountDownLatch started = new CountDownLatch(1);
         final CountDownLatch release = new CountDownLatch(1);
         final AtomicInteger runs = new AtomicInteger();
-        final MaintenanceJobs jobs = new MaintenanceJobs(Map.of(MaintenanceJob.SPEX_REFRESH, () -> {
+        final MaintenanceJobs jobs = new MaintenanceJobs(Map.of(MaintenanceJob.SEARCH_REBUILD, () -> {
             runs.incrementAndGet();
             started.countDown();
             try {
@@ -72,16 +72,16 @@ class MaintenanceJobsTest {
                 Thread.currentThread().interrupt();
             }
         }));
-        final Thread first = Thread.ofVirtual().start(() -> jobs.run(MaintenanceJob.SPEX_REFRESH));
+        final Thread first = Thread.ofVirtual().start(() -> jobs.run(MaintenanceJob.SEARCH_REBUILD));
 
         started.await();
-        assertThat(jobs.isRunning(MaintenanceJob.SPEX_REFRESH)).isTrue();
-        assertThat(jobs.run(MaintenanceJob.SPEX_REFRESH)).isFalse();
+        assertThat(jobs.isRunning(MaintenanceJob.SEARCH_REBUILD)).isTrue();
+        assertThat(jobs.run(MaintenanceJob.SEARCH_REBUILD)).isFalse();
 
         release.countDown();
         first.join();
 
         assertThat(runs).hasValue(1);
-        assertThat(jobs.isRunning(MaintenanceJob.SPEX_REFRESH)).isFalse();
+        assertThat(jobs.isRunning(MaintenanceJob.SEARCH_REBUILD)).isFalse();
     }
 }

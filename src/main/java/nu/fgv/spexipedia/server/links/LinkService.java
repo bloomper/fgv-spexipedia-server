@@ -21,7 +21,7 @@ import java.util.UUID;
 /**
  * What the viewer is shown from the other applications (sections 5.4 and 5.9 of the spec):
  * <ul>
- *     <li>Photos from Spexgram: public items to everyone; members' items, through Spexgram's {@code SPEXIPEDIA}
+ *     <li>Photos and short videos from Spexgram: public items to everyone; members' items, through Spexgram's {@code SPEXIPEDIA}
  *     role, to users with access to Spexgram; other logged-in users get a count of what they may not see, and visitors
  *     nothing.</li>
  *     <li>Spexgram's public albums of a spex to everyone, its members' albums to users with access.</li>
@@ -83,7 +83,8 @@ public class LinkService {
 
     private PhotoDto photo(final SpexgramItem item) {
         return new PhotoDto(item.id(), item.caption(), item.media().thumbnailUrl(), item.media().previewUrl(), item.width(),
-                item.height(), client.web(App.SPEXGRAM).map(web -> web + "/items/" + item.id()).orElse(""), item.isPublic());
+                item.height(), client.web(App.SPEXGRAM).map(web -> web + "/items/" + item.id()).orElse(""), item.isPublic(),
+                "VIDEO".equals(item.type()), item.media().videoUrl());
     }
 
     /**

@@ -23,7 +23,7 @@ import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration
 import org.springframework.boot.security.autoconfigure.actuate.web.servlet.ManagementWebSecurityAutoConfiguration;
 
 /**
- * Spexgram, FGV's archive of photos and short videos, kept in Immich behind this API.
+ * Spexipedia, FGV's encyclopedia of the spex and the source of base data.
  *
  * @author Anders Jacobsson
  * @since 1.0

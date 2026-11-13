@@ -62,7 +62,7 @@ class CallerServiceTest {
 
     private static Jwt jwt(final String subject, final String username) {
         final Jwt.Builder builder = Jwt.withTokenValue("t").header("alg", "none").claim("azp", "fgv-spexipedia")
-                .claim("preferred_username", username).claim("name", "Lisa Lyssnare").claim("email", "lisa@spexgram.test");
+                .claim("preferred_username", username).claim("name", "Lisa Lyssnare").claim("email", "lisa@spexipedia.test");
 
         return (subject == null ? builder : builder.subject(subject)).build();
     }
@@ -76,21 +76,20 @@ class CallerServiceTest {
 
     @Test
     void rolesComeFromTheClientsAuthoritiesOnly() {
-        final Caller caller = CallerService.fromJwt(jwt("s-1", "lisa@spexgram.test"),
+        final Caller caller = CallerService.fromJwt(jwt("s-1", "lisa@spexipedia.test"),
                 List.of("ROLE_fgv-spexipedia_USER", "ROLE_fgv-spexipedia_EDITOR", "ROLE_fgv-spexipedia_UNKNOWN", "ROLE_spexregister_ADMIN"));
 
         assertThat(caller.roles()).containsExactlyInAnyOrder(Role.USER, Role.EDITOR);
-        assertThat(caller.username()).isEqualTo("lisa@spexgram.test");
+        assertThat(caller.username()).isEqualTo("lisa@spexipedia.test");
         assertThat(caller.displayName()).isEqualTo("Lisa Lyssnare");
-        assertThat(caller.email()).isEqualTo("lisa@spexgram.test");
     }
 
     @Test
     void aServiceAccountWithoutSubjectIsNamedByItsClient() {
-        final Caller caller = CallerService.fromJwt(jwt(null, null), List.of("ROLE_fgv-spexipedia_SPEXIPEDIA"));
+        final Caller caller = CallerService.fromJwt(jwt(null, null), List.of("ROLE_fgv-spexipedia_SYNC"));
 
         assertThat(caller.subject()).isEqualTo("client:fgv-spexipedia");
-        assertThat(caller.isSpexipediaService()).isTrue();
+        assertThat(caller.isSync()).isTrue();
         assertThat(caller.isUser()).isFalse();
     }
 
@@ -104,7 +103,7 @@ class CallerServiceTest {
 
     @Test
     void aFirstCallerIsRecordedAndARaceWithAnotherRequestIsRetried() {
-        final Caller caller = new Caller("s-1", "lisa", "Lisa", null, Set.of(Role.USER));
+        final Caller caller = new Caller("s-1", "lisa", "Lisa", Set.of(Role.USER), Set.of());
         final AppUser existing = new AppUser();
 
         existing.setId(1L);
@@ -130,12 +129,12 @@ class CallerServiceTest {
         existing.setLastSeenAt(clock.instant());
         when(repository.findBySubject("s-1")).thenReturn(Optional.of(existing));
 
-        service.record(new Caller("s-1", "lisa", "Lisa", null, Set.of(Role.USER)));
+        service.record(new Caller("s-1", "lisa", "Lisa", Set.of(Role.USER), Set.of()));
         verify(repository, never()).save(any());
 
-        service.record(new Caller("s-1", "lisa", "Lisa Lyssnare", null, Set.of(Role.USER)));
+        service.record(new Caller("s-1", "lisa", "Lisa Lyssnare", Set.of(Role.USER), Set.of()));
         clock.advance(Duration.ofMinutes(11));
-        service.record(new Caller("s-1", "lisa", "Lisa Lyssnare", null, Set.of(Role.USER)));
+        service.record(new Caller("s-1", "lisa", "Lisa Lyssnare", Set.of(Role.USER), Set.of()));
         verify(repository, times(2)).save(existing);
         assertThat(existing.getDisplayName()).isEqualTo("Lisa Lyssnare");
         assertThat(existing.getLastSeenAt()).isEqualTo(clock.instant());

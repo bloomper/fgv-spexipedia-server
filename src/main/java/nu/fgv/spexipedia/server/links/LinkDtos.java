@@ -29,8 +29,15 @@ public final class LinkDtos {
     public record AppLinkDto(AppLinkKind kind, String title, String url) {
     }
 
+    /**
+     * A photo or short video in Spexgram.
+     *
+     * @param video    whether it is a video; then {@code videoUrl} plays it and {@code previewUrl} is its poster frame
+     * @param videoUrl Spexgram's signed address of the video, for the browser
+     */
     public record PhotoDto(UUID itemId, @Nullable String caption, String thumbnailUrl, String previewUrl,
-                           @Nullable Integer width, @Nullable Integer height, String url, boolean isPublic) {
+                           @Nullable Integer width, @Nullable Integer height, String url, boolean isPublic,
+                           boolean video, @Nullable String videoUrl) {
         /**
          * GraphQL's {@code public}, a reserved word in Java.
          */

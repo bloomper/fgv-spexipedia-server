@@ -67,9 +67,9 @@ jobs:
           fi
       # Lint, unit and integration tests on pull requests and pushes alike.
       # Only this repository is checked out: the realm is the committed copy in src/integrationtest/resources.
-      # The sample data and the integration tests make videos with ffmpeg; Immich runs in Testcontainers
-      - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      # The API makes the variants of images with ImageMagick, also in the integration tests
+      - name: Install ImageMagick
+        run: sudo apt-get update && sudo apt-get install -y imagemagick webp
       - name: Build and test
         run: ./gradlew check
       - name: Publish test results

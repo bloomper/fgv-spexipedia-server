@@ -33,7 +33,7 @@ import java.util.UUID;
 @Component
 public class AppsClient {
 
-    static final String ITEM_FIELDS = "id caption width height effectiveVisibility media { thumbnailUrl previewUrl }";
+    static final String ITEM_FIELDS = "id type caption width height effectiveVisibility media { thumbnailUrl previewUrl videoUrl }";
     private static final String PUBLIC_ITEMS = "query Items($ids: [ID!]!) { publicItems(ids: $ids) { " + ITEM_FIELDS + " } }";
     private static final String SPEX_ALBUMS = "query Albums($spexId: ID!) { spexAlbums(spexId: $spexId) { id title visibility } }";
     private static final String SPEX_ALBUM_ITEMS = """
@@ -174,10 +174,10 @@ public class AppsClient {
         }
     }
 
-    public record Media(String thumbnailUrl, String previewUrl) {
+    public record Media(String thumbnailUrl, String previewUrl, @Nullable String videoUrl) {
     }
 
-    public record SpexgramItem(UUID id, @Nullable String caption, @Nullable Integer width, @Nullable Integer height,
+    public record SpexgramItem(UUID id, @Nullable String type, @Nullable String caption, @Nullable Integer width, @Nullable Integer height,
                                @Nullable String effectiveVisibility, @Nullable Media media) {
         public boolean isPublic() {
             return "PUBLIC".equals(effectiveVisibility);

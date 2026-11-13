@@ -1,4 +1,4 @@
-= Spexgram Server
+= Spexipedia Server
 :doctype: book
 :icons: font
 :source-highlighter: highlightjs
@@ -6,9 +6,8 @@
 [[introduction]]
 == Introduction
 
-Spexgram Server is the backend of Spexgram, FGV's archive of photos and short videos, kept in Immich behind it.
-
-The purpose of this documentation is to provide details on how to develop within Spexgram Server and how to integrate Spexgram Server into another application, e.g. a web application.
+Spexipedia Server is the backend of Spexipedia, FGV's encyclopedia of the spex, and the source of the base data that
+FGV's other applications copy. Photos of people come from Spexgram; Spexipedia keeps only images without people.
 
 [[getting_started]]
 == Getting started

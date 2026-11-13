@@ -695,7 +695,7 @@ input ImageRefInput {
 }
 
 """
-Photos from Spexgram. Public ones are shown to everyone; members' ones only to users with access to Spexgram, and
+Photos and short videos from Spexgram. Public ones are shown to everyone; members' ones only to users with access to Spexgram, and
 counted for other logged-in users, who see placeholders. Visitors are not told about members' photos.
 """
 type PhotoSet {
@@ -718,6 +718,10 @@ type Photo {
     "The item's page in Spexgram."
     url: String!
     public: Boolean!
+    "A short video: videoUrl plays it, previewUrl is its poster frame."
+    video: Boolean!
+    "Spexgram's signed address of the video, for the browser; null for photos."
+    videoUrl: String
 }
 
 type SpexgramAlbum {
