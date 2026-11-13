@@ -76,6 +76,9 @@ type Query {
     "Anyone. Every public page, for the sitemap."
     sitemap: [SitemapEntry!]!
 
+    "USER. Markdown rendered as the pages render it, [[links]] resolved, for the editor's preview."
+    markdownPreview(markdown: String!): String!
+
     "USER. Published spexare in Spexregister matching a name, for picking credits."
     spexareSearch(q: String!): [Person!]!
 
@@ -290,6 +293,8 @@ type SpexCategory {
     "yyyy"
     firstYear: String!
     description: String
+    "The description as HTML, safe to show."
+    descriptionHtml: String
     logo: Image
     retired: Boolean!
     "Its spex, originals first by year, then revivals."
@@ -390,6 +395,8 @@ type Figure {
     slug: String!
     name: String!
     description: String
+    "The description as HTML, safe to show."
+    descriptionHtml: String
     "Characters of this figure on published pages (all for EDITOR), by year."
     characters: [Character!]!
 }
@@ -406,6 +413,8 @@ type Character {
     name: String!
     figure: Figure
     description: String
+    "The description as HTML, safe to show."
+    descriptionHtml: String
     position: Int!
     retired: Boolean!
     images: [PageImage!]!
@@ -536,6 +545,8 @@ type Recording {
     recorded: String
     conductor: Credit
     description: String
+    "The description as HTML, safe to show."
+    descriptionHtml: String
     tracks: [Track!]!
     front: Image
     back: Image
@@ -584,8 +595,12 @@ type SpexPage {
     introduction: String
     "Markdown."
     description: String
+    "The description as HTML, safe to show."
+    descriptionHtml: String
     "Markdown."
     synopsis: String
+    "The synopsis as HTML, safe to show."
+    synopsisHtml: String
     "The ids of the latest revisions of introduction, description and synopsis, to pass back when saving."
     revisionIds: SpexPageRevisionIds!
     rebus: Image
@@ -593,6 +608,8 @@ type SpexPage {
     rebusSolution: Image
     "Markdown."
     vestDescription: String
+    "The vest's description as HTML, safe to show."
+    vestDescriptionHtml: String
     "Who wore the vest."
     vestWornBy: Credit
     images(section: ImageSection!): [PageImage!]!

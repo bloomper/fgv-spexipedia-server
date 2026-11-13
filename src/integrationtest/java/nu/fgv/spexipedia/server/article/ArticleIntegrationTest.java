@@ -68,4 +68,24 @@ class ArticleIntegrationTest extends AbstractIntegrationTest {
                 .path("article.history[0].body").entity(String.class).isEqualTo("Text <script>x</script>")
                 .path("article.history[0].authorName").entity(String.class).isEqualTo("Lisa Test");
     }
+
+    @Test
+    void thePreviewAndThePagesTextsAreRenderedAsArticlesAre() {
+        final String article = create(MEMBER, "Spexets traditioner", "PUBLIC");
+
+        graphQl(AUTHOR).document("mutation($id: ID!) { articleSetPublished(id: $id, published: true) { published } }")
+                .variable("id", article).execute().path("articleSetPublished.published").hasValue();
+        expectError(graphQl(null).document("{ markdownPreview(markdown: \"*x*\") }").execute(), "UNAUTHORIZED");
+        graphQl(MEMBER).document("query($m: String!) { markdownPreview(markdown: $m) }")
+                .variable("m", "Se [[Spexets traditioner]] och *mer* <script>x</script>").execute()
+                .path("markdownPreview").entity(String.class).satisfies(html -> assertThat(html)
+                        .contains("<em>mer</em>").contains("/articles/").doesNotContain("<script>"));
+
+        final String spex = createSpex("1984", "Lasse-Maja", null);
+
+        graphQl(AUTHOR).document("mutation($s: ID!) { spexPageUpdate(spexId: $s, input: {description: \"**Fet** text\", synopsis: \"\"}) { descriptionHtml synopsisHtml } }")
+                .variable("s", spex).execute()
+                .path("spexPageUpdate.descriptionHtml").entity(String.class).satisfies(html -> assertThat(html).contains("<strong>Fet</strong>"))
+                .path("spexPageUpdate.synopsisHtml").valueIsNull();
+    }
 }

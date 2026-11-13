@@ -84,6 +84,15 @@ public class ArticleGraphqlApi {
         return revisionService.toDtos(revisionService.visible(service.visibleIds(), pages, 0, limit).getContent());
     }
 
+    /**
+     * The Markdown as the page would show it, for the editor's preview. Logged-in users only, as they are the writers.
+     */
+    @QueryMapping
+    public String markdownPreview(@Argument final String markdown) {
+        callerService.current().requireUser();
+        return service.html(markdown);
+    }
+
     @QueryMapping
     public @Nullable RevisionDto revision(@Argument final String id) {
         return revisionService.find(Ids.require(id))
