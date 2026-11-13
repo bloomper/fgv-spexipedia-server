@@ -6,13 +6,15 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
-import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.web.client.RestClient;
 
 import java.time.Clock;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Tells the consumers of the change feed that there is something new ({@code POST <notifyUrl>} with
@@ -32,17 +34,18 @@ public class SyncNotifier {
     private final SyncConsumerRepository repository;
     private final ChangeFeedEntryRepository feed;
     private final RestClient serviceRestClient;
-    private final TransactionTemplate transactionTemplate;
+    private final JdbcClient jdbc;
     private final Clock clock;
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+    private final ReentrantLock running = new ReentrantLock();
+    private final AtomicBoolean again = new AtomicBoolean();
 
     public SyncNotifier(final SyncConsumerRepository repository, final ChangeFeedEntryRepository feed,
-                        final RestClient serviceRestClient, final TransactionTemplate transactionTemplate,
-                        final Clock clock) {
+                        final RestClient serviceRestClient, final JdbcClient jdbc, final Clock clock) {
         this.repository = repository;
         this.feed = feed;
         this.serviceRestClient = serviceRestClient;
-        this.transactionTemplate = transactionTemplate;
+        this.jdbc = jdbc;
         this.clock = clock;
     }
 
@@ -56,6 +59,19 @@ public class SyncNotifier {
      */
     @SchedulerLock(name = "sync-notify", lockAtMostFor = "PT5M")
     public void notifyConsumers() {
+        // One run at a time; a change during a run makes it go round once more, so nothing is missed
+        again.set(true);
+        while (again.get() && running.tryLock()) {
+            try {
+                again.set(false);
+                notifyOnce();
+            } finally {
+                running.unlock();
+            }
+        }
+    }
+
+    private void notifyOnce() {
         final long latest = feed.latestSequence();
 
         for (final SyncConsumer consumer : repository.findByEnabledTrue()) {
@@ -83,13 +99,15 @@ public class SyncNotifier {
 
             final String failure = error == null ? null : error.substring(0, Math.min(error.length(), MAX_ERROR));
 
-            transactionTemplate.executeWithoutResult(_ -> repository.findById(consumer.getId()).ifPresent(fresh -> {
-                fresh.setLastNotifiedAt(clock.instant());
-                fresh.setLastError(failure);
-                if (failure == null) {
-                    fresh.setNotified(latest);
-                }
-            }));
+            jdbc.sql("""
+                            UPDATE sync_consumer SET last_notified_at = :at, last_error = :error,
+                                notified = CASE WHEN :error IS NULL THEN GREATEST(COALESCE(notified, 0), :latest) ELSE notified END
+                            WHERE id = :id""")
+                    .param("at", java.sql.Timestamp.from(clock.instant()))
+                    .param("error", failure)
+                    .param("latest", latest)
+                    .param("id", consumer.getId())
+                    .update();
         }
     }
 }

@@ -6,9 +6,9 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.DynamicUpdate;
 import org.jspecify.annotations.Nullable;
 
 import java.time.Instant;
@@ -23,6 +23,8 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "sync_consumer")
+// Admins change the name, address and switch; the feed and the notifier write the rest with SQL of their own
+@DynamicUpdate
 @Getter
 @Setter
 public class SyncConsumer {
@@ -60,7 +62,4 @@ public class SyncConsumer {
 
     @Column(name = "last_error")
     private @Nullable String lastError;
-
-    @Version
-    private Long version;
 }

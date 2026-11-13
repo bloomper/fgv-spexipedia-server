@@ -63,7 +63,7 @@ public class PageGraphqlApi {
             return own;
         }
 
-        final SpexPageDto parent = service.pages(List.of(spex.parentKey())).get(spex.parentKey());
+        final SpexPageDto parent = service.parentPage(spex.parentKey()).orElse(null);
 
         if (parent == null) {
             return own;

@@ -17,8 +17,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * People on pages (section 5.3 of the spec). Personal data reaches pages only from Spexregister, when a page is shown,
@@ -75,10 +73,14 @@ public class PeopleService {
             return Optional.of(Map.of());
         }
         try {
-            return Optional.of(client.spexare(ids, member.isPresent()).stream()
-                    .map(spexare -> person(spexare.id(), spexare.nickname(), spexare.name(), member.orElse(null)))
-                    .flatMap(Optional::stream)
-                    .collect(Collectors.toMap(PersonDto::id, Function.identity(), (a, _) -> a)));
+            final Map<UUID, PersonDto> people = new java.util.LinkedHashMap<>();
+
+            // Keyed by the spexare's id, which a visitor's PersonDto doesn't show
+            for (final SpexregisterClient.Spexare spexare : client.spexare(ids, member.isPresent())) {
+                person(spexare.id(), spexare.nickname(), spexare.name(), member.orElse(null))
+                        .ifPresent(person -> people.putIfAbsent(spexare.id(), person));
+            }
+            return Optional.of(people);
         } catch (final PeopleUnavailableException e) {
             return Optional.empty();
         }

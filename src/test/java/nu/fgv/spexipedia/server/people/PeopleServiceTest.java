@@ -80,6 +80,17 @@ class PeopleServiceTest {
     }
 
     @Test
+    void visitorsGetSpexareByIdThoughTheirIdIsNotShown() {
+        when(callerService.currentIfAny()).thenReturn(Optional.empty());
+        when(client.spexare(any(), eq(false))).thenReturn(List.of(new Spexare(WITH_NICKNAME, "Basen", null),
+                new Spexare(WITHOUT_NICKNAME, null, null)));
+
+        assertThat(service.spexare(List.of(WITH_NICKNAME, WITHOUT_NICKNAME)).orElseThrow())
+                .containsOnlyKeys(WITH_NICKNAME)
+                .hasEntrySatisfying(WITH_NICKNAME, person -> assertThat(person.id()).isNull());
+    }
+
+    @Test
     void anUnavailableSpexregisterIsTold() {
         when(callerService.currentIfAny()).thenReturn(Optional.empty());
         when(client.participants(any(), anyBoolean())).thenThrow(new PeopleUnavailableException("down"));

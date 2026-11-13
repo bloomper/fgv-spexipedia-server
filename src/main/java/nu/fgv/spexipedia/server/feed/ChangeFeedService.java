@@ -32,17 +32,17 @@ public class ChangeFeedService {
     static final int MAX_PAGE = 500;
 
     private final ChangeFeedEntryRepository repository;
-    private final SyncConsumerRepository consumerRepository;
+    private final org.springframework.jdbc.core.simple.JdbcClient jdbc;
     private final CallerService callerService;
     private final ApplicationEventPublisher events;
     private final JsonMapper json;
     private final Clock clock;
 
-    public ChangeFeedService(final ChangeFeedEntryRepository repository, final SyncConsumerRepository consumerRepository,
+    public ChangeFeedService(final ChangeFeedEntryRepository repository, final org.springframework.jdbc.core.simple.JdbcClient jdbc,
                              final CallerService callerService, final ApplicationEventPublisher events,
                              final JsonMapper json, final Clock clock) {
         this.repository = repository;
-        this.consumerRepository = consumerRepository;
+        this.jdbc = jdbc;
         this.callerService = callerService;
         this.events = events;
         this.json = json;
@@ -98,13 +98,13 @@ public class ChangeFeedService {
     private void acknowledge(final long cursor) {
         SecurityUtil.currentJwt()
                 .map(jwt -> jwt.getClaimAsString("azp"))
-                .flatMap(consumerRepository::findByClientId)
-                .ifPresent(consumer -> {
-                    if (consumer.getAcknowledged() == null || consumer.getAcknowledged() < cursor) {
-                        consumer.setAcknowledged(cursor);
-                    }
-                    consumer.setAcknowledgedAt(clock.instant());
-                });
+                .ifPresent(clientId -> jdbc.sql("""
+                                UPDATE sync_consumer SET acknowledged = GREATEST(COALESCE(acknowledged, 0), :cursor), acknowledged_at = :at
+                                WHERE client_id = :client""")
+                        .param("cursor", cursor)
+                        .param("at", java.sql.Timestamp.from(clock.instant()))
+                        .param("client", clientId)
+                        .update());
     }
 
     private static long parse(final @Nullable String after) {

@@ -122,6 +122,14 @@ public class SpexPageService {
                 .collect(Collectors.toMap(page -> page.getSpex().getId(), SpexPageService::toDto));
     }
 
+    /**
+     * A revival's parent's page, whether published or not: a published revival's page shows its parent's content.
+     */
+    @Transactional(readOnly = true)
+    public Optional<SpexPageDto> parentPage(final long parentKey) {
+        return repository.findBySpexKeys(List.of(parentKey)).stream().findFirst().map(SpexPageService::toDto);
+    }
+
     @Transactional(readOnly = true)
     public Set<Long> publishedSpexKeys() {
         return new HashSet<>(repository.findPublishedSpexKeys());
