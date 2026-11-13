@@ -1,0 +1,153 @@
+spring:
+  config:
+    import: "optional:configtree:/run/secrets/"
+  datasource:
+    password: ${MYSQL_API_USER_PASSWORD:}
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        type:
+          preferred_uuid_jdbc_type: CHAR
+        default_batch_fetch_size: 100
+        transaction:
+          jta:
+            platform: org.hibernate.engine.transaction.jta.platform.internal.NoJtaPlatform
+  messages:
+    basename: messages
+    fallback-to-system-locale: false
+    encoding: UTF-8
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${spexipedia.keycloak.url}/realms/${spexipedia.keycloak.realm}
+      client:
+        registration:
+          fgv-spexipedia-service:
+            provider: fgv
+            client-id: ${spexipedia.keycloak.service-client-id}
+            client-secret: ${spexipedia.keycloak.service-client-secret}
+            authorization-grant-type: client_credentials
+        provider:
+          fgv:
+            token-uri: ${spexipedia.keycloak.url}/realms/${spexipedia.keycloak.realm}/protocol/openid-connect/token
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 51MB
+  threads:
+    virtual:
+      enabled: true
+  web:
+    locale: sv
+  graphql:
+    schema:
+      printer:
+        enabled: true
+      introspection:
+        enabled: false
+    http:
+      path: /api/graphql
+
+management:
+  server:
+    port: 9000
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,info
+
+server:
+  port: 8080
+  forward-headers-strategy: framework
+
+logging:
+  file:
+    path: ./data/log_data
+
+spexipedia:
+  time-zone: Europe/Stockholm
+  web-url: ${API_WEB_URL:http://localhost:3006}
+  jobs:
+    image-variants:
+      cron-expression: 0 15 3 * * * # Every day at 03:15
+    link-check:
+      cron-expression: 0 45 3 * * * # Every day at 03:45
+    search-rebuild:
+      cron-expression: 0 0 4 * * * # Every day at 04:00
+    sync-notify:
+      cron-expression: 0 * * * * * # Every minute: notifications that failed
+    upload-cleanup:
+      cron-expression: 0 5 * * * * # Every hour at :05
+    retention:
+      cron-expression: 0 30 4 * * * # Every day at 04:30
+  keycloak:
+    url: ${API_KEYCLOAK_URL:https://auth.fgv.local.nu:8443/auth}
+    realm: ${API_KEYCLOAK_REALM:fgv}
+    service-client-id: ${API_KEYCLOAK_SERVICE_CLIENT_ID:fgv-spexipedia-service}
+    service-client-secret: ${API_KEYCLOAK_SERVICE_CLIENT_SECRET:}
+    # Only for the sample data import, which grants roles
+    admin-client-id: ${API_KEYCLOAK_ADMIN_CLIENT_ID:fgv-admin}
+    admin-client-secret: ${API_KEYCLOAK_ADMIN_CLIENT_SECRET:}
+  security:
+    # The web, and the service accounts that read the feed (SYNC) or create revivals (REVIVAL)
+    authorized-parties: ${API_SECURITY_AUTHORIZED_PARTIES:fgv-spexipedia,spexregister-service,fgv-spexify-service,fgv-spexflix-service,fgv-spexgram-service,fgv-archive-service,fgv-revival-service}
+  media:
+    root: ${API_MEDIA_ROOT:./data/media}
+    uploads: ${API_UPLOADS_ROOT:./data/uploads}
+    base-url: ${API_MEDIA_BASE_URL:http://localhost:8089/media}
+    max-upload-size: 50MB
+    # magick (ImageMagick 7), convert (6) or auto: magick when it is on the path, else convert
+    magick: ${API_MAGICK:auto}
+  apps:
+    cache-ttl: 5m
+    timeout: 3s
+    spexregister:
+      graphql-url: ${API_SPEXREGISTER_GRAPHQL_URL:https://api.register.fgv.local.nu:8443/api/graphql}
+      web-url: ${SPEXREGISTER_URL:http://localhost:3000}
+    spexgram:
+      graphql-url: ${API_SPEXGRAM_GRAPHQL_URL:https://api.spexgram.fgv.local.nu:8443/api/graphql}
+      web-url: ${SPEXGRAM_URL:http://localhost:3004}
+    spexify:
+      graphql-url: ${API_SPEXIFY_GRAPHQL_URL:https://api.spexify.fgv.local.nu:8443/api/graphql}
+      web-url: ${SPEXIFY_URL:http://localhost:3002}
+    spexflix:
+      graphql-url: ${API_SPEXFLIX_GRAPHQL_URL:https://api.spexflix.fgv.local.nu:8443/api/graphql}
+      web-url: ${SPEXFLIX_URL:http://localhost:3003}
+    archive:
+      graphql-url: ${API_ARCHIVE_GRAPHQL_URL:https://api.archive.fgv.local.nu:8443/api/graphql}
+      web-url: ${ARCHIVE_URL:http://localhost:3005}
+  data:
+    import-sample-data: ${API_IMPORT_SAMPLE_DATA:false}
+    sample-data-size: ${API_SAMPLE_DATA_SIZE:small}
+    # Needed only to import sample data; the local profile has a development value
+    sample-user-password: ${SAMPLE_USER_PASSWORD:}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  graphql:
+    schema:
+      introspection:
+        enabled: true
+  # The password comes from MYSQL_API_USER_PASSWORD, as in the container
+  datasource:
+    url: jdbc:mysql://localhost:3311/spexipedia
+    username: spexipedia
+
+server:
+  port: 8088
+
+management:
+  server:
+    port: 9008
+
+spexipedia:
+  data:
+    # For development only; every other environment sets SAMPLE_USER_PASSWORD
+    sample-user-password: ${SAMPLE_USER_PASSWORD:s3cr3t-s3cr3t}
+  keycloak:
+    url: https://auth.fgv.local.nu:8443/auth

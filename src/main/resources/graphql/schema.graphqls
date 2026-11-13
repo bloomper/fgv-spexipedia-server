@@ -1,0 +1,1097 @@
+scalar Instant
+scalar Void
+
+# Who may call what is in each description. "Anyone" works without a token and shows only what the viewer may see:
+# visitors see published pages and public articles, and spexare by nickname only. USER, AUTHOR, EDITOR and ADMIN are
+# client roles on fgv-spexipedia; AUTHOR, EDITOR and ADMIN are always given together with USER. SYNC is held by the
+# service accounts of the applications that keep a copy of base data, REVIVAL by Nyuppsättning's.
+#
+# Base data (spex categories, spex, revivals, task categories, tasks, characters, numbers) is public: anyone reads it
+# by id, published or not, retired included. "Published" applies to the public page only.
+
+type Query {
+    "Anyone with a token. The caller and their roles; null without a token."
+    me: Me
+
+    "Anyone. The start page: the spex of the year, this day in history, recent changes, the settings' text."
+    startPage: StartPage!
+
+    "Anyone. Every spex category, by first year; retired ones only with includeRetired."
+    spexCategories(includeRetired: Boolean = false): [SpexCategory!]!
+    "Anyone. A spex category by id; also by the id of a category merged into it."
+    spexCategory(id: ID!): SpexCategory
+    "Anyone. Every spex, originals and revivals, by year then title; retired ones only with includeRetired. For other applications: copy what they need from here, then follow baseDataChanges."
+    spexAll(includeRetired: Boolean = false): [Spex!]!
+    "Anyone. A spex by id or slug; also by the id of a spex merged into it."
+    spex(id: ID!): Spex
+    "Anyone. Spex whose title, year or category match, each original followed by its revivals, newest first. At most 50."
+    spexSearch(q: String!, includeRetired: Boolean = false): [Spex!]!
+    "Anyone. The years that have spex, newest first, with how many."
+    spexYears: [YearCount!]!
+    "Anyone. Every task category with its tasks; retired ones only with includeRetired."
+    taskCategories(includeRetired: Boolean = false): [TaskCategory!]!
+    "Anyone. A task category by id; also by the id of one merged into it."
+    taskCategory(id: ID!): TaskCategory
+    "Anyone. A task by id; also by the id of one merged into it."
+    task(id: ID!): Task
+    "Anyone. Every task, by category and name."
+    tasks(includeRetired: Boolean = false): [Task!]!
+
+    "Anyone. A character by id."
+    character(id: ID!): Character
+    "Anyone. Characters by id, in the given order; unknown ids are left out. At most 500."
+    charactersByIds(ids: [ID!]!): [Character!]!
+    "Anyone. A number by id."
+    number(id: ID!): Number
+    "Anyone. Numbers by id, in the given order; unknown ids are left out. At most 500."
+    numbersByIds(ids: [ID!]!): [Number!]!
+    "Anyone. Every figure, by name."
+    figures: [Figure!]!
+    "Anyone. A figure by id or slug."
+    figure(id: ID!): Figure
+    "Anyone. Recordings: published ones; all for EDITOR. By catalogue number."
+    recordings: [Recording!]!
+    "Anyone. A published recording by id or slug; any for EDITOR."
+    recording(id: ID!): Recording
+
+    "Anyone. An article by id or slug that the viewer may see: published public ones for visitors; members' and unpublished ones for USER."
+    article(id: ID!): Article
+    "Anyone. Articles the viewer may see, by title, optionally in one category."
+    articles(categoryId: ID): [Article!]!
+    "Anyone. Every article category, by name, with the number of articles the viewer may see."
+    articleCategories: [ArticleCategory!]!
+    "Anyone. An article category by id or slug."
+    articleCategory(id: ID!): ArticleCategory
+    "USER. Every revision of articles and of spex page texts, newest first; hidden ones show only that they are hidden."
+    recentChanges(page: Int = 0, size: Int = 50): RevisionPage!
+    "Anyone. A revision the viewer may see: of an article the viewer may see, or of a published spex page's texts; authors only for AUTHOR."
+    revision(id: ID!): Revision
+    "Anyone. Where an old MediaWiki title leads: a path in the web, or null when no redirect matches."
+    redirect(title: String!): String
+    "ADMIN. Every redirect, by old title."
+    redirects: [Redirect!]!
+
+    "Anyone. Spex, characters, figures, numbers, original songs, recordings and articles that match the words. People are never searched."
+    search(q: String!, limit: Int = 50): [SearchHit!]!
+    "Anyone. Every public page, for the sitemap."
+    sitemap: [SitemapEntry!]!
+
+    "USER. Published spexare in Spexregister matching a name, for picking credits."
+    spexareSearch(q: String!): [Person!]!
+
+    "AUTHOR. Albums of a spex in Spexgram that the caller may pick photos from, with their items."
+    spexgramAlbums(spexId: ID!): [SpexgramAlbum!]!
+
+    "SYNC. Changes to base data, characters and numbers, oldest first, after the cursor (null for the start). At most 500 a page; the caller's acknowledged cursor is remembered."
+    baseDataChanges(after: String, first: Int = 500): BaseDataChangePage!
+
+    "AUTHOR. Trashed articles and images, most recently trashed first."
+    trash: Trash!
+    "AUTHOR. The audit log, newest first: the caller's own changes, or everyone's for ADMIN, narrowed by the filter."
+    auditLog(page: Int = 0, size: Int = 50, filter: AuditFilter): AuditPage!
+    "AUTHOR. Who made the changes in the audit log the caller sees; only the caller unless ADMIN."
+    auditActors: [AuditActor!]!
+    "ADMIN."
+    settings: Settings!
+    "ADMIN. The consumers of the change feed, and how far each has read it."
+    syncConsumers: [SyncConsumer!]!
+    "ADMIN. The scheduled maintenance jobs, with their schedules and how their latest runs went."
+    maintenanceJobs: [MaintenanceJobStatus!]!
+}
+
+type Mutation {
+    "EDITOR. New categories start in use."
+    spexCategoryCreate(input: SpexCategoryInput!): SpexCategory!
+    "EDITOR."
+    spexCategoryUpdate(id: ID!, input: SpexCategoryInput!): SpexCategory!
+    "EDITOR. An uploaded image (imageId) or none."
+    spexCategorySetLogo(id: ID!, imageId: ID): SpexCategory!
+    "EDITOR. An original spex; its page starts unpublished."
+    spexCreate(input: SpexInput!): Spex!
+    "EDITOR. A revival takes its title and category from its parent and changes only its year."
+    spexUpdate(id: ID!, input: SpexInput!): Spex!
+    "EDITOR or REVIVAL. A revival of an original spex, in a year."
+    spexRevivalCreate(parentId: ID!, year: String!): Spex!
+    "EDITOR. An uploaded image (imageId) or none; a revival's poster is its own."
+    spexSetPoster(id: ID!, imageId: ID): Spex!
+    "EDITOR."
+    taskCategoryCreate(input: TaskCategoryInput!): TaskCategory!
+    "EDITOR."
+    taskCategoryUpdate(id: ID!, input: TaskCategoryInput!): TaskCategory!
+    "EDITOR."
+    taskCreate(input: TaskInput!): Task!
+    "EDITOR."
+    taskUpdate(id: ID!, input: TaskInput!): Task!
+    "ADMIN. A retired record stays readable but is not offered for new use; retired false brings it back."
+    baseDataRetire(kind: BaseDataKind!, id: ID!, retired: Boolean!): Boolean!
+    "ADMIN. Moves everything that refers to the record to another of the same kind, tells the consumers to do the same, and keeps the merged id as an alias."
+    baseDataMerge(kind: BaseDataKind!, id: ID!, intoId: ID!): Boolean!
+
+    "EDITOR."
+    figureCreate(input: FigureInput!): Figure!
+    "EDITOR."
+    figureUpdate(id: ID!, input: FigureInput!): Figure!
+    "EDITOR. Only a figure no character refers to."
+    figureDelete(id: ID!): Boolean!
+    "EDITOR. On an original spex, or on a revival for a character of its own."
+    characterCreate(spexId: ID!, input: CharacterInput!): Character!
+    "EDITOR."
+    characterUpdate(id: ID!, input: CharacterInput!): Character!
+    "EDITOR. Characters are base data: only one nothing refers to is deleted; retire the others."
+    characterDelete(id: ID!): Boolean!
+    "EDITOR. Characters as text, one per line (name, optionally ' – ' and a description), added after the existing ones."
+    charactersPaste(spexId: ID!, text: String!): [Character!]!
+    "EDITOR. The spex's own characters in the given order."
+    charactersReorder(spexId: ID!, ids: [ID!]!): [Character!]!
+    "AUTHOR. Images of a character: sketches, make-up sketches, costume dolls."
+    characterSetImages(id: ID!, images: [ImageRefInput!]!): Character!
+    "EDITOR."
+    sceneCreate(spexId: ID!, input: SceneInput!): Scene!
+    "EDITOR."
+    sceneUpdate(id: ID!, input: SceneInput!): Scene!
+    "EDITOR."
+    sceneDelete(id: ID!): Boolean!
+    "EDITOR. Scenes as text, one per line ('Title', 'Title – Place'; a line '--' marks an interval after the scene before; a line 'Akt 2' starts an act)."
+    scenesPaste(spexId: ID!, text: String!): [Scene!]!
+    "EDITOR. The spex's own scenes in the given order; act numbers come from the input."
+    scenesReorder(spexId: ID!, items: [OrderInput!]!): [Scene!]!
+    "EDITOR."
+    numberCreate(spexId: ID!, input: NumberInput!): Number!
+    "EDITOR."
+    numberUpdate(id: ID!, input: NumberInput!): Number!
+    "EDITOR. Numbers are base data: only one nothing refers to is deleted; retire the others."
+    numberDelete(id: ID!): Boolean!
+    "EDITOR. Numbers as text, one per line ('Title', 'Title (Original song – Original artist)'; a line 'Akt 2' starts an act)."
+    numbersPaste(spexId: ID!, text: String!): [Number!]!
+    "EDITOR. The spex's own numbers in the given order; act numbers come from the input."
+    numbersReorder(spexId: ID!, items: [OrderInput!]!): [Number!]!
+    "EDITOR. For a revival: which of its parent's characters, scenes and numbers it cuts, and where it moves them."
+    revivalSetChanges(revivalId: ID!, kind: RevivalChangeKind!, changes: [RevivalChangeInput!]!): Spex!
+    "EDITOR."
+    recordingCreate(input: RecordingInput!): Recording!
+    "EDITOR."
+    recordingUpdate(id: ID!, input: RecordingInput!): Recording!
+    "EDITOR. Tracks as given, replacing the old ones."
+    recordingSetTracks(id: ID!, tracks: [TrackInput!]!): Recording!
+    "EDITOR. Tracks as text, one per line ('A1 Title' or 'Title'; a line 'Sida B' starts a side), each matched to a number of the recording's spex by title."
+    recordingPasteTracks(id: ID!, text: String!): Recording!
+    "EDITOR."
+    recordingSetPublished(id: ID!, published: Boolean!): Recording!
+    "EDITOR."
+    recordingDelete(id: ID!): Boolean!
+
+    "AUTHOR. The texts of a spex page; every changed text is a revision. Refused with CONFLICT when baseRevisionIds no longer match the texts' latest revisions."
+    spexPageUpdate(spexId: ID!, input: SpexPageInput!): SpexPage!
+    "AUTHOR. Images of a section of the page, in order, with captions."
+    spexPageSetImages(spexId: ID!, section: ImageSection!, images: [ImageRefInput!]!): SpexPage!
+    "AUTHOR. Photos from Spexgram for a section, in order: the group photo, the board, or an actor's photos (characterId)."
+    spexPageSetPhotos(spexId: ID!, section: PhotoSection!, characterId: ID, itemIds: [ID!]!): SpexPage!
+    "AUTHOR. The rebus and its solution, uploaded images, or none."
+    spexPageSetRebus(spexId: ID!, rebusImageId: ID, solutionImageId: ID): SpexPage!
+    "EDITOR."
+    spexPageSetPublished(spexId: ID!, published: Boolean!): SpexPage!
+
+    "USER. New articles start unpublished."
+    articleCreate(input: ArticleInput!): Article!
+    "USER. Refused with CONFLICT, with the newer revision, when baseRevisionId is not the article's latest revision."
+    articleUpdate(id: ID!, input: ArticleInput!, baseRevisionId: ID): Article!
+    "USER. The caller is editing the article, for a few minutes; others see who."
+    articleEditing(id: ID!): Article!
+    "USER. Restores an earlier revision as a new one."
+    articleRestore(id: ID!, revisionId: ID!): Article!
+    "AUTHOR."
+    articleSetPublished(id: ID!, published: Boolean!): Article!
+    "AUTHOR. Moves the article to the trash; restore with articleRestoreFromTrash."
+    articleTrash(id: ID!): Boolean!
+    "AUTHOR."
+    articleRestoreFromTrash(id: ID!): Article!
+    "AUTHOR. Hides or shows a revision's text; the revision is kept."
+    revisionSetHidden(id: ID!, hidden: Boolean!): Revision!
+    "USER."
+    articleCategoryCreate(input: ArticleCategoryInput!): ArticleCategory!
+    "AUTHOR."
+    articleCategoryUpdate(id: ID!, input: ArticleCategoryInput!): ArticleCategory!
+
+    "AUTHOR. The caption and text alternative of an uploaded image."
+    imageUpdate(id: ID!, input: ImageInput!): Image!
+    "AUTHOR."
+    imageTrash(id: ID!): Boolean!
+    "AUTHOR."
+    imageRestore(id: ID!): Image!
+    "ADMIN. Deletes everything in the trash for good."
+    trashEmpty: Int!
+
+    "ADMIN."
+    redirectSave(input: RedirectInput!): Redirect!
+    "ADMIN."
+    redirectDelete(id: ID!): Boolean!
+    "ADMIN."
+    settingsUpdate(input: SettingsInput!): Settings!
+    "ADMIN."
+    syncConsumerSave(input: SyncConsumerInput!): SyncConsumer!
+    "ADMIN."
+    syncConsumerDelete(id: ID!): Boolean!
+    "ADMIN. Starts a maintenance job now, unless it is already running; returns whether it was started."
+    maintenanceJobRun(job: MaintenanceJob!): Boolean!
+}
+
+type Me {
+    username: String!
+    displayName: String
+    email: String
+    "Client roles on fgv-spexipedia."
+    roles: [String!]!
+}
+
+type YearCount {
+    year: String!
+    count: Int!
+}
+
+type StartPage {
+    "The settings' text, in the request's language."
+    welcome: String
+    "The spex of the year: the newest published original, else the newest published spex."
+    spexOfTheYear: Spex
+    "Published spex whose premiere was on today's date in earlier years, and recordings released on it."
+    thisDay: [ThisDayEntry!]!
+    "The latest revisions the viewer may see, newest first."
+    recentChanges: [Revision!]!
+    "Published spex pages by decade, oldest first."
+    decades: [Decade!]!
+}
+
+type ThisDayEntry {
+    "yyyy-mm-dd"
+    date: String!
+    text: String!
+    spex: Spex
+    recording: Recording
+}
+
+type Decade {
+    "e.g. 1980"
+    decade: Int!
+    spex: [Spex!]!
+}
+
+enum BaseDataKind {
+    SPEX_CATEGORY
+    SPEX
+    TASK_CATEGORY
+    TASK
+    CHARACTER
+    NUMBER
+}
+
+type SpexCategory {
+    id: ID!
+    name: String!
+    "yyyy"
+    firstYear: String!
+    description: String
+    logo: Image
+    retired: Boolean!
+    "Its spex, originals first by year, then revivals."
+    spex(includeRetired: Boolean = false): [Spex!]!
+    createdAt: Instant!
+    lastModifiedAt: Instant
+}
+
+input SpexCategoryInput {
+    name: String!
+    firstYear: String!
+    description: String
+}
+
+type Spex {
+    id: ID!
+    "For addresses: year and title, e.g. 1984-lasse-maja."
+    slug: String!
+    "yyyy"
+    year: String!
+    "A revival's is its parent's."
+    title: String!
+    "A revival's is its parent's."
+    category: SpexCategory
+    "The original, for a revival."
+    parent: Spex
+    revival: Boolean!
+    "Revivals of an original, by year."
+    revivals: [Spex!]!
+    "The spex's own poster; a revival without one shows its parent's."
+    poster: Image
+    retired: Boolean!
+    "The page; null for visitors while it is unpublished."
+    page: SpexPage
+    "Whether the page is published."
+    published: Boolean!
+    "The previous and next published spex of the category, originals only."
+    previous: Spex
+    next: Spex
+    "Characters on the page: an original's own, a revival's after its changes. Retired ones only for EDITOR."
+    characters: [Character!]!
+    "Scenes on the page, by act and position."
+    scenes: [Scene!]!
+    "Numbers on the page, by act and position."
+    numbers: [Number!]!
+    "For a revival: its changes to its parent's characters, scenes and numbers."
+    revivalChanges: [RevivalChange!]!
+    "Recordings of the spex, published ones; all for EDITOR."
+    recordings: [Recording!]!
+    "The board and the tasks of the spex and its revivals, from Spexregister. Visitors see nicknames only."
+    people: SpexPeople!
+    "Links to the other applications that have something about the spex, for the viewer: Spexgram's public albums for everyone; the rest only for users with access to that application."
+    links: [AppLink!]!
+    createdAt: Instant!
+    lastModifiedAt: Instant
+}
+
+input SpexInput {
+    "yyyy"
+    year: String!
+    "Ignored for a revival."
+    title: String
+    "Ignored for a revival."
+    categoryId: ID
+}
+
+type TaskCategory {
+    id: ID!
+    name: String!
+    "Whether its tasks have a character and a vocal part."
+    actorPresent: Boolean!
+    "Whether its tasks are shown as the board on spex pages."
+    board: Boolean!
+    retired: Boolean!
+    tasks(includeRetired: Boolean = false): [Task!]!
+}
+
+input TaskCategoryInput {
+    name: String!
+    actorPresent: Boolean!
+    board: Boolean!
+}
+
+type Task {
+    id: ID!
+    name: String!
+    category: TaskCategory
+    retired: Boolean!
+}
+
+input TaskInput {
+    name: String!
+    categoryId: ID!
+}
+
+type Figure {
+    id: ID!
+    slug: String!
+    name: String!
+    description: String
+    "Characters of this figure on published pages (all for EDITOR), by year."
+    characters: [Character!]!
+}
+
+input FigureInput {
+    name: String!
+    description: String
+}
+
+type Character {
+    id: ID!
+    "The spex the character belongs to: an original, or a revival that added it."
+    spex: Spex!
+    name: String!
+    figure: Figure
+    description: String
+    position: Int!
+    retired: Boolean!
+    images: [PageImage!]!
+    "Who played the character in the spex and each of its revivals, from Spexregister. Visitors see nicknames only."
+    playedBy: [PlayedBy!]!
+    "Photos of the actors from Spexgram: public ones for everyone, members' ones for users with access to Spexgram."
+    photos: PhotoSet!
+    "Numbers the character sings."
+    numbers: [Number!]!
+}
+
+input CharacterInput {
+    name: String!
+    figureId: ID
+    description: String
+}
+
+type Scene {
+    id: ID!
+    spex: Spex!
+    act: Int!
+    position: Int!
+    title: String!
+    place: String
+    "Whether there is an interval after the scene."
+    intervalAfter: Boolean!
+}
+
+input SceneInput {
+    act: Int!
+    title: String!
+    place: String
+    intervalAfter: Boolean!
+}
+
+input OrderInput {
+    id: ID!
+    act: Int!
+}
+
+type Number {
+    id: ID!
+    spex: Spex!
+    act: Int!
+    position: Int!
+    title: String!
+    originalTitle: String
+    originalArtist: String
+    lyrics: [Credit!]!
+    composers: [Credit!]!
+    arrangers: [Credit!]!
+    choreographers: [Credit!]!
+    characters: [Character!]!
+    retired: Boolean!
+    "Links for the viewer: the track in Spexify, the arrangement in Spexarkivet."
+    links: [AppLink!]!
+}
+
+input NumberInput {
+    act: Int!
+    title: String!
+    originalTitle: String
+    originalArtist: String
+    lyrics: [CreditInput!]
+    composers: [CreditInput!]
+    arrangers: [CreditInput!]
+    choreographers: [CreditInput!]
+    characterIds: [ID!]
+}
+
+"""
+Who wrote, composed, arranged or choreographed something, or conducted a recording: a spexare in Spexregister (shown
+as section 5.3 of the spec says; nothing when the spexare is not published) or a person outside FGV, by name.
+"""
+type Credit {
+    person: Person
+    "For people outside FGV."
+    name: String
+}
+
+input CreditInput {
+    spexareId: ID
+    "Only for people outside FGV; editors refer to spexare instead."
+    name: String
+}
+
+enum RevivalChangeKind {
+    CHARACTER
+    SCENE
+    NUMBER
+}
+
+type RevivalChange {
+    kind: RevivalChangeKind!
+    "The parent's record."
+    recordId: ID!
+    cut: Boolean!
+    act: Int
+    position: Int
+}
+
+input RevivalChangeInput {
+    recordId: ID!
+    cut: Boolean!
+    act: Int
+    position: Int
+}
+
+enum Medium {
+    LP
+    EP
+    CD
+    DIGITAL
+    OTHER
+}
+
+type Recording {
+    id: ID!
+    slug: String!
+    catalogueNumber: String!
+    title: String!
+    medium: Medium!
+    "Null for compilations."
+    spex: Spex
+    "yyyy, yyyy-mm or yyyy-mm-dd"
+    released: String
+    "yyyy, yyyy-mm or yyyy-mm-dd"
+    recorded: String
+    conductor: Credit
+    description: String
+    tracks: [Track!]!
+    front: Image
+    back: Image
+    spexifyAlbumId: ID
+    published: Boolean!
+    links: [AppLink!]!
+}
+
+input RecordingInput {
+    catalogueNumber: String!
+    title: String!
+    medium: Medium!
+    spexId: ID
+    released: String
+    recorded: String
+    conductor: CreditInput
+    description: String
+    frontImageId: ID
+    backImageId: ID
+    spexifyAlbumId: ID
+}
+
+type Track {
+    id: ID!
+    "e.g. A, B, 1, 2; null for a single side."
+    side: String
+    position: Int!
+    number: Number
+    "The number's title when there is a number."
+    title: String!
+}
+
+input TrackInput {
+    side: String
+    numberId: ID
+    title: String
+}
+
+type SpexPage {
+    spex: Spex!
+    "Spex generation, e.g. 'Bob & Vera'."
+    generation: String
+    "yyyy-mm-dd"
+    premiere: String
+    "Short, for tiles and previews."
+    introduction: String
+    "Markdown."
+    description: String
+    "Markdown."
+    synopsis: String
+    "The ids of the latest revisions of introduction, description and synopsis, to pass back when saving."
+    revisionIds: SpexPageRevisionIds!
+    rebus: Image
+    "Hidden behind 'Show solution'."
+    rebusSolution: Image
+    "Markdown."
+    vestDescription: String
+    "Who wore the vest."
+    vestWornBy: Credit
+    images(section: ImageSection!): [PageImage!]!
+    "Photos from Spexgram of a section: GROUP or BOARD."
+    photos(section: PhotoSection!): PhotoSet!
+    published: Boolean!
+    "Who changed the texts and when, newest first. Authors only for AUTHOR."
+    history: [Revision!]!
+    lastModifiedAt: Instant
+}
+
+type SpexPageRevisionIds {
+    introduction: ID
+    description: ID
+    synopsis: ID
+}
+
+input SpexPageInput {
+    generation: String
+    premiere: String
+    introduction: String
+    description: String
+    synopsis: String
+    vestDescription: String
+    vestWornBy: CreditInput
+    baseRevisionIds: SpexPageRevisionIdsInput
+}
+
+input SpexPageRevisionIdsInput {
+    introduction: ID
+    description: ID
+    synopsis: ID
+}
+
+enum ImageSection {
+    BACKDROP
+    STAGE
+    PROPS
+    VEST
+    OTHER
+}
+
+enum PhotoSection {
+    GROUP
+    BOARD
+    ACTOR
+}
+
+enum ImageKind {
+    POSTER
+    LOGO
+    SKETCH
+    MAKEUP
+    COSTUME
+    SCENOGRAPHY
+    REBUS
+    VEST
+    COVER
+    ARTICLE
+    OTHER
+}
+
+type Image {
+    id: ID!
+    kind: ImageKind!
+    caption: String
+    "The text alternative; the caption when there is none."
+    alt: String!
+    width: Int!
+    height: Int!
+    "Addresses under /media/: about 320, 1280 and 2560 pixels wide (never wider than the original)."
+    thumbnailUrl: String!
+    pageUrl: String!
+    fullUrl: String!
+    "The same sizes as JPEG, for previews elsewhere."
+    pageJpegUrl: String!
+    "AUTHOR."
+    originalFileName: String
+    trashedAt: Instant
+}
+
+input ImageInput {
+    caption: String
+    alt: String
+}
+
+"An image on a page, with the caption it has there."
+type PageImage {
+    image: Image!
+    "For a character's images."
+    kind: ImageKind
+    caption: String
+}
+
+input ImageRefInput {
+    imageId: ID!
+    "For a character's images: SKETCH, MAKEUP or COSTUME."
+    kind: ImageKind
+    caption: String
+}
+
+"""
+Photos from Spexgram. Public ones are shown to everyone; members' ones only to users with access to Spexgram, and
+counted for other logged-in users, who see placeholders. Visitors are not told about members' photos.
+"""
+type PhotoSet {
+    photos: [Photo!]!
+    "Members' photos the viewer may not see."
+    hiddenCount: Int!
+    "Whether Spexgram could be reached."
+    available: Boolean!
+    "AUTHOR. The chosen item ids, in order."
+    itemIds: [ID!]!
+}
+
+type Photo {
+    itemId: ID!
+    caption: String
+    thumbnailUrl: String!
+    previewUrl: String!
+    width: Int
+    height: Int
+    "The item's page in Spexgram."
+    url: String!
+    public: Boolean!
+}
+
+type SpexgramAlbum {
+    id: ID!
+    title: String!
+    url: String!
+    items: [Photo!]!
+}
+
+"""
+A spexare from Spexregister, as the viewer may see them: visitors get the nickname only (and nothing for someone without
+one), logged-in users the name too. Unpublished spexare are never shown.
+"""
+type Person {
+    "USER."
+    id: ID
+    nickname: String
+    "USER."
+    name: String
+    "The spexare's page in Spexregister, for users with access to it."
+    url: String
+}
+
+type PlayedBy {
+    person: Person!
+    "The production: the spex or one of its revivals."
+    spex: Spex!
+}
+
+type SpexPeople {
+    "Whether Spexregister could be reached; when not, the page says so."
+    available: Boolean!
+    "The tasks of the board's task categories, per production."
+    board: [TaskHolders!]!
+    "Every other task, per production and category."
+    tasks: [TaskHolders!]!
+    "Photos of the board from Spexgram."
+    boardPhotos: PhotoSet!
+}
+
+type TaskHolders {
+    "The production: the spex or one of its revivals."
+    spex: Spex!
+    task: Task!
+    people: [Person!]!
+}
+
+enum AppLinkKind {
+    SPEXREGISTER
+    SPEXIFY_ALBUM
+    SPEXIFY_TRACK
+    SPEXFLIX_VIDEO
+    ARCHIVE_MANUSCRIPT
+    ARCHIVE_ARRANGEMENT
+    SPEXGRAM_ALBUM
+}
+
+type AppLink {
+    kind: AppLinkKind!
+    title: String!
+    url: String!
+}
+
+enum Visibility {
+    PUBLIC
+    MEMBERS
+}
+
+type Article {
+    id: ID!
+    slug: String!
+    title: String!
+    "Markdown; null when the viewer may not see the latest revision's text."
+    body: String
+    "The body as HTML, with [[links]] resolved."
+    html: String
+    visibility: Visibility!
+    published: Boolean!
+    categories: [ArticleCategory!]!
+    "The latest revision."
+    revision: Revision
+    "USER. Revisions, newest first."
+    history: [Revision!]!
+    "USER. Who else is editing it now."
+    editingBy: [String!]!
+    trashedAt: Instant
+    createdAt: Instant!
+    lastModifiedAt: Instant
+}
+
+input ArticleInput {
+    title: String!
+    body: String!
+    visibility: Visibility!
+    categoryIds: [ID!]
+    "What changed, for the history."
+    comment: String
+}
+
+type ArticleCategory {
+    id: ID!
+    slug: String!
+    name: String!
+    description: String
+    articleCount: Int!
+}
+
+input ArticleCategoryInput {
+    name: String!
+    description: String
+}
+
+enum RevisionTarget {
+    ARTICLE
+    SPEX_PAGE
+}
+
+type Revision {
+    id: ID!
+    target: RevisionTarget!
+    "The article, or the spex page's spex id."
+    targetId: ID!
+    "The title of the article or spex at the time."
+    targetTitle: String!
+    "For a spex page: INTRODUCTION, DESCRIPTION or SYNOPSIS."
+    field: String
+    "Null when hidden, unless the viewer is AUTHOR."
+    body: String
+    "The revision before, to compare with."
+    previousId: ID
+    comment: String
+    hidden: Boolean!
+    "AUTHOR."
+    authorName: String
+    createdAt: Instant!
+}
+
+type RevisionPage {
+    entries: [Revision!]!
+    totalCount: Int!
+    page: Int!
+    size: Int!
+}
+
+type Redirect {
+    id: ID!
+    "As in the MediaWiki, e.g. 'Alexander - CEP 019'."
+    oldTitle: String!
+    "A path in the web, e.g. /recordings/cep-019."
+    target: String!
+}
+
+input RedirectInput {
+    id: ID
+    oldTitle: String!
+    target: String!
+}
+
+enum SearchKind {
+    SPEX
+    CHARACTER
+    FIGURE
+    NUMBER
+    RECORDING
+    ARTICLE
+}
+
+type SearchHit {
+    kind: SearchKind!
+    id: ID!
+    title: String!
+    "e.g. the spex and year of a character."
+    context: String
+    "A path in the web."
+    path: String!
+}
+
+type SitemapEntry {
+    path: String!
+    lastModifiedAt: Instant
+}
+
+enum ChangeType {
+    UPSERT
+    RETIRE
+    MERGE
+}
+
+type BaseDataChangePage {
+    changes: [BaseDataChange!]!
+    "Pass as after for the next page; the same as after when there was nothing new."
+    cursor: String
+    hasMore: Boolean!
+}
+
+"""
+One change. The record is as it was right after the change, so that applying the changes in order gives the same copy
+whenever it is read.
+"""
+type BaseDataChange {
+    sequence: String!
+    kind: BaseDataKind!
+    id: ID!
+    change: ChangeType!
+    "For MERGE: the record it was merged into; move references from id to it."
+    mergedIntoId: ID
+    at: Instant!
+    spexCategory: FeedSpexCategory
+    spex: FeedSpex
+    taskCategory: FeedTaskCategory
+    task: FeedTask
+    character: FeedCharacter
+    number: FeedNumber
+}
+
+type FeedSpexCategory {
+    id: ID!
+    name: String!
+    firstYear: String!
+    logoUrl: String
+    retired: Boolean!
+}
+
+type FeedSpex {
+    id: ID!
+    year: String!
+    "A revival's is its parent's."
+    title: String!
+    categoryId: ID
+    parentId: ID
+    posterUrl: String
+    retired: Boolean!
+}
+
+type FeedTaskCategory {
+    id: ID!
+    name: String!
+    actorPresent: Boolean!
+    board: Boolean!
+    retired: Boolean!
+}
+
+type FeedTask {
+    id: ID!
+    name: String!
+    categoryId: ID
+    retired: Boolean!
+}
+
+type FeedCharacter {
+    id: ID!
+    spexId: ID!
+    name: String!
+    position: Int!
+    retired: Boolean!
+}
+
+type FeedNumber {
+    id: ID!
+    spexId: ID!
+    act: Int!
+    position: Int!
+    title: String!
+    originalTitle: String
+    originalArtist: String
+    retired: Boolean!
+}
+
+type SyncConsumer {
+    id: ID!
+    name: String!
+    "The consumer's service account (azp), which acknowledges by reading the feed."
+    clientId: String!
+    "POST with Spexipedia's service token after each change; null to rely on the consumer's own pulls."
+    notifyUrl: String
+    enabled: Boolean!
+    "The last sequence the consumer read up to."
+    acknowledged: String
+    acknowledgedAt: Instant
+    "How many changes it has not read."
+    lag: Int!
+    lastNotifiedAt: Instant
+    lastError: String
+}
+
+input SyncConsumerInput {
+    id: ID
+    name: String!
+    clientId: String!
+    notifyUrl: String
+    enabled: Boolean!
+}
+
+type Trash {
+    articles: [Article!]!
+    images: [Image!]!
+}
+
+type Settings {
+    welcomeSv: String
+    welcomeEn: String
+    publicWelcomeSv: String
+    publicWelcomeEn: String
+    contactEmail: String
+    lastModifiedAt: Instant
+}
+
+input SettingsInput {
+    welcomeSv: String
+    welcomeEn: String
+    publicWelcomeSv: String
+    publicWelcomeEn: String
+    contactEmail: String
+}
+
+type AuditPage {
+    entries: [AuditLogEntry!]!
+    totalCount: Int!
+    page: Int!
+    size: Int!
+}
+
+type AuditLogEntry {
+    id: ID!
+    at: Instant!
+    "Who made the change, by their subject."
+    actorId: String!
+    actorName: String
+    action: String!
+    "SPEX, SPEX_CATEGORY, TASK, CHARACTER, NUMBER, ARTICLE, IMAGE, SETTINGS and so on."
+    entityType: String!
+    entityId: ID
+    summary: String!
+}
+
+"What to show of the audit log; every field is optional."
+input AuditFilter {
+    entityType: String
+    action: String
+    "Only ADMIN sees others' changes."
+    actorId: String
+    from: Instant
+    to: Instant
+    q: String
+    entityId: ID
+}
+
+type AuditActor {
+    id: String!
+    name: String
+}
+
+"""
+A scheduled maintenance job: making missing image variants (IMAGE_VARIANTS), checking the links to the other
+applications (LINK_CHECK), rebuilding the search index (SEARCH_REBUILD), sending notifications that failed
+(SYNC_NOTIFY), removing unfinished uploads (UPLOAD_CLEANUP) and deleting people past their retention (RETENTION).
+"""
+enum MaintenanceJob {
+    IMAGE_VARIANTS
+    LINK_CHECK
+    SEARCH_REBUILD
+    SYNC_NOTIFY
+    UPLOAD_CLEANUP
+    RETENTION
+}
+
+"A maintenance job and how its latest run went. Runs are remembered until the server restarts."
+type MaintenanceJobStatus {
+    job: MaintenanceJob!
+    "The job's cron expression, in the server's time zone, or null when it is not scheduled."
+    schedule: String
+    running: Boolean!
+    lastStartedAt: Instant
+    lastFinishedAt: Instant
+    "Whether the latest run finished without an error; null while it runs."
+    lastSucceeded: Boolean
+}
