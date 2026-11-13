@@ -410,8 +410,9 @@ public class SampleDataImporter {
             for (final String[] row : rows("task-categories.tsv")) {
                 final UUID id = uuid("task-category", row[0]);
 
-                // The committee is shown as the board on spex pages
-                baseData.importTaskCategory(id, row[0], "1".equals(row[1]), "Kommitté".equals(row[0]));
+                // The committee is shown as the board on spex pages; the musicians' tasks are Spexarkivet's instruments
+                baseData.importTaskCategory(id, row[0], "1".equals(row[1]), "Kommitté".equals(row[0]),
+                        Set.of("Orkester", "Bandet", "Symphonin").contains(row[0]));
                 taskCategories.put(row[0], id);
             }
             for (final String[] row : rows("tasks.tsv")) {

@@ -464,7 +464,7 @@ public class BaseDataService {
     // Task categories and tasks ----------------------------------------------------------------------------------------
 
     @Transactional
-    public TaskCategoryDto createTaskCategory(final String name, final boolean actorPresent, final boolean board) {
+    public TaskCategoryDto createTaskCategory(final String name, final boolean actorPresent, final boolean board, final boolean instruments) {
         callerService.current().requireEditor();
 
         final TaskCategory category = new TaskCategory();
@@ -473,6 +473,7 @@ public class BaseDataService {
         category.setName(Texts.required(name, 255, "name"));
         category.setActorPresent(actorPresent);
         category.setBoard(board);
+        category.setInstruments(instruments);
         taskCategoryRepository.save(category);
         changed(category);
         auditService.record("CREATE", "TASK_CATEGORY", category.getUuid(), "Skapade postkategorin " + category.getName());
@@ -480,7 +481,7 @@ public class BaseDataService {
     }
 
     @Transactional
-    public TaskCategoryDto updateTaskCategory(final UUID id, final String name, final boolean actorPresent, final boolean board) {
+    public TaskCategoryDto updateTaskCategory(final UUID id, final String name, final boolean actorPresent, final boolean board, final boolean instruments) {
         callerService.current().requireEditor();
 
         final TaskCategory category = requireTaskCategory(id);
@@ -488,6 +489,7 @@ public class BaseDataService {
         category.setName(Texts.required(name, 255, "name"));
         category.setActorPresent(actorPresent);
         category.setBoard(board);
+        category.setInstruments(instruments);
         changed(category);
         auditService.record("UPDATE", "TASK_CATEGORY", id, "Ändrade postkategorin " + category.getName());
         return BaseDataDtos.toDto(category);
@@ -536,7 +538,7 @@ public class BaseDataService {
 
     FeedRecords.FeedTaskCategory feedRecord(final TaskCategory category) {
         return new FeedRecords.FeedTaskCategory(category.getUuid(), category.getName(), category.isActorPresent(),
-                category.isBoard(), category.isRetired());
+                category.isBoard(), category.isInstruments(), category.isRetired());
     }
 
     void changed(final Task task) {
@@ -603,7 +605,7 @@ public class BaseDataService {
      * ADMIN. Creates or updates a task category with a given id.
      */
     @Transactional
-    public TaskCategoryDto importTaskCategory(final UUID id, final String name, final boolean actorPresent, final boolean board) {
+    public TaskCategoryDto importTaskCategory(final UUID id, final String name, final boolean actorPresent, final boolean board, final boolean instruments) {
         callerService.current().requireAdmin();
 
         final TaskCategory category = taskCategoryRepository.findByUuid(id).orElseGet(() -> {
@@ -616,6 +618,7 @@ public class BaseDataService {
         category.setName(Texts.required(name, 255, "name"));
         category.setActorPresent(actorPresent);
         category.setBoard(board);
+        category.setInstruments(instruments);
         taskCategoryRepository.save(category);
         changed(category);
         return BaseDataDtos.toDto(category);

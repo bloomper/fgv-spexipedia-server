@@ -40,7 +40,7 @@ public final class BaseDataDtos {
         }
     }
 
-    public record TaskCategoryDto(long key, UUID id, String name, boolean actorPresent, boolean board, boolean retired) {
+    public record TaskCategoryDto(long key, UUID id, String name, boolean actorPresent, boolean board, boolean instruments, boolean retired) {
     }
 
     public record TaskDto(long key, UUID id, String name, long categoryKey, boolean retired) {
@@ -63,7 +63,7 @@ public final class BaseDataDtos {
 
     public static TaskCategoryDto toDto(final TaskCategory category) {
         return new TaskCategoryDto(category.getId(), category.getUuid(), category.getName(), category.isActorPresent(),
-                category.isBoard(), category.isRetired());
+                category.isBoard(), category.isInstruments(), category.isRetired());
     }
 
     public static TaskDto toDto(final Task task) {

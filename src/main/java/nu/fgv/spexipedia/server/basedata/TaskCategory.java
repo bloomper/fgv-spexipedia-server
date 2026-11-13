@@ -46,6 +46,12 @@ public class TaskCategory extends AbstractAuditable {
     @Column(name = "board", nullable = false)
     private boolean board;
 
+    /**
+     * Whether its tasks are instruments, which Spexarkivet offers for arrangements' parts.
+     */
+    @Column(name = "instruments", nullable = false)
+    private boolean instruments;
+
     @Column(name = "retired", nullable = false)
     private boolean retired;
 }

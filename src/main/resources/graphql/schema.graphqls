@@ -368,6 +368,8 @@ type TaskCategory {
     actorPresent: Boolean!
     "Whether its tasks are shown as the board on spex pages."
     board: Boolean!
+    "Whether its tasks are instruments, which Spexarkivet offers for the parts of arrangements."
+    instruments: Boolean!
     retired: Boolean!
     tasks(includeRetired: Boolean = false): [Task!]!
 }
@@ -376,6 +378,7 @@ input TaskCategoryInput {
     name: String!
     actorPresent: Boolean!
     board: Boolean!
+    instruments: Boolean = false
 }
 
 type Task {
@@ -978,6 +981,7 @@ type FeedTaskCategory {
     name: String!
     actorPresent: Boolean!
     board: Boolean!
+    instruments: Boolean!
     retired: Boolean!
 }
 

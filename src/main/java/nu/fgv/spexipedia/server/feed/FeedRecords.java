@@ -23,7 +23,7 @@ public final class FeedRecords {
                            @Nullable String posterUrl, boolean retired) {
     }
 
-    public record FeedTaskCategory(UUID id, String name, boolean actorPresent, boolean board, boolean retired) {
+    public record FeedTaskCategory(UUID id, String name, boolean actorPresent, boolean board, boolean instruments, boolean retired) {
     }
 
     public record FeedTask(UUID id, String name, @Nullable UUID categoryId, boolean retired) {

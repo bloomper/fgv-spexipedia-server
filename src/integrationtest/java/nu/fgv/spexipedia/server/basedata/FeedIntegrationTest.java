@@ -22,7 +22,7 @@ class FeedIntegrationTest extends AbstractIntegrationTest {
 
     private static final String CHANGES = """
             query($after: String) { baseDataChanges(after: $after, first: 50) {
-                cursor hasMore changes { sequence kind id change mergedIntoId spex { title year parentId categoryId } task { name } }
+                cursor hasMore changes { sequence kind id change mergedIntoId spex { title year parentId categoryId } task { name } taskCategory { instruments } }
             } }""";
 
     @Autowired
@@ -52,6 +52,18 @@ class FeedIntegrationTest extends AbstractIntegrationTest {
         graphQlWithToken(sync).document(CHANGES).variable("after", cursor).execute()
                 .path("baseDataChanges.changes[*].spex.title").entityList(String.class).containsExactly("Lasse-Maja!")
                 .path("baseDataChanges.hasMore").entity(Boolean.class).isEqualTo(false);
+    }
+
+    @Test
+    void instrumentCategoriesAreMarkedForSpexarkivet() {
+        final String orchestra = graphQl(EDITOR).document("""
+                        mutation { c: taskCategoryCreate(input: {name: "Orkester", actorPresent: false, board: false, instruments: true}) { id instruments } }""")
+                .execute().path("c.instruments").entity(Boolean.class).isEqualTo(true)
+                .path("c.id").entity(String.class).get();
+
+        graphQlWithToken(serviceToken("fgv-archive-service")).document(CHANGES).execute()
+                .path("baseDataChanges.changes[0].id").entity(String.class).isEqualTo(orchestra)
+                .path("baseDataChanges.changes[0].taskCategory.instruments").entity(Boolean.class).isEqualTo(true);
     }
 
     @Test

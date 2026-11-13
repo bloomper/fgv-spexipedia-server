@@ -157,13 +157,13 @@ public class BaseDataGraphqlApi {
     @MutationMapping
     public TaskCategoryDto taskCategoryCreate(@Argument final Map<String, Object> input) {
         return service.createTaskCategory((String) input.get("name"), Boolean.TRUE.equals(input.get("actorPresent")),
-                Boolean.TRUE.equals(input.get("board")));
+                Boolean.TRUE.equals(input.get("board")), Boolean.TRUE.equals(input.get("instruments")));
     }
 
     @MutationMapping
     public TaskCategoryDto taskCategoryUpdate(@Argument final String id, @Argument final Map<String, Object> input) {
         return service.updateTaskCategory(Ids.require(id), (String) input.get("name"), Boolean.TRUE.equals(input.get("actorPresent")),
-                Boolean.TRUE.equals(input.get("board")));
+                Boolean.TRUE.equals(input.get("board")), Boolean.TRUE.equals(input.get("instruments")));
     }
 
     @MutationMapping

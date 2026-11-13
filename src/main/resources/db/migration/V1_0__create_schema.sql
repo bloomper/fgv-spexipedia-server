@@ -105,6 +105,7 @@ CREATE TABLE task_category
     name             VARCHAR(255) NOT NULL,
     actor_present    BIT          NOT NULL DEFAULT 0,
     board            BIT          NOT NULL DEFAULT 0,
+    instruments      BIT          NOT NULL DEFAULT 0,
     retired          BIT          NOT NULL DEFAULT 0,
     created_by       VARCHAR(64)  NOT NULL,
     created_at       DATETIME(6)  NOT NULL,
