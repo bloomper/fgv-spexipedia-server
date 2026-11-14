@@ -44,7 +44,9 @@ integration tests. It is built using [Gradle][5]:
 ## Published images
 
 CI builds the image with Jib and publishes `bloomper/fgv-spexipedia-server` for `linux/amd64` and `linux/arm64`, on
-`bloomper/fgv-spexipedia-server-base:25` (`eclipse-temurin:25-jre` plus ImageMagick, from `base/Dockerfile`):
+`bloomper/fgv-spexipedia-server-base:25` (`eclipse-temurin:25-jre` plus ImageMagick 7, from `base/Dockerfile`). Uploads
+are untrusted: the API tells their format from their first bytes and names ImageMagick's coder itself, and
+`base/policy.xml` allows only those coders, no delegates and limited resources:
 
 | Trigger              | Tags                              |
 |----------------------|-----------------------------------|

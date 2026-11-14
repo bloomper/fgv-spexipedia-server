@@ -1,6 +1,23 @@
+/*
+ * Copyright 2026 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package nu.fgv.spexipedia.server.feed;
 
 import nu.fgv.spexipedia.server.audit.AuditService;
+import nu.fgv.spexipedia.server.config.SpexipediaProperties;
 import nu.fgv.spexipedia.server.user.CallerService;
 import nu.fgv.spexipedia.server.util.Texts;
 import nu.fgv.spexipedia.server.util.Uuids;
@@ -13,7 +30,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.net.URI;
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * The consumers of the change feed, kept by admins (section 5.12 of the spec).
@@ -28,13 +49,62 @@ public class SyncConsumerService {
     private final ChangeFeedService feed;
     private final CallerService callerService;
     private final AuditService auditService;
+    private final Set<String> notifyOrigins;
 
     public SyncConsumerService(final SyncConsumerRepository repository, final ChangeFeedService feed,
-                               final CallerService callerService, final AuditService auditService) {
+                               final CallerService callerService, final AuditService auditService,
+                               final SpexipediaProperties properties) {
         this.repository = repository;
         this.feed = feed;
         this.callerService = callerService;
         this.auditService = auditService;
+        this.notifyOrigins = notifyOrigins(properties.apps());
+    }
+
+    /**
+     * The origins (scheme, host and port) of the other applications' APIs. Notifications carry Spexipedia's service
+     * token, so they go to these only, never to an address an admin typed for somewhere else.
+     */
+    static Set<String> notifyOrigins(final SpexipediaProperties.Apps apps) {
+        return Stream.of(apps.spexregister(), apps.spexgram(), apps.spexify(), apps.spexflix(), apps.archive())
+                .map(SpexipediaProperties.App::graphqlUrl)
+                .filter(Objects::nonNull)
+                .filter(url -> !url.isBlank())
+                .map(SyncConsumerService::origin)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    private static @Nullable String origin(final String url) {
+        try {
+            final URI uri = URI.create(url.strip());
+
+            if (uri.getHost() == null || (!"http".equals(uri.getScheme()) && !"https".equals(uri.getScheme()))) {
+                return null;
+            }
+            final int port = uri.getPort() >= 0 ? uri.getPort() : "https".equals(uri.getScheme()) ? 443 : 80;
+
+            return uri.getScheme() + "://" + uri.getHost().toLowerCase(java.util.Locale.ROOT) + ":" + port;
+        } catch (final IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Whether a notification may be sent to the address: one of the other applications' APIs, without credentials in
+     * the address.
+     */
+    public boolean mayNotify(final @Nullable String url) {
+        if (url == null || url.isBlank()) {
+            return false;
+        }
+        try {
+            final URI uri = URI.create(url.strip());
+
+            return uri.getRawUserInfo() == null && notifyOrigins.contains(origin(url));
+        } catch (final IllegalArgumentException e) {
+            return false;
+        }
     }
 
     @Transactional(readOnly = true)
@@ -52,16 +122,8 @@ public class SyncConsumerService {
                 : repository.findByUuid(id).orElseThrow(() -> new ResourceNotFoundException(SyncConsumer.class, id));
         final String url = Texts.optional(notifyUrl, 1000, "notifyUrl");
 
-        if (url != null) {
-            try {
-                final URI uri = URI.create(url);
-
-                if (!"http".equals(uri.getScheme()) && !"https".equals(uri.getScheme())) {
-                    throw new BadRequestException("error.field.invalid", "notifyUrl");
-                }
-            } catch (final IllegalArgumentException e) {
-                throw new BadRequestException("error.field.invalid", "notifyUrl");
-            }
+        if (url != null && !mayNotify(url)) {
+            throw new BadRequestException("error.field.invalid", "notifyUrl");
         }
         if (consumer.getUuid() == null) {
             consumer.setUuid(Uuids.v7());

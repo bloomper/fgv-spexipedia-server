@@ -619,7 +619,7 @@ type SpexPage {
     "Photos from Spexgram of a section: GROUP or BOARD."
     photos(section: PhotoSection!): PhotoSet!
     published: Boolean!
-    "Who changed the texts and when, newest first. Authors only for AUTHOR."
+    "USER. Who changed the texts and when, newest first; who wrote them only for AUTHOR."
     history: [Revision!]!
     lastModifiedAt: Instant
 }

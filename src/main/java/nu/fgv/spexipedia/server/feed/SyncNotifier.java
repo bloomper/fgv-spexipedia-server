@@ -1,3 +1,19 @@
+/*
+ * Copyright 2026 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package nu.fgv.spexipedia.server.feed;
 
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +48,7 @@ public class SyncNotifier {
     private static final int MAX_ERROR = 1000;
 
     private final SyncConsumerRepository repository;
+    private final SyncConsumerService consumers;
     private final ChangeFeedEntryRepository feed;
     private final RestClient serviceRestClient;
     private final JdbcClient jdbc;
@@ -40,9 +57,11 @@ public class SyncNotifier {
     private final ReentrantLock running = new ReentrantLock();
     private final AtomicBoolean again = new AtomicBoolean();
 
-    public SyncNotifier(final SyncConsumerRepository repository, final ChangeFeedEntryRepository feed,
-                        final RestClient serviceRestClient, final JdbcClient jdbc, final Clock clock) {
+    public SyncNotifier(final SyncConsumerRepository repository, final SyncConsumerService consumers,
+                        final ChangeFeedEntryRepository feed, final RestClient serviceRestClient, final JdbcClient jdbc,
+                        final Clock clock) {
         this.repository = repository;
+        this.consumers = consumers;
         this.feed = feed;
         this.serviceRestClient = serviceRestClient;
         this.jdbc = jdbc;
@@ -82,6 +101,10 @@ public class SyncNotifier {
             String error = null;
 
             try {
+                // The token goes to the other applications' APIs only (see SyncConsumerService.mayNotify)
+                if (!consumers.mayNotify(consumer.getNotifyUrl())) {
+                    throw new IllegalStateException("Not one of the applications' addresses: " + consumer.getNotifyUrl());
+                }
                 serviceRestClient.post()
                         .uri(consumer.getNotifyUrl())
                         .contentType(MediaType.APPLICATION_JSON)
