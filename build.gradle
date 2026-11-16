@@ -84,7 +84,6 @@ dependencies {
     implementation 'io.micrometer:context-propagation:1.2.1'
     implementation 'net.javacrumbs.shedlock:shedlock-spring:7.10.1'
     implementation 'net.javacrumbs.shedlock:shedlock-provider-jdbc-template:7.10.1'
-    implementation 'org.keycloak:keycloak-admin-client:26.0.12'
     // Markdown (CommonMark with tables) for articles and spex page texts
     implementation 'com.vladsch.flexmark:flexmark:0.64.8'
     implementation 'com.vladsch.flexmark:flexmark-ext-tables:0.64.8'
@@ -107,6 +106,8 @@ dependencies {
     integrationTestImplementation 'org.testcontainers:testcontainers-junit-jupiter'
     integrationTestImplementation 'org.testcontainers:testcontainers-mysql'
     integrationTestImplementation 'com.github.dasniko:testcontainers-keycloak:4.4.0'
+    // The tests set up their users and roles in Keycloak; the application itself never administers it
+    integrationTestImplementation 'org.keycloak:keycloak-admin-client:26.0.12'
 
     runtimeOnly 'com.mysql:mysql-connector-j'
     if (System.getProperty("os.name").toLowerCase().contains("mac") && System.getProperty("os.arch").toLowerCase().contains("aarch64")) {

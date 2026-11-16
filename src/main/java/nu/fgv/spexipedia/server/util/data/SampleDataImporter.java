@@ -16,7 +16,6 @@
 
 package nu.fgv.spexipedia.server.util.data;
 
-import jakarta.ws.rs.core.Response;
 import lombok.extern.slf4j.Slf4j;
 import nu.fgv.spexipedia.server.article.ArticleDtos.ArticleCategoryDto;
 import nu.fgv.spexipedia.server.article.ArticleDtos.ArticleDto;
@@ -47,12 +46,6 @@ import nu.fgv.spexipedia.server.search.SearchService;
 import nu.fgv.spexipedia.server.settings.SettingsService;
 import nu.fgv.spexipedia.server.util.security.KeycloakJwtRolesConverter;
 import nu.fgv.spexipedia.server.util.security.SecurityUtil;
-import org.keycloak.admin.client.Keycloak;
-import org.keycloak.admin.client.resource.ClientResource;
-import org.keycloak.admin.client.resource.RealmResource;
-import org.keycloak.representations.idm.CredentialRepresentation;
-import org.keycloak.representations.idm.RoleRepresentation;
-import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.Ordered;
@@ -82,7 +75,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 
 /**
@@ -98,8 +90,9 @@ import java.util.function.Supplier;
  * <p>Everything is made through the services, as a sample administrator, so the feed, the audit log and the search
  * index are as in use. The feed's sequence keeps counting across imports, so consumers read everything again.</p>
  *
- * <p>Spexregister deletes every Keycloak user when it imports its sample data, so the sample users' roles are granted
- * in the background once its users exist: start Spexipedia, then Spexregister, then the other applications.</p>
+ * <p>The sample users and their roles are fgv-infra-deploy's (bin/seed-users.sh, sample-users.tsv): the import never
+ * asks Keycloak, and refers to them by their fixed ids. Spexipedia comes before Spexregister and the other
+ * applications only because they copy its base data.</p>
  *
  * @author Anders Jacobsson
  * @since 1.0
@@ -118,12 +111,8 @@ public class SampleDataImporter {
             new String[]{"00000000-0000-7000-a000-000000000004", "Eva Ensemblé", "Evita", "false"},
             new String[]{"00000000-0000-7000-a000-000000000005", "Fredrik Fiolin", "Fiolen", "true"},
             new String[]{"00000000-0000-7000-a000-000000000006", "Greta Gitarrqvist", "", "false"});
-    // Spexregister's sample users, which its sample data import creates; they get roles here
-    static final String ADMIN = "admin@fgv.nu";
-    static final String EDITOR = "editor@fgv.nu";
-    static final String USER = "user@fgv.nu";
-    // Created here, with USER and AUTHOR
-    static final String AUTHOR = "author@fgv.nu";
+    // user@fgv.nu's Keycloak id, fixed in fgv-infra-deploy's sample-users.tsv
+    static final String USER_ID = "00000000-0000-4000-8000-000000000003";
     private static final List<String> TABLES = List.of("article_editing", "article_article_category", "article", "article_category",
             "revision", "redirect", "search_document", "recording_track", "recording", "number_character", "number_credit",
             "spex_number", "character_image", "spex_character", "figure", "scene", "revival_change", "spex_page_photo",
@@ -164,7 +153,6 @@ public class SampleDataImporter {
     private final SettingsService settingsService;
     private final SyncConsumerService consumerService;
     private final SearchService searchService;
-    private final Keycloak keycloak;
 
     @SuppressWarnings("java:S107")
     public SampleDataImporter(final SpexipediaProperties properties, final Environment environment, final JdbcClient jdbc,
@@ -173,7 +161,7 @@ public class SampleDataImporter {
                               final SpexPageService pageService, final ArticleService articleService,
                               final ImageService imageService, final RedirectService redirectService,
                               final SettingsService settingsService, final SyncConsumerService consumerService,
-                              final SearchService searchService, final Keycloak keycloak) {
+                              final SearchService searchService) {
         this.properties = properties;
         this.environment = environment;
         this.jdbc = jdbc;
@@ -188,7 +176,6 @@ public class SampleDataImporter {
         this.settingsService = settingsService;
         this.consumerService = consumerService;
         this.searchService = searchService;
-        this.keycloak = keycloak;
     }
 
     /**
@@ -212,7 +199,6 @@ public class SampleDataImporter {
             throw new IllegalStateException("Refusing to import sample data in the production profile");
         }
         importSampleData();
-        Executors.newVirtualThreadPerTaskExecutor().execute(this::grantRolesWhenUsersExist);
     }
 
     public void importSampleData() {
@@ -267,84 +253,6 @@ public class SampleDataImporter {
         } finally {
             SecurityContextHolder.getContext().setAuthentication(previous);
         }
-    }
-
-    // Users --------------------------------------------------------------------------------------------------------------
-
-    /**
-     * Waits for Spexregister's sample users (for up to half an hour), then gives them their roles on this client and
-     * creates {@code author@fgv.nu}. Keycloak's admin notification is suspended meanwhile.
-     */
-    private void grantRolesWhenUsersExist() {
-        final Instant deadline = Instant.now().plus(Duration.ofMinutes(30));
-
-        while (Instant.now().isBefore(deadline)) {
-            try {
-                final RealmResource realm = keycloak.realm(properties.keycloak().realm());
-
-                if (!realm.users().searchByEmail(ADMIN, true).isEmpty()) {
-                    NotificationSuspender.whileSuspended(realm, () -> {
-                        grantRoles(realm);
-                        return null;
-                    });
-                    log.info("Gave the sample users their roles");
-                    return;
-                }
-                log.info("Waiting for Spexregister's sample users");
-            } catch (final RuntimeException e) {
-                log.info("Waiting for Keycloak and Spexregister's sample users: {}", e.getMessage());
-            }
-            try {
-                Thread.sleep(Duration.ofSeconds(15));
-            } catch (final InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-        }
-        log.warn("Spexregister's sample users never appeared; restart Spexipedia after Spexregister to give them roles");
-    }
-
-    private void grantRoles(final RealmResource realm) {
-        final ClientResource client = realm.clients().get(realm.clients().findByClientId(SecurityUtil.CLIENT_ID).getFirst().getId());
-
-        grant(realm, client, ADMIN, "USER", "AUTHOR", "EDITOR", "ADMIN");
-        grant(realm, client, EDITOR, "USER", "AUTHOR", "EDITOR");
-        grant(realm, client, USER, "USER");
-        if (realm.users().searchByEmail(AUTHOR, true).isEmpty()) {
-            final CredentialRepresentation password = new CredentialRepresentation();
-            final UserRepresentation user = new UserRepresentation();
-
-            password.setType(CredentialRepresentation.PASSWORD);
-            password.setValue(properties.data().sampleUserPassword());
-            password.setTemporary(false);
-            user.setUsername(AUTHOR);
-            user.setEmail(AUTHOR);
-            user.setFirstName("Agnes");
-            user.setLastName("Author");
-            user.setEnabled(true);
-            user.setEmailVerified(true);
-            user.setCredentials(List.of(password));
-            try (Response response = realm.users().create(user)) {
-                if (response.getStatus() >= 300) {
-                    log.warn("Could not create {}: {}", AUTHOR, response.getStatus());
-                    return;
-                }
-            }
-        }
-        grant(realm, client, AUTHOR, "USER", "AUTHOR");
-    }
-
-    private static void grant(final RealmResource realm, final ClientResource client, final String email, final String... roles) {
-        final List<UserRepresentation> users = realm.users().searchByEmail(email, true);
-
-        if (users.isEmpty()) {
-            log.warn("The sample user {} is missing", email);
-            return;
-        }
-
-        final List<RoleRepresentation> representations = Arrays.stream(roles).map(role -> client.roles().get(role).toRepresentation()).toList();
-
-        realm.users().get(users.getFirst().getId()).roles().clientLevel(client.toRepresentation().getId()).add(representations);
     }
 
     // Content ------------------------------------------------------------------------------------------------------------
@@ -746,8 +654,9 @@ public class SampleDataImporter {
             update(withName, "Under premiären föll en kuliss rakt ner på scenen. Ensemblen improviserade vidare som om ingenting hänt.",
                     "Tog bort namnet igen");
             article("Ölrepet", Visibility.MEMBERS, false, List.of(articleCategories.get("Traditioner")), "Utkast om ölrepet.");
-            // Written by user@fgv.nu, as far as the history tells
-            jdbc.sql("UPDATE revision SET author = 'sample-user', author_name = 'Ulla Användare' WHERE target = 'ARTICLE' AND comment IN ('Lade till vem', 'Tog bort namnet igen')").update();
+            // Written by user@fgv.nu (its fixed id in fgv-infra-deploy's sample-users.tsv), as far as the history tells
+            jdbc.sql("UPDATE revision SET author = :author, author_name = 'User Exempel' WHERE target = 'ARTICLE' AND comment IN ('Lade till vem', 'Tog bort namnet igen')")
+                    .param("author", USER_ID).update();
         }
 
         private ArticleDto article(final String title, final Visibility visibility, final boolean published, final List<UUID> categories,

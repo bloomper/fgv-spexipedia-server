@@ -72,10 +72,12 @@ Spexipedia comes first: it is the source of the sample spex, categories and task
 copies from the change feed and the other applications read. Start the applications in this order:
 
 . Spexipedia
-. Spexregister, which copies base data from Spexipedia and creates the sample users
+. Spexregister, which copies base data from Spexipedia
 . The other applications
 
-Spexipedia gives Spexregister's sample users their roles once they exist, and creates ``author@fgv.nu``:
+The sample users are fgv-infra-deploy's: ``bin/seed-users.sh --local`` creates them in Keycloak with fixed ids and
+their roles in every application (``sample-users.tsv``), and resets them when run again. The import never asks Keycloak,
+so it needs no admin client, and the applications can import in any order after Spexipedia. Their roles here:
 
 |===
 |User |Roles on fgv-spexipedia
@@ -86,8 +88,7 @@ Spexipedia gives Spexregister's sample users their roles once they exist, and cr
 |``user@fgv.nu`` |USER
 |===
 
-The password is ``SAMPLE_USER_PASSWORD``. Spexregister deletes every Keycloak user when it imports its sample data, so
-restart Spexipedia after a later restart of Spexregister.
+The password is ``s3cr3t-s3cr3t`` locally (fgv-infra-deploy's ``secrets/SAMPLE_USER_PASSWORD`` on staging).
 
 Credits refer to six spexare that Spexregister's sample data creates with fixed ids (published and unpublished, with and
 without nicknames); who played which character comes from Spexregister's sample actors. The first spex page shows photos

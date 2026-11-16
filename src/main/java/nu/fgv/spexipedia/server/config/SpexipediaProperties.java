@@ -44,11 +44,8 @@ public record SpexipediaProperties(String timeZone,
     /**
      * @param serviceClientId     {@code fgv-spexipedia-service}, which calls the other applications
      * @param serviceClientSecret its secret
-     * @param adminClientId       {@code fgv-admin}, only for the sample data import, which grants roles
-     * @param adminClientSecret   its secret
      */
-    public record Keycloak(String url, String realm, String serviceClientId, String serviceClientSecret,
-                           String adminClientId, String adminClientSecret) {
+    public record Keycloak(String url, String realm, String serviceClientId, String serviceClientSecret) {
     }
 
     /**
@@ -83,10 +80,10 @@ public record SpexipediaProperties(String timeZone,
     }
 
     /**
-     * @param importSampleData   whether to replace everything with sample data at start
-     * @param sampleDataSize     {@code small} or {@code large}
-     * @param sampleUserPassword the sample users' password
+     * @param importSampleData whether to replace everything with sample data at start; the sample users are
+     *                         fgv-infra-deploy's (bin/seed-users.sh)
+     * @param sampleDataSize   {@code small} or {@code large}
      */
-    public record Data(boolean importSampleData, String sampleDataSize, String sampleUserPassword) {
+    public record Data(boolean importSampleData, String sampleDataSize) {
     }
 }

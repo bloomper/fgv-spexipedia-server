@@ -87,9 +87,6 @@ spexipedia:
     realm: ${API_KEYCLOAK_REALM:fgv}
     service-client-id: ${API_KEYCLOAK_SERVICE_CLIENT_ID:fgv-spexipedia-service}
     service-client-secret: ${API_KEYCLOAK_SERVICE_CLIENT_SECRET:}
-    # Only for the sample data import, which grants roles
-    admin-client-id: ${API_KEYCLOAK_ADMIN_CLIENT_ID:fgv-admin}
-    admin-client-secret: ${API_KEYCLOAK_ADMIN_CLIENT_SECRET:}
   security:
     # The web, and the service accounts that read the feed (SYNC) or create revivals (REVIVAL)
     authorized-parties: ${API_SECURITY_AUTHORIZED_PARTIES:fgv-spexipedia,spexregister-service,fgv-spexify-service,fgv-spexflix-service,fgv-spexgram-service,fgv-archive-service,fgv-revival-service}
@@ -121,8 +118,6 @@ spexipedia:
   data:
     import-sample-data: ${API_IMPORT_SAMPLE_DATA:false}
     sample-data-size: ${API_SAMPLE_DATA_SIZE:small}
-    # Needed only to import sample data; the local profile has a development value
-    sample-user-password: ${SAMPLE_USER_PASSWORD:}
 
 ---
 spring:
@@ -146,8 +141,5 @@ management:
     port: 9008
 
 spexipedia:
-  data:
-    # For development only; every other environment sets SAMPLE_USER_PASSWORD
-    sample-user-password: ${SAMPLE_USER_PASSWORD:s3cr3t-s3cr3t}
   keycloak:
     url: https://auth.fgv.local.nu:8443/auth
