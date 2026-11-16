@@ -1,0 +1,51 @@
+= Spexipedia Server GraphQL API Guide
+:doctype: book
+:icons: font
+:source-highlighter: highlightjs
+:toc: left
+:toclevels: 3
+
+[[schema]]
+== Schema
+
+The schema is `src/main/resources/graphql/schema.graphqls`; each field says who may call it. The endpoint is
+`POST /api/graphql`. It answers without a token too, with what visitors may see.
+
+[[errors]]
+== Errors
+
+Errors carry `extensions.classification`: `UNAUTHORIZED`, `FORBIDDEN`, `BAD_REQUEST`, `NOT_FOUND`, `CONFLICT` (someone
+else saved first, or a stale version) or `SPEXREGISTER_UNAVAILABLE`. Messages are in the request's language
+(`Accept-Language`, Swedish by default).
+
+[[roles]]
+== Roles and visibility
+
+Client roles on `fgv-spexipedia`: `USER` (every approved user), `AUTHOR`, `EDITOR`, `ADMIN`; and for services `SYNC`
+(the change feed) and `REVIVAL` (creating revivals). Base data is public, published or not. Pages are shown to
+visitors when published; members' articles to `USER`.
+
+[[people]]
+== People
+
+People come from Spexregister when a page is asked for, never from Spexipedia's database. Visitors get published
+spexare's nicknames only; `USER` also their names. If Spexregister cannot be reached, `Spex.people.available` is false
+and the rest of the page is answered.
+
+[[photos]]
+== Photos and links
+
+Photos of people are Spexgram items: `PhotoSet` holds what the viewer may see and, for logged-in users without access to
+Spexgram, how many they may not. Links to Spexgram, Spexify, Spexflix and Spexarkivet are shown only to users with access
+to that application, except Spexgram's public albums.
+
+[[feed]]
+== The change feed
+
+`baseDataChanges(after, first)` lists changes to spex categories, spex, task categories, tasks, characters and numbers in
+order, each with the record as it was right after the change. Apply them in order and keep `cursor`; pass it as `after`
+next time. `MERGE` means: move references from `id` to `mergedIntoId`. The caller needs `SYNC`; the cursor it reads up
+to is shown to admins.
+
+After a change, Spexipedia calls each consumer's notify address with its service token (`NOTIFY` on the consumer's
+client); the call carries no data.

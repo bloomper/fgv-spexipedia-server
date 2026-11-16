@@ -1,0 +1,130 @@
+name: fgv-spexipedia-server
+
+services:
+  spexipedia-mysql:
+    image: 'mysql:8.4'
+    restart: unless-stopped
+    command: --log-error=/var/log/mysql/error.log
+    environment:
+      MYSQL_HOST: localhost
+      MYSQL_DATABASE: ${FGV_SPEXIPEDIA_MYSQL_DATABASE}
+      MYSQL_ROOT_USER: ${FGV_SPEXIPEDIA_MYSQL_ROOT_USER}
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/FGV_SPEXIPEDIA_MYSQL_ROOT_PASSWORD
+      MYSQL_USER: ${FGV_SPEXIPEDIA_MYSQL_USER}
+      MYSQL_PASSWORD_FILE: /run/secrets/FGV_SPEXIPEDIA_MYSQL_USER_PASSWORD
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    ports:
+      - "127.0.0.1:3311:3306"
+    volumes:
+      - fgv_spexipedia_mysql_data:/var/lib/mysql
+      - fgv_spexipedia_mysql_log:/var/log/mysql
+    secrets:
+      - FGV_SPEXIPEDIA_MYSQL_ROOT_PASSWORD
+      - FGV_SPEXIPEDIA_MYSQL_USER_PASSWORD
+
+  # Serves the images under /media/ with long cache times; published on localhost:8089 for an API started from the IDE,
+  # which keeps the images in ./data/media too
+  spexipedia-media:
+    image: 'nginx:1.29-alpine'
+    restart: unless-stopped
+    environment:
+      MEDIA_CACHE_DAYS: 365
+    healthcheck:
+      test: [ "CMD", "wget", "-qO", "/dev/null", "http://127.0.0.1/healthz" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "127.0.0.1:8089:80"
+    volumes:
+      - ${SPEXIPEDIA_DEPLOY:-../fgv-spexipedia-deploy}/media/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./data/media:/srv/media:ro
+    networks:
+      - default
+      - fgv
+
+  spexipedia-api:
+    image: 'bloomper/fgv-spexipedia-server:develop'
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATASOURCE_URL: jdbc:mysql://spexipedia-mysql/${FGV_SPEXIPEDIA_MYSQL_DATABASE}
+      SPRING_DATASOURCE_USERNAME: ${FGV_SPEXIPEDIA_MYSQL_USER}
+      SERVER_PORT: 8080
+      MANAGEMENT_SERVER_PORT: 9000
+      LOGGING_FILE_PATH: /data/log_data
+      SERVER_FORWARD_HEADERS_STRATEGY: native
+      SPEXIPEDIA_KEYCLOAK_URL: http://keycloak-server:8080/auth
+      API_KEYCLOAK_REALM: ${API_KEYCLOAK_REALM}
+      API_WEB_URL: ${SPEXIPEDIA_WEB_ORIGIN:-http://localhost:3006}
+      API_MEDIA_ROOT: /data/media
+      API_UPLOADS_ROOT: /data/uploads
+      API_MEDIA_BASE_URL: https://media.spexipedia.fgv.local.nu:8443/media
+      API_SPEXREGISTER_GRAPHQL_URL: http://spexregister-api:8080/api/graphql
+      API_SPEXGRAM_GRAPHQL_URL: http://spexgram-api:8080/api/graphql
+      API_SPEXIFY_GRAPHQL_URL: http://spexify-api:8080/api/graphql
+      API_SPEXFLIX_GRAPHQL_URL: http://spexflix-api:8080/api/graphql
+      API_ARCHIVE_GRAPHQL_URL: http://archive-api:8080/api/graphql
+      API_IMPORT_SAMPLE_DATA: ${API_IMPORT_SAMPLE_DATA:-false}
+      API_SAMPLE_DATA_SIZE: ${API_SAMPLE_DATA_SIZE:-small}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak-server:8080/auth/realms/fgv/protocol/openid-connect/certs
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: https://auth.fgv.local.nu:8443/auth/realms/fgv
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_FGV_TOKEN_URI: http://keycloak-server:8080/auth/realms/fgv/protocol/openid-connect/token
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/9000;printf \"GET /actuator/health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n\" >&3;grep -q \"^HTTP/1.1 200\" <&3" ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 120s
+    depends_on:
+      spexipedia-mysql:
+        condition: service_healthy
+    volumes:
+      - fgv_spexipedia_api_log:/data/log_data
+      - ./data/media:/data/media
+      - ./data/uploads:/data/uploads
+    networks:
+      - default
+      - fgv
+    secrets:
+      - source: FGV_SPEXIPEDIA_MYSQL_USER_PASSWORD
+        target: MYSQL_API_USER_PASSWORD
+      - API_KEYCLOAK_SERVICE_CLIENT_SECRET
+
+volumes:
+  fgv_spexipedia_mysql_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: .docker/fgv-spexipedia-mysql/data
+      o: bind
+  fgv_spexipedia_mysql_log:
+    driver: local
+    driver_opts:
+      type: none
+      device: .docker/fgv-spexipedia-mysql/log
+      o: bind
+  fgv_spexipedia_api_log:
+    driver: local
+    driver_opts:
+      type: none
+      device: .docker/fgv-spexipedia-api/log_data
+      o: bind
+
+networks:
+  fgv:
+    name: fgv-local
+    external: true
+
+secrets:
+  FGV_SPEXIPEDIA_MYSQL_ROOT_PASSWORD:
+    file: .docker/secrets/FGV_SPEXIPEDIA_MYSQL_ROOT_PASSWORD
+  FGV_SPEXIPEDIA_MYSQL_USER_PASSWORD:
+    file: .docker/secrets/FGV_SPEXIPEDIA_MYSQL_USER_PASSWORD
+  API_KEYCLOAK_SERVICE_CLIENT_SECRET:
+    file: .docker/secrets/API_KEYCLOAK_SERVICE_CLIENT_SECRET

@@ -1,0 +1,32 @@
+= Spexipedia Server HTTP API Guide
+:doctype: book
+:icons: font
+:source-highlighter: highlightjs
+:toc: left
+:toclevels: 3
+
+[[introduction]]
+== Introduction
+
+The application API is GraphQL, at `/api/graphql` (see the GraphQL API guide). The only plain HTTP endpoint is the image
+upload.
+
+[[uploads]]
+== Image uploads
+
+`POST /api/images`, `multipart/form-data` with the part `file` and the parameter `kind` (`POSTER`, `LOGO`, `SKETCH`,
+`MAKEUP`, `COSTUME`, `SCENOGRAPHY`, `REBUS`, `VEST`, `COVER`, `ARTICLE` or `OTHER`), with an access token holding
+`AUTHOR` on `fgv-spexipedia`. JPEG, PNG, WebP, TIFF and HEIC up to 50 MB are accepted. The answer is the image as JSON
+(`id`, `width`, `height`, `thumbnailUrl`, `pageUrl`, `fullUrl`, `pageJpegUrl`, ...); it is placed on a page with the
+GraphQL API.
+
+Images must not show identifiable people: photos of people belong in Spexgram, and spex pages show them from there.
+
+Errors are `{"code": ..., "message": ...}` with the codes GraphQL uses (`BAD_REQUEST`, `FORBIDDEN`, `NOT_FOUND`),
+the message in the request's language.
+
+[[media]]
+== Media server
+
+`spexipedia-media` (nginx) serves `images/<id>/{thumbnail,page,full}.{webp,jpg}` under `/media/` on Spexipedia's
+hostname, with long cache times. Images are public. A trashed image's folder is moved out of what it serves.

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ImageMagick's security policy in the API's image: uploads are untrusted, so only the coders Spexipedia reads and
+  writes are allowed, nothing is read through a delegate (Ghostscript, curl) or from a file list (@file), and every run
+  has resource limits. The API also tells the format from the file's first bytes and names the coder itself
+  (ImageMagick.java); this is the second line.
+-->
+<!DOCTYPE policymap [
+  <!ELEMENT policymap (policy)*>
+  <!ATTLIST policymap xmlns CDATA #FIXED "">
+  <!ELEMENT policy EMPTY>
+  <!ATTLIST policy xmlns CDATA #FIXED "" domain NMTOKEN #REQUIRED name NMTOKEN #IMPLIED pattern CDATA #IMPLIED
+    rights NMTOKEN #IMPLIED stealth NMTOKEN #IMPLIED value CDATA #IMPLIED>
+]>
+<policymap>
+  <policy domain="resource" name="memory" value="512MiB"/>
+  <policy domain="resource" name="map" value="1GiB"/>
+  <policy domain="resource" name="disk" value="2GiB"/>
+  <policy domain="resource" name="width" value="30KP"/>
+  <policy domain="resource" name="height" value="30KP"/>
+  <policy domain="resource" name="area" value="200MP"/>
+  <policy domain="resource" name="time" value="120"/>
+  <policy domain="resource" name="thread" value="2"/>
+  <policy domain="delegate" rights="none" pattern="*"/>
+  <policy domain="filter" rights="none" pattern="*"/>
+  <policy domain="path" rights="none" pattern="@*"/>
+  <policy domain="coder" rights="none" pattern="*"/>
+  <policy domain="coder" rights="read|write" pattern="{JPEG,JPG,PNG,WEBP,TIFF,TIF,HEIC,HEIF,INFO}"/>
+</policymap>

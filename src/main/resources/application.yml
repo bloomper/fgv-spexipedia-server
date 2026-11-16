@@ -1,0 +1,172 @@
+spring:
+  config:
+    import: "optional:configtree:/run/secrets/"
+  datasource:
+    password: ${MYSQL_API_USER_PASSWORD:}
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        type:
+          preferred_uuid_jdbc_type: CHAR
+        default_batch_fetch_size: 100
+        transaction:
+          jta:
+            platform: org.hibernate.engine.transaction.jta.platform.internal.NoJtaPlatform
+  messages:
+    basename: messages
+    fallback-to-system-locale: false
+    encoding: UTF-8
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${spexipedia.keycloak.url}/realms/${spexipedia.keycloak.realm}
+      client:
+        registration:
+          fgv-spexipedia-service:
+            provider: fgv
+            client-id: ${spexipedia.keycloak.service-client-id}
+            client-secret: ${spexipedia.keycloak.service-client-secret}
+            authorization-grant-type: client_credentials
+        provider:
+          fgv:
+            token-uri: ${spexipedia.keycloak.url}/realms/${spexipedia.keycloak.realm}/protocol/openid-connect/token
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 51MB
+  threads:
+    virtual:
+      enabled: true
+  web:
+    locale: sv
+  graphql:
+    schema:
+      printer:
+        enabled: true
+      introspection:
+        enabled: false
+    http:
+      path: /api/graphql
+  ai:
+    mcp:
+      server:
+        name: fgv-spexipedia
+        version: 1.0.0
+        type: SYNC
+        protocol: STATELESS
+        streamable-http:
+          mcp-endpoint: /api/mcp
+        capabilities:
+          resource: false
+          prompt: false
+          completion: false
+        instructions: >-
+          Spexipedia is FGV's encyclopedia of Chalmersspexet and the other spex, and the source of the base data
+          that FGV's other applications copy: spex categories (the ensembles), spex and their revivals, task
+          categories and tasks (what people do in a spex, e.g. director or musician). Each spex has a page with
+          texts in Markdown, characters, scenes, numbers (songs) and recordings; articles cover everything else.
+          Every call runs with the permissions of the signed-in user and returns only what they may see. Users
+          write unpublished articles, authors change page texts, and editors add characters, scenes, numbers
+          and tracks by pasting text; every text saved is a revision. Nothing is published, merged, retired or
+          deleted here: that is done in the web. Retired records are kept for history and left out unless asked
+          for.
+
+management:
+  server:
+    port: 9000
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,info
+
+server:
+  port: 8080
+  forward-headers-strategy: framework
+
+logging:
+  file:
+    path: ./data/log_data
+
+spexipedia:
+  time-zone: Europe/Stockholm
+  web-url: ${API_WEB_URL:http://localhost:3006}
+  base-url: ${API_BASE_URL:https://api.spexipedia.fgv.local.nu:8443}
+  jobs:
+    image-variants:
+      cron-expression: 0 15 3 * * * # Every day at 03:15
+    link-check:
+      cron-expression: 0 45 3 * * * # Every day at 03:45
+    search-rebuild:
+      cron-expression: 0 0 4 * * * # Every day at 04:00
+    sync-notify:
+      cron-expression: 0 * * * * * # Every minute: notifications that failed
+    upload-cleanup:
+      cron-expression: 0 5 * * * * # Every hour at :05
+    retention:
+      cron-expression: 0 30 4 * * * # Every day at 04:30
+  keycloak:
+    url: ${API_KEYCLOAK_URL:https://auth.fgv.local.nu:8443/auth}
+    realm: ${API_KEYCLOAK_REALM:fgv}
+    service-client-id: ${API_KEYCLOAK_SERVICE_CLIENT_ID:fgv-spexipedia-service}
+    service-client-secret: ${API_KEYCLOAK_SERVICE_CLIENT_SECRET:}
+  security:
+    # The web, and the service accounts that read the feed (SYNC) or create revivals (REVIVAL)
+    authorized-parties: ${API_SECURITY_AUTHORIZED_PARTIES:fgv-spexipedia,fgv-spexregister-service,fgv-spexify-service,fgv-spexflix-service,fgv-spexgram-service,fgv-archive-service,fgv-revival-service}
+  mcp:
+    # MCP clients, which only the MCP endpoint accepts
+    authorized-parties: ${API_KEYCLOAK_MCP_CLIENT_ID:fgv-spexipedia-mcp}
+  media:
+    root: ${API_MEDIA_ROOT:./data/media}
+    uploads: ${API_UPLOADS_ROOT:./data/uploads}
+    base-url: ${API_MEDIA_BASE_URL:https://media.spexipedia.fgv.local.nu:8443/media}
+    max-upload-size: 50MB
+    # magick (ImageMagick 7), convert (6) or auto: magick when it is on the path, else convert
+    magick: ${API_MAGICK:auto}
+  apps:
+    cache-ttl: 5m
+    timeout: 3s
+    spexregister:
+      graphql-url: ${API_SPEXREGISTER_GRAPHQL_URL:https://api.register.fgv.local.nu:8443/api/graphql}
+      web-url: ${SPEXREGISTER_URL:http://localhost:3000}
+    spexgram:
+      graphql-url: ${API_SPEXGRAM_GRAPHQL_URL:https://api.spexgram.fgv.local.nu:8443/api/graphql}
+      web-url: ${SPEXGRAM_URL:http://localhost:3004}
+    spexify:
+      graphql-url: ${API_SPEXIFY_GRAPHQL_URL:https://api.spexify.fgv.local.nu:8443/api/graphql}
+      web-url: ${SPEXIFY_URL:http://localhost:3002}
+    spexflix:
+      graphql-url: ${API_SPEXFLIX_GRAPHQL_URL:https://api.spexflix.fgv.local.nu:8443/api/graphql}
+      web-url: ${SPEXFLIX_URL:http://localhost:3003}
+    archive:
+      graphql-url: ${API_ARCHIVE_GRAPHQL_URL:https://api.archive.fgv.local.nu:8443/api/graphql}
+      web-url: ${ARCHIVE_URL:http://localhost:3005}
+  data:
+    import-sample-data: ${API_IMPORT_SAMPLE_DATA:false}
+    sample-data-size: ${API_SAMPLE_DATA_SIZE:small}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  graphql:
+    schema:
+      introspection:
+        enabled: true
+  # The password comes from MYSQL_API_USER_PASSWORD, as in the container
+  datasource:
+    url: jdbc:mysql://localhost:3311/spexipedia
+    username: spexipedia
+
+server:
+  port: 8088
+
+management:
+  server:
+    port: 9008
+
+spexipedia:
+  keycloak:
+    url: https://auth.fgv.local.nu:8443/auth

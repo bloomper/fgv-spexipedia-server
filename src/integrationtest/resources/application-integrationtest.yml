@@ -1,0 +1,30 @@
+logging:
+  file:
+    path: ./build/integrationtest-data/log_data
+
+spexipedia:
+  # Scheduled jobs never fire on their own in tests: a test that needs one calls it, so a run at
+  # the wrong minute can't hold its lock or change data mid-test
+  jobs:
+    image-variants:
+      cron-expression: '-'
+    link-check:
+      cron-expression: '-'
+    search-rebuild:
+      cron-expression: '-'
+    sync-notify:
+      cron-expression: '-'
+    upload-cleanup:
+      cron-expression: '-'
+    retention:
+      cron-expression: '-'
+  web-url: https://spexipedia.test
+  # The audience the realm copy gives fgv-spexipedia-mcp's tokens by default is this address's /api/mcp
+  base-url: http://localhost:8088
+  mcp:
+    # The unbound client's tokens lack that audience, so they are refused all the same
+    authorized-parties: fgv-spexipedia-mcp,fgv-spexipedia-mcp-unbound
+  media:
+    root: ./build/integrationtest-data/media
+    uploads: ./build/integrationtest-data/uploads
+    base-url: https://spexipedia.test/media
