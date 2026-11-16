@@ -85,6 +85,10 @@ public abstract class AbstractIntegrationTest {
     protected static final String ADMIN = "admin" + DOMAIN;
     protected static final String PASSWORD = "s3cr3t-s3cr3t";
     protected static final String CLIENT_ID = "fgv-spexipedia";
+    protected static final String MCP_CLIENT_ID = "fgv-spexipedia-mcp";
+    // A public client in the MCP allow-list whose tokens lack the MCP endpoint as audience
+    protected static final String UNBOUND_MCP_CLIENT_ID = "fgv-spexipedia-mcp-unbound";
+    protected static final String MCP_PATH = "/api/mcp";
     protected static final WireMockServer WIREMOCK = new WireMockServer(options().dynamicPort());
     protected static final Path DATA = Path.of("build/integrationtest-data").toAbsolutePath();
     private static final String REALM = "fgv";
@@ -154,6 +158,19 @@ public abstract class AbstractIntegrationTest {
 
             web.setDirectAccessGrantsEnabled(true);
             realm.clients().get(web.getId()).update(web);
+
+            final ClientRepresentation mcp = realm.clients().findByClientId(MCP_CLIENT_ID).getFirst();
+
+            mcp.setDirectAccessGrantsEnabled(true);
+            mcp.setConsentRequired(false);
+            realm.clients().get(mcp.getId()).update(mcp);
+
+            final ClientRepresentation unbound = new ClientRepresentation();
+
+            unbound.setClientId(UNBOUND_MCP_CLIENT_ID);
+            unbound.setPublicClient(true);
+            unbound.setDirectAccessGrantsEnabled(true);
+            realm.clients().create(unbound).close();
             // USER comes with the realm's default role, as for every approved user
             createUser(realm, MEMBER, "Lisa", List.of(), List.of("spexregister"));
             createUser(realm, AUTHOR, "Agnes", List.of("AUTHOR"), List.of());
@@ -248,6 +265,18 @@ public abstract class AbstractIntegrationTest {
         });
     }
 
+    /**
+     * A user's access token from a public MCP client, {@code fgv-spexipedia-mcp} or the unbound one, by password grant.
+     */
+    protected static String mcpToken(final String user, final String clientId) {
+        return TOKENS.computeIfAbsent(clientId + ":" + user, _ -> {
+            final MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+
+            Map.of("grant_type", "password", "client_id", clientId, "username", user, "password", PASSWORD, "scope", "openid").forEach(form::add);
+            return "Bearer " + tokenRequest(form).get("access_token");
+        });
+    }
+
     private static Map<String, Object> password(final String clientId, final String user) {
         final MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
 
@@ -313,6 +342,27 @@ public abstract class AbstractIntegrationTest {
                     headers.set(HttpHeaders.ACCEPT_LANGUAGE, "en");
                 })
                 .build());
+    }
+
+    /**
+     * A JSON-RPC request to the MCP endpoint, e.g. {@code tools/list}, with a token or none, for its HTTP status and body.
+     */
+    protected WebTestClient.ResponseSpec mcp(final @Nullable String authorization, final String method, final Map<String, Object> params) {
+        return WebTestClient.bindToServer()
+                .baseUrl("http://localhost:%d".formatted(localPort))
+                .responseTimeout(Duration.ofSeconds(60))
+                .build()
+                .post()
+                .uri(MCP_PATH)
+                .headers(headers -> {
+                    if (authorization != null) {
+                        headers.set(HttpHeaders.AUTHORIZATION, authorization);
+                    }
+                })
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON, MediaType.TEXT_EVENT_STREAM)
+                .bodyValue(Map.of("jsonrpc", "2.0", "id", 1, "method", method, "params", params))
+                .exchange();
     }
 
     protected RestClient http() {

@@ -93,3 +93,50 @@ The password is ``s3cr3t-s3cr3t`` locally (fgv-infra-deploy's ``secrets/SAMPLE_U
 Credits refer to six spexare that Spexregister's sample data creates with fixed ids (published and unpublished, with and
 without nicknames); who played which character comes from Spexregister's sample actors. The first spex page shows photos
 from Spexgram's sample data.
+
+[[mcp_server]]
+== MCP server
+
+Spexipedia Server exposes an MCP (Model Context Protocol) server at ``/api/mcp`` (stateless streamable HTTP), letting AI
+assistants read Spexipedia and write some of its texts. The base data tools (``list_spex``, ``get_spex``,
+``list_spex_categories``, ``get_spex_category``, ``list_tasks``, ``get_task``, ``list_task_categories``,
+``get_task_category``) replace those of the same names that Spexregister had, which kept only a copy.
+
+Every tool call runs with the permissions of the signed-in user, through the same services as GraphQL, and returns only
+what the GraphQL API would show them. The tools, and the role a write needs as in GraphQL:
+
+|===
+|Tools |Who
+
+|``list_spex``, ``search_spex``, ``list_spex_years``, ``get_spex`` (the whole page; people from Spexregister with
+``includePeople``), ``list_spex_categories``, ``get_spex_category``, ``list_tasks``, ``get_task``,
+``list_task_categories``, ``get_task_category``, ``list_characters``, ``get_character``, ``list_numbers``,
+``get_number``, ``list_figures``, ``get_figure``, ``list_recordings``, ``get_recording``, ``search``, ``list_articles``,
+``get_article``, ``list_article_categories``, ``get_article_category``
+|Anyone signed in; unpublished pages, retired characters and numbers and unpublished recordings as in GraphQL
+|``list_recent_changes`` |USER
+|``create_article``, ``update_article`` |USER; created unpublished, and only unpublished articles are changed
+|``update_spex_page`` (the texts only) |AUTHOR
+|``paste_characters``, ``paste_scenes``, ``paste_numbers``, ``paste_recording_tracks`` |EDITOR
+|===
+
+Nothing is published, merged, retired, trashed or deleted over MCP, and images, redirects, settings, the change feed's
+consumers and maintenance stay in the web. Every text saved is a revision, and every change is in the audit log, by
+the signed-in user; the audit log does not record that a change came through MCP.
+
+Authentication uses OAuth 2.0 against Keycloak with the public client ``fgv-spexipedia-mcp`` (authorization code with
+PKCE, redirect URIs ``http://localhost:*`` and ``http://127.0.0.1:*``), whose tokens carry the user's roles on
+``fgv-spexipedia``. Only tokens issued to that client (``API_KEYCLOAK_MCP_CLIENT_ID``) are accepted by the MCP endpoint,
+and they are not accepted by the rest of the API. The tokens must also have the MCP endpoint's address as audience: the
+path ``/api/mcp`` on ``API_BASE_URL``, which ``fgv.json`` sets from ``SPEXIPEDIA_MCP_URL``. Users confirm the access
+once, on Keycloak's consent page. MCP clients discover Keycloak through the protected resource metadata at
+``/.well-known/oauth-protected-resource/api/mcp``. Keycloak does not allow dynamic client registration by default, so
+configure the MCP client with the client id ``fgv-spexipedia-mcp``.
+
+Locally, the MCP server is available at ``https://api.spexipedia.fgv.local.nu:8443/api/mcp``. It can for instance be
+explored with the MCP Inspector (https://github.com/modelcontextprotocol/inspector).
+
+The integration tests import a copy of fgv-keycloak's ``realm/fgv.json`` at ``src/integrationtest/resources/realm/fgv.json``.
+After every realm change, replace it with the new one.
+
+xref:index.adoc[Back to start page]

@@ -29,14 +29,17 @@ import java.util.List;
  *
  * @param timeZone the zone schedules run in and "today" is in
  * @param webUrl   the web's address, for links in the feed (posters, logos) and to pages
+ * @param baseUrl  the API's public address, whose path the MCP endpoint replaces to name itself as the tokens' audience
  * @author Anders Jacobsson
  * @since 1.0
  */
 @ConfigurationProperties(prefix = "spexipedia")
 public record SpexipediaProperties(String timeZone,
                                    String webUrl,
+                                   String baseUrl,
                                    Keycloak keycloak,
                                    Security security,
+                                   Mcp mcp,
                                    Media media,
                                    Apps apps,
                                    Data data) {
@@ -53,6 +56,12 @@ public record SpexipediaProperties(String timeZone,
      *                          of the applications that read the change feed or create revivals
      */
     public record Security(List<String> authorizedParties) {
+    }
+
+    /**
+     * @param authorizedParties the clients ({@code azp}) whose tokens the MCP endpoint accepts: {@code fgv-spexipedia-mcp}
+     */
+    public record Mcp(List<String> authorizedParties) {
     }
 
     /**

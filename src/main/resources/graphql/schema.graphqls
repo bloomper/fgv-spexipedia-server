@@ -17,25 +17,25 @@ type Query {
     startPage: StartPage!
 
     "Anyone. Every spex category, by first year; retired ones only with includeRetired."
-    spexCategories(includeRetired: Boolean = false): [SpexCategory!]!
+    spexCategories(includeRetired: Boolean! = false): [SpexCategory!]!
     "Anyone. A spex category by id; also by the id of a category merged into it."
     spexCategory(id: ID!): SpexCategory
     "Anyone. Every spex, originals and revivals, by year then title; retired ones only with includeRetired. For other applications: copy what they need from here, then follow baseDataChanges."
-    spexAll(includeRetired: Boolean = false): [Spex!]!
+    spexAll(includeRetired: Boolean! = false): [Spex!]!
     "Anyone. A spex by id or slug; also by the id of a spex merged into it."
     spex(id: ID!): Spex
     "Anyone. Spex whose title, year or category match, each original followed by its revivals, newest first. At most 50."
-    spexSearch(q: String!, includeRetired: Boolean = false): [Spex!]!
+    spexSearch(q: String!, includeRetired: Boolean! = false): [Spex!]!
     "Anyone. The years that have spex, newest first, with how many."
     spexYears: [YearCount!]!
     "Anyone. Every task category with its tasks; retired ones only with includeRetired."
-    taskCategories(includeRetired: Boolean = false): [TaskCategory!]!
+    taskCategories(includeRetired: Boolean! = false): [TaskCategory!]!
     "Anyone. A task category by id; also by the id of one merged into it."
     taskCategory(id: ID!): TaskCategory
     "Anyone. A task by id; also by the id of one merged into it."
     task(id: ID!): Task
     "Anyone. Every task, by category and name."
-    tasks(includeRetired: Boolean = false): [Task!]!
+    tasks(includeRetired: Boolean! = false): [Task!]!
 
     "Anyone. A character by id."
     character(id: ID!): Character
@@ -63,7 +63,7 @@ type Query {
     "Anyone. An article category by id or slug."
     articleCategory(id: ID!): ArticleCategory
     "USER. Every revision of articles and of spex page texts, newest first; hidden ones show only that they are hidden."
-    recentChanges(page: Int = 0, size: Int = 50): RevisionPage!
+    recentChanges(page: Int! = 0, size: Int! = 50): RevisionPage!
     "Anyone. A revision the viewer may see: of an article the viewer may see, or of a published spex page's texts; authors only for AUTHOR."
     revision(id: ID!): Revision
     "Anyone. Where an old MediaWiki title leads: a path in the web, or null when no redirect matches."
@@ -72,7 +72,7 @@ type Query {
     redirects: [Redirect!]!
 
     "Anyone. Spex, characters, figures, numbers, original songs, recordings and articles that match the words. People are never searched."
-    search(q: String!, limit: Int = 50): [SearchHit!]!
+    search(q: String!, limit: Int! = 50): [SearchHit!]!
     "Anyone. Every public page, for the sitemap."
     sitemap: [SitemapEntry!]!
 
@@ -91,7 +91,7 @@ type Query {
     "AUTHOR. Trashed articles and images, most recently trashed first."
     trash: Trash!
     "AUTHOR. The audit log, newest first: the caller's own changes, or everyone's for ADMIN, narrowed by the filter."
-    auditLog(page: Int = 0, size: Int = 50, filter: AuditFilter): AuditPage!
+    auditLog(page: Int! = 0, size: Int! = 50, filter: AuditFilter): AuditPage!
     "AUTHOR. Who made the changes in the audit log the caller sees; only the caller unless ADMIN."
     auditActors: [AuditActor!]!
     "ADMIN."
@@ -298,7 +298,7 @@ type SpexCategory {
     logo: Image
     retired: Boolean!
     "Its spex, originals first by year, then revivals."
-    spex(includeRetired: Boolean = false): [Spex!]!
+    spex(includeRetired: Boolean! = false): [Spex!]!
     createdAt: Instant!
     lastModifiedAt: Instant
 }
@@ -371,7 +371,7 @@ type TaskCategory {
     "Whether its tasks are instruments, which Spexarkivet offers for the parts of arrangements."
     instruments: Boolean!
     retired: Boolean!
-    tasks(includeRetired: Boolean = false): [Task!]!
+    tasks(includeRetired: Boolean! = false): [Task!]!
 }
 
 input TaskCategoryInput {

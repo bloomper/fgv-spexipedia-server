@@ -49,6 +49,29 @@ spring:
         enabled: false
     http:
       path: /api/graphql
+  ai:
+    mcp:
+      server:
+        name: fgv-spexipedia
+        version: 1.0.0
+        type: SYNC
+        protocol: STATELESS
+        streamable-http:
+          mcp-endpoint: /api/mcp
+        capabilities:
+          resource: false
+          prompt: false
+          completion: false
+        instructions: >-
+          Spexipedia is FGV's encyclopedia of Chalmersspexet and the other spex, and the source of the base data
+          that FGV's other applications copy: spex categories (the ensembles), spex and their revivals, task
+          categories and tasks (what people do in a spex, e.g. director or musician). Each spex has a page with
+          texts in Markdown, characters, scenes, numbers (songs) and recordings; articles cover everything else.
+          Every call runs with the permissions of the signed-in user and returns only what they may see. Users
+          write unpublished articles, authors change page texts, and editors add characters, scenes, numbers
+          and tracks by pasting text; every text saved is a revision. Nothing is published, merged, retired or
+          deleted here: that is done in the web. Retired records are kept for history and left out unless asked
+          for.
 
 management:
   server:
@@ -69,6 +92,7 @@ logging:
 spexipedia:
   time-zone: Europe/Stockholm
   web-url: ${API_WEB_URL:http://localhost:3006}
+  base-url: ${API_BASE_URL:https://api.spexipedia.fgv.local.nu:8443}
   jobs:
     image-variants:
       cron-expression: 0 15 3 * * * # Every day at 03:15
@@ -90,6 +114,9 @@ spexipedia:
   security:
     # The web, and the service accounts that read the feed (SYNC) or create revivals (REVIVAL)
     authorized-parties: ${API_SECURITY_AUTHORIZED_PARTIES:fgv-spexipedia,spexregister-service,fgv-spexify-service,fgv-spexflix-service,fgv-spexgram-service,fgv-archive-service,fgv-revival-service}
+  mcp:
+    # MCP clients, which only the MCP endpoint accepts
+    authorized-parties: ${API_KEYCLOAK_MCP_CLIENT_ID:fgv-spexipedia-mcp}
   media:
     root: ${API_MEDIA_ROOT:./data/media}
     uploads: ${API_UPLOADS_ROOT:./data/uploads}

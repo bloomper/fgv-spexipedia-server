@@ -5,7 +5,8 @@
 Spexipedia Server is the backend of Spexipedia, FGV's encyclopedia of Chalmersspexet and the other spex, and the source
 of the base data (spex categories, spex, revivals, task categories, tasks, characters and numbers) that FGV's other
 applications copy. It is a Spring Boot application with a GraphQL API, which answers without login too, with what is
-public, and a plain HTTP endpoint for image uploads. It is backed by MySQL and Keycloak ([fgv-keycloak][1]).
+public, a plain HTTP endpoint for image uploads, and an MCP server at `/api/mcp` for AI assistants.
+It is backed by MySQL and Keycloak ([fgv-keycloak][1]).
 [Spexipedia Web][2] is its frontend and [fgv-spexipedia-deploy][3] runs it on a server.
 
 The product spec is in [fgv-spexipedia-spec][4].
@@ -19,6 +20,9 @@ The product spec is in [fgv-spexipedia-spec][4].
 | Photos of people: group photos, the board, actors              | Spexgram; Spexipedia keeps the item ids and asks Spexgram for signed addresses |
 | Who played, held tasks, wore the vest, wrote and arranged      | Spexregister, asked when a page is shown (role `SPEXIPEDIA`), cached in memory for at most ten minutes, never stored |
 | Links to tracks, albums, videos, manuscripts and arrangements  | Spexify, Spexflix, Spexarkivet, asked with their read-only roles and cached for a few minutes |
+
+MCP clients log in with the public client `fgv-spexipedia-mcp`; its tokens are accepted only at `/api/mcp`
+(`getting-started.adoc`, *MCP server*). Spexregister's MCP server no longer has the base data tools.
 
 The other applications read base data without a token and follow the change feed (`baseDataChanges`, role `SYNC`);
 after each change the API calls the consumers' `POST /api/sync/notify` with `fgv-spexipedia-service`'s token. Admins
