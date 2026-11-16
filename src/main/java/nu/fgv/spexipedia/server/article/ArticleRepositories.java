@@ -48,6 +48,18 @@ public final class ArticleRepositories {
         List<Article> findAllLive();
 
         List<Article> findByTrashedAtIsNotNullOrderByTrashedAtDesc();
+
+        @Query("SELECT a FROM Article a WHERE a.parent = :parent AND a.trashedAt IS NULL ORDER BY a.position, a.title")
+        List<Article> findChildren(Article parent);
+
+        @Query("SELECT a FROM Article a WHERE a.parent IS NULL AND a.trashedAt IS NULL ORDER BY a.position, a.title")
+        List<Article> findRoots();
+
+        @Query("SELECT COALESCE(MAX(a.position), 0) FROM Article a WHERE a.parent = :parent")
+        int maxPosition(Article parent);
+
+        @Query("SELECT COALESCE(MAX(a.position), 0) FROM Article a WHERE a.parent IS NULL")
+        int maxRootPosition();
     }
 
     public interface ArticleCategoryRepository extends JpaRepository<ArticleCategory, Long> {
@@ -58,5 +70,8 @@ public final class ArticleRepositories {
         boolean existsBySlug(String slug);
 
         List<ArticleCategory> findAllByOrderByNameAsc();
+
+        @Query("SELECT c FROM ArticleCategory c WHERE LOWER(c.name) = LOWER(:name)")
+        List<ArticleCategory> findByName(String name);
     }
 }

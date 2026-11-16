@@ -30,5 +30,6 @@ public enum Role {
     EDITOR,
     ADMIN,
     SYNC,
-    REVIVAL
+    REVIVAL,
+    IMPORT
 }

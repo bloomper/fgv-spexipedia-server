@@ -21,7 +21,10 @@ import nu.fgv.spexipedia.server.basedata.BaseDataService;
 import nu.fgv.spexipedia.server.content.ContentGraphqlApi;
 import nu.fgv.spexipedia.server.content.ContentGraphqlApi.CreditDto;
 import nu.fgv.spexipedia.server.content.ContentGraphqlApi.PageImageDto;
+import nu.fgv.spexipedia.server.content.ListStore;
 import nu.fgv.spexipedia.server.content.ListStore.PlacedImage;
+import nu.fgv.spexipedia.server.kind.Kind;
+import nu.fgv.spexipedia.server.kind.KindService;
 import nu.fgv.spexipedia.server.image.ImageDto;
 import nu.fgv.spexipedia.server.image.ImageService;
 import nu.fgv.spexipedia.server.links.LinkDtos.PhotoSetDto;
@@ -57,9 +60,11 @@ public class PageGraphqlApi {
     private final ImageService imageService;
     private final LinkService linkService;
     private final ContentGraphqlApi contentApi;
+    private final KindService kindService;
 
     public PageGraphqlApi(final SpexPageService service, final BaseDataService baseData, final ImageService imageService,
-                          final LinkService linkService, final ContentGraphqlApi contentApi) {
+                          final LinkService linkService, final ContentGraphqlApi contentApi, final KindService kindService) {
+        this.kindService = kindService;
         this.service = service;
         this.baseData = baseData;
         this.imageService = imageService;
@@ -85,7 +90,8 @@ public class PageGraphqlApi {
             return own;
         }
         return new SpexPageDto(own.spexKey(), own.spexId(), either(own.generation(), parent.generation()), own.premiere(),
-                either(own.introduction(), parent.introduction()), either(own.description(), parent.description()),
+                either(own.introduction(), parent.introduction()), either(own.shortDescription(), parent.shortDescription()),
+                either(own.description(), parent.description()),
                 either(own.synopsis(), parent.synopsis()), either(own.rebusKey(), parent.rebusKey()),
                 either(own.rebusSolutionKey(), parent.rebusSolutionKey()), either(own.vestDescription(), parent.vestDescription()),
                 either(own.vestWornBy(), parent.vestWornBy()), own.published(), own.lastModifiedAt());
@@ -111,7 +117,8 @@ public class PageGraphqlApi {
             }
         }
         return service.update(Ids.require(spexId), new SpexPageService.PageInput((String) input.get("generation"),
-                (String) input.get("premiere"), (String) input.get("introduction"), (String) input.get("description"),
+                (String) input.get("premiere"), (String) input.get("introduction"), (String) input.get("shortDescription"),
+                (String) input.get("description"),
                 (String) input.get("synopsis"), (String) input.get("vestDescription"),
                 input.get("vestWornBy") == null ? null : ContentGraphqlApi.credit((Map<String, String>) input.get("vestWornBy")),
                 baseIds));
@@ -119,8 +126,14 @@ public class PageGraphqlApi {
 
     @MutationMapping
     public SpexPageDto spexPageSetImages(@Argument final String spexId, @Argument final String section,
-                                         @Argument final List<Map<String, String>> images) {
-        return service.setImages(Ids.require(spexId), section, ContentGraphqlApi.imageRefs(images));
+                                         @Argument final @Nullable String kindId, @Argument final List<Map<String, String>> images) {
+        return service.setImages(Ids.require(spexId), section, Ids.optional(kindId), ContentGraphqlApi.imageRefs(images));
+    }
+
+    @MutationMapping
+    public SpexPageDto spexPageSetFacts(@Argument final String spexId, @Argument final List<Map<String, String>> facts) {
+        return service.setFacts(Ids.require(spexId), facts.stream()
+                .map(fact -> new SpexPageService.FactInput(Ids.require(fact.get("kindId")), fact.get("value"))).toList());
     }
 
     @MutationMapping
@@ -189,7 +202,32 @@ public class PageGraphqlApi {
                 placed = service.images(spex.parentKey(), section);
             }
         }
-        return contentApi.pageImages(placed, imageService.byIds(placed.stream().map(PlacedImage::imageId).collect(Collectors.toSet())));
+        return contentApi.pageImages(placed, imageService.byIds(placed.stream().map(PlacedImage::imageId).collect(Collectors.toSet())),
+                kindService.byKeys(placed.stream().map(PlacedImage::kindId).filter(java.util.Objects::nonNull).collect(Collectors.toSet())));
+    }
+
+    /**
+     * The facts of the page, in the kinds' order; a revival without facts of its own shows its parent's.
+     */
+    @SchemaMapping(typeName = "SpexPage")
+    public List<FactDto> facts(final SpexPageDto page) {
+        List<ListStore.Fact> facts = service.facts(page.spexKey());
+
+        if (facts.isEmpty()) {
+            final SpexDto spex = baseData.spexByKey(page.spexKey());
+
+            if (spex.parentKey() != null) {
+                facts = service.facts(spex.parentKey());
+            }
+        }
+
+        final Map<Long, Kind> kinds = kindService.byKeys(facts.stream().map(ListStore.Fact::kindId).collect(Collectors.toSet()));
+
+        return facts.stream().filter(fact -> kinds.containsKey(fact.kindId()))
+                .map(fact -> new FactDto(kinds.get(fact.kindId()), fact.value())).toList();
+    }
+
+    public record FactDto(Kind kind, String value) {
     }
 
     @SchemaMapping(typeName = "SpexPage")

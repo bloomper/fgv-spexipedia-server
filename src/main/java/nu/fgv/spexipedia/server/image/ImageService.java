@@ -120,6 +120,25 @@ public class ImageService {
     }
 
     /**
+     * EDITOR (an import). The image with this content if Spexipedia has it, else the file stored as a new image.
+     */
+    @Transactional
+    public Image importImage(final java.nio.file.Path file, final String sha256, final @Nullable String fileName, final ImageKind kind) {
+        callerService.current().requireAuthor();
+
+        return repository.findFirstBySha256AndTrashedAtIsNull(sha256).orElseGet(() -> {
+            try (InputStream in = Files.newInputStream(file)) {
+                final Image image = store(in, fileName, kind);
+
+                auditService.record("UPLOAD", "IMAGE", image.getUuid(), "Importerade bilden " + image.getOriginalFileName());
+                return image;
+            } catch (final IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        });
+    }
+
+    /**
      * Stores an image without checking the caller, for the sample data.
      */
     @Transactional

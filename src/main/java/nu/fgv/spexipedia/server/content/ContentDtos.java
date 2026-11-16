@@ -44,11 +44,20 @@ public final class ContentDtos {
                            boolean intervalAfter) {
     }
 
-    public record NumberDto(long key, UUID id, long spexKey, int act, int position, String title,
-                            @Nullable String originalTitle, @Nullable String originalArtist, boolean retired) {
+    public record NumberDto(long key, UUID id, long spexKey, int act, int position, String title, @Nullable Long kindKey,
+                            @Nullable String originalTitle, @Nullable String originalArtist, @Nullable String fromWork,
+                            @Nullable String firstLine, boolean retired) {
+
+        /**
+         * The same number at another place in the show, as a revival moves it.
+         */
+        public NumberDto at(final int act, final int position) {
+            return new NumberDto(key, id, spexKey, act, position, title, kindKey, originalTitle, originalArtist, fromWork,
+                    firstLine, retired);
+        }
     }
 
-    public record RecordingDto(long key, UUID id, String slug, String catalogueNumber, String title, Medium medium,
+    public record RecordingDto(long key, UUID id, String slug, String catalogueNumber, String title, long mediumKey,
                                @Nullable Long spexKey, @Nullable String released, @Nullable String recorded,
                                @Nullable CreditRef conductor, @Nullable String description, @Nullable Long frontKey,
                                @Nullable Long backKey, @Nullable UUID spexifyAlbumId, boolean published) {
@@ -74,7 +83,8 @@ public final class ContentDtos {
 
     public static NumberDto toDto(final SpexNumber number) {
         return new NumberDto(number.getId(), number.getUuid(), number.getSpex().getId(), number.getAct(), number.getPosition(),
-                number.getTitle(), number.getOriginalTitle(), number.getOriginalArtist(), number.isRetired());
+                number.getTitle(), number.getKind() == null ? null : number.getKind().getId(), number.getOriginalTitle(),
+                number.getOriginalArtist(), number.getFromWork(), number.getFirstLine(), number.isRetired());
     }
 
     public static RecordingDto toDto(final Recording recording) {
@@ -82,7 +92,7 @@ public final class ContentDtos {
                 : new CreditRef(recording.getConductorSpexareId(), recording.getConductorName());
 
         return new RecordingDto(recording.getId(), recording.getUuid(), recording.getSlug(), recording.getCatalogueNumber(),
-                recording.getTitle(), recording.getMedium(), recording.getSpex() == null ? null : recording.getSpex().getId(),
+                recording.getTitle(), recording.getMedium().getId(), recording.getSpex() == null ? null : recording.getSpex().getId(),
                 recording.getReleased(), recording.getRecorded(), conductor, recording.getDescription(),
                 recording.getFront() == null ? null : recording.getFront().getId(),
                 recording.getBack() == null ? null : recording.getBack().getId(), recording.getSpexifyAlbumId(),

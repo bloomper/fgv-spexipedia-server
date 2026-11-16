@@ -53,11 +53,21 @@ type Query {
     recordings: [Recording!]!
     "Anyone. A published recording by id or slug; any for EDITOR."
     recording(id: ID!): Recording
+    "Anyone. The kinds admins keep (spec 4.6) of a type, in order; use only for IMAGE kinds. Retired ones only with includeRetired."
+    kinds(type: KindType!, use: KindUse, includeRetired: Boolean! = false): [Kind!]!
+    "EDITOR. Credits that an import brought as names nobody has resolved yet (spec 5.3), oldest numbers first."
+    unresolvedCredits(limit: Int! = 100): UnresolvedCredits!
 
     "Anyone. An article by id or slug that the viewer may see: published public ones for visitors; members' and unpublished ones for USER."
     article(id: ID!): Article
-    "Anyone. Articles the viewer may see, by title, optionally in one category."
-    articles(categoryId: ID): [Article!]!
+    "Anyone. Articles the viewer may see, by title, optionally in one category, and with includeSubcategories also in the categories below it."
+    articles(categoryId: ID, includeSubcategories: Boolean! = false): [Article!]!
+    "Anyone. The articles at the top of the tree (spec 4.5) that the viewer may see, in their order."
+    articleRoots: [Article!]!
+    "USER. Titles that articles link to but no article has, most linked first."
+    wantedArticles(limit: Int! = 100): [WantedArticle!]!
+    "USER. Articles nothing links to, without parent, children or category."
+    orphanArticles: [Article!]!
     "Anyone. Every article category, by name, with the number of articles the viewer may see."
     articleCategories: [ArticleCategory!]!
     "Anyone. An article category by id or slug."
@@ -164,6 +174,8 @@ type Mutation {
     numberUpdate(id: ID!, input: NumberInput!): Number!
     "EDITOR. Numbers are base data: only one nothing refers to is deleted; retire the others."
     numberDelete(id: ID!): Boolean!
+    "EDITOR. Resolves an unresolved credit (spec 5.3): the spexare it means (spexareId), or the name as someone outside FGV."
+    creditResolve(numberId: ID!, kindId: ID!, position: Int!, credit: CreditInput!): Number!
     "EDITOR. Numbers as text, one per line ('Title', 'Title (Original song – Original artist)'; a line 'Akt 2' starts an act)."
     numbersPaste(spexId: ID!, text: String!): [Number!]!
     "EDITOR. The spex's own numbers in the given order; act numbers come from the input."
@@ -185,8 +197,10 @@ type Mutation {
 
     "AUTHOR. The texts of a spex page; every changed text is a revision. Refused with CONFLICT when baseRevisionIds no longer match the texts' latest revisions."
     spexPageUpdate(spexId: ID!, input: SpexPageInput!): SpexPage!
-    "AUTHOR. Images of a section of the page, in order, with captions."
-    spexPageSetImages(spexId: ID!, section: ImageSection!, images: [ImageRefInput!]!): SpexPage!
+    "AUTHOR. Images of a section of the page, in order, with captions: SCENOGRAPHY and OTHER per image kind of that use (the first when kindId is left out), VEST without a kind."
+    spexPageSetImages(spexId: ID!, section: ImageSection!, kindId: ID, images: [ImageRefInput!]!): SpexPage!
+    "AUTHOR. The facts of the spex (spec 4.2), at most one per fact kind; replaces the earlier ones. Empty values are left out."
+    spexPageSetFacts(spexId: ID!, facts: [FactInput!]!): SpexPage!
     "AUTHOR. Photos from Spexgram for a section, in order: the group photo, the board, or an actor's photos (characterId)."
     spexPageSetPhotos(spexId: ID!, section: PhotoSection!, characterId: ID, itemIds: [ID!]!): SpexPage!
     "AUTHOR. The rebus and its solution, uploaded images, or none."
@@ -204,8 +218,12 @@ type Mutation {
     articleRestore(id: ID!, revisionId: ID!): Article!
     "AUTHOR."
     articleSetPublished(id: ID!, published: Boolean!): Article!
-    "AUTHOR. Moves the article to the trash; restore with articleRestoreFromTrash."
-    articleTrash(id: ID!): Boolean!
+    "AUTHOR. Moves the article to the trash; restore with articleRestoreFromTrash. An article with children only withChildren, which trashes them too."
+    articleTrash(id: ID!, withChildren: Boolean! = false): Boolean!
+    "AUTHOR. Moves an article under another (parentId null for the top), last or at a position from 0; its children move with it."
+    articleMove(id: ID!, parentId: ID, position: Int): Article!
+    "AUTHOR. The children of an article (parentId null for the top) in the given order; all must be listed."
+    articleReorderChildren(parentId: ID, ids: [ID!]!): [Article!]!
     "AUTHOR."
     articleRestoreFromTrash(id: ID!): Article!
     "AUTHOR. Hides or shows a revision's text; the revision is kept."
@@ -224,6 +242,14 @@ type Mutation {
     "ADMIN. Deletes everything in the trash for good."
     trashEmpty: Int!
 
+    "ADMIN. A new kind (no id; type, and use for IMAGE kinds) or changes to one; type and use never change."
+    kindSave(id: ID, input: KindInput!): Kind!
+    "ADMIN. Every kind of a type and use, in the new order."
+    kindsReorder(type: KindType!, use: KindUse, ids: [ID!]!): [Kind!]!
+    "ADMIN. A retired kind stays on old records but is not offered for new ones; the last kind in use cannot be retired."
+    kindRetire(id: ID!, retired: Boolean!): Kind!
+    "ADMIN. Moves everything of a kind to another of the same type and use, keeps its names as aliases there, and deletes it."
+    kindMerge(id: ID!, intoId: ID!): Kind!
     "ADMIN."
     redirectSave(input: RedirectInput!): Redirect!
     "ADMIN."
@@ -464,12 +490,16 @@ type Number {
     act: Int!
     position: Int!
     title: String!
+    "A number kind (spec 4.6)."
+    kind: Kind
     originalTitle: String
     originalArtist: String
-    lyrics: [Credit!]!
-    composers: [Credit!]!
-    arrangers: [Credit!]!
-    choreographers: [Credit!]!
+    "Where the original song is from, e.g. a musical or a film."
+    fromWork: String
+    "The first line of the lyrics."
+    firstLine: String
+    "Credits by credit kind, in the kinds' order; unresolved ones only for EDITOR."
+    credits: [NumberCredit!]!
     characters: [Character!]!
     retired: Boolean!
     "Links for the viewer: the track in Spexify, the arrangement in Spexarkivet."
@@ -479,13 +509,42 @@ type Number {
 input NumberInput {
     act: Int!
     title: String!
+    kindId: ID
     originalTitle: String
     originalArtist: String
-    lyrics: [CreditInput!]
-    composers: [CreditInput!]
-    arrangers: [CreditInput!]
-    choreographers: [CreditInput!]
+    fromWork: String
+    firstLine: String
+    "Replaces all of the number's credits when given."
+    credits: [NumberCreditInput!]
     characterIds: [ID!]
+}
+
+type NumberCredit {
+    kind: Kind!
+    "The credit's place among the number's credits of its kind, from 0."
+    position: Int!
+    credit: Credit!
+}
+
+input NumberCreditInput {
+    "A credit kind."
+    kindId: ID!
+    spexareId: ID
+    "Only for people outside FGV."
+    name: String
+}
+
+type UnresolvedCredits {
+    total: Int!
+    credits: [UnresolvedCredit!]!
+}
+
+type UnresolvedCredit {
+    number: Number!
+    kind: Kind
+    position: Int!
+    "The name as imported. Never shown on pages."
+    name: String!
 }
 
 """
@@ -494,8 +553,10 @@ as section 5.3 of the spec says; nothing when the spexare is not published) or a
 """
 type Credit {
     person: Person
-    "For people outside FGV."
+    "For people outside FGV; for an unresolved credit, the imported name."
     name: String
+    "An imported name nobody has resolved yet; only editors see these (spec 5.3)."
+    unresolved: Boolean!
 }
 
 input CreditInput {
@@ -526,12 +587,53 @@ input RevivalChangeInput {
     position: Int
 }
 
-enum Medium {
-    LP
-    EP
-    CD
-    DIGITAL
-    OTHER
+enum KindType {
+    NUMBER
+    CREDIT
+    MEDIUM
+    IMAGE
+    FACT
+}
+
+"Where image kinds are used; other types of kinds have none."
+enum KindUse {
+    CHARACTER
+    SCENOGRAPHY
+    PAGE
+}
+
+enum FactValueType {
+    TEXT
+    "yyyy, yyyy-mm or yyyy-mm-dd"
+    DATE
+}
+
+"A kind admins keep (spec 4.6). The import recognises it by its names and aliases."
+type Kind {
+    id: ID!
+    type: KindType!
+    use: KindUse
+    "For fact kinds."
+    valueType: FactValueType
+    "In the request's language."
+    name: String!
+    nameSv: String!
+    nameEn: String!
+    aliases: [String!]!
+    position: Int!
+    retired: Boolean!
+}
+
+input KindInput {
+    "For a new kind only."
+    type: KindType
+    "For a new image kind only."
+    use: KindUse
+    "For fact kinds; TEXT when left out."
+    valueType: FactValueType
+    nameSv: String!
+    nameEn: String!
+    aliases: [String!]
 }
 
 type Recording {
@@ -539,7 +641,8 @@ type Recording {
     slug: String!
     catalogueNumber: String!
     title: String!
-    medium: Medium!
+    "A recording medium (spec 4.6)."
+    medium: Kind!
     "Null for compilations."
     spex: Spex
     "yyyy, yyyy-mm or yyyy-mm-dd"
@@ -561,7 +664,8 @@ type Recording {
 input RecordingInput {
     catalogueNumber: String!
     title: String!
-    medium: Medium!
+    "A recording medium."
+    mediumId: ID!
     spexId: ID
     released: String
     recorded: String
@@ -596,6 +700,8 @@ type SpexPage {
     premiere: String
     "Short, for tiles and previews."
     introduction: String
+    "A sentence or two, for lists and the head of the page."
+    shortDescription: String
     "Markdown."
     description: String
     "The description as HTML, safe to show."
@@ -615,7 +721,10 @@ type SpexPage {
     vestDescriptionHtml: String
     "Who wore the vest."
     vestWornBy: Credit
+    "The images of a section: for SCENOGRAPHY and OTHER in the order of their kinds; a revival without its own shows its parent's."
     images(section: ImageSection!): [PageImage!]!
+    "Facts in the order of their kinds (spec 4.2); a revival without its own shows its parent's."
+    facts: [Fact!]!
     "Photos from Spexgram of a section: GROUP or BOARD."
     photos(section: PhotoSection!): PhotoSet!
     published: Boolean!
@@ -634,6 +743,7 @@ input SpexPageInput {
     generation: String
     premiere: String
     introduction: String
+    shortDescription: String
     description: String
     synopsis: String
     vestDescription: String
@@ -648,11 +758,23 @@ input SpexPageRevisionIdsInput {
 }
 
 enum ImageSection {
-    BACKDROP
-    STAGE
-    PROPS
+    "Grouped by image kinds for scenography."
+    SCENOGRAPHY
+    "Without kinds."
     VEST
+    "Grouped by image kinds for the page."
     OTHER
+}
+
+type Fact {
+    kind: Kind!
+    value: String!
+}
+
+input FactInput {
+    "A fact kind."
+    kindId: ID!
+    value: String
 }
 
 enum PhotoSection {
@@ -702,15 +824,15 @@ input ImageInput {
 "An image on a page, with the caption it has there."
 type PageImage {
     image: Image!
-    "For a character's images."
-    kind: ImageKind
+    "The image kind of the group it is in; null for the vest."
+    kind: Kind
     caption: String
 }
 
 input ImageRefInput {
     imageId: ID!
-    "For a character's images: SKETCH, MAKEUP or COSTUME."
-    kind: ImageKind
+    "For a character's images: an image kind for characters, the first when left out."
+    kindId: ID
     caption: String
 }
 
@@ -830,6 +952,31 @@ type Article {
     trashedAt: Instant
     createdAt: Instant!
     lastModifiedAt: Instant
+    "The parent in the tree of articles (spec 4.5); null at the top or when the viewer may not see it."
+    parent: Article
+    "From the top down to the parent, for breadcrumbs."
+    ancestors: [Article!]!
+    "The children the viewer may see, in their order."
+    children: [Article!]!
+    "The parent's children (or the articles at the top), this one included, for the tree beside the article."
+    siblings: [Article!]!
+    "The articles the viewer may see that link here."
+    backlinks: [Article!]!
+    "The headings of the article, for a table of contents; empty with fewer than three."
+    toc: [Heading!]!
+}
+
+type Heading {
+    level: Int!
+    "The heading's id in the html."
+    anchor: String!
+    text: String!
+}
+
+type WantedArticle {
+    title: String!
+    "How many articles link to it."
+    links: Int!
 }
 
 input ArticleInput {
@@ -839,6 +986,8 @@ input ArticleInput {
     categoryIds: [ID!]
     "What changed, for the history."
     comment: String
+    "For a new article: its parent; move existing ones with articleMove."
+    parentId: ID
 }
 
 type ArticleCategory {
@@ -847,11 +996,17 @@ type ArticleCategory {
     name: String!
     description: String
     articleCount: Int!
+    "The categories it belongs to."
+    parents: [ArticleCategory!]!
+    "The categories directly below it."
+    subcategories: [ArticleCategory!]!
 }
 
 input ArticleCategoryInput {
     name: String!
     description: String
+    "Null leaves the parents as they are."
+    parentIds: [ID!]
 }
 
 enum RevisionTarget {
@@ -1119,4 +1274,230 @@ type MaintenanceJobStatus {
     lastFinishedAt: Instant
     "Whether the latest run finished without an error; null while it runs."
     lastSucceeded: Boolean
+}
+
+# The import API (spec 5.11; docs/content-import.md, section 4) ---------------------------------------------------------
+# IMPORT only: the service accounts of fgv-content-migration and of Spexipedia's spex packages. Files are uploaded first
+# to PUT /api/import/files/{sha256} and referred to by their hash. Kinds are given by name or alias.
+
+extend type Mutation {
+    "IMPORT. Imports records: new source keys create, known ones update what they made unless an editor has changed it since. With dryRun nothing is kept. At most 500 records."
+    importBatch(input: ImportBatchInput!, dryRun: Boolean! = false): ImportResult!
+    "IMPORT. Removes what was imported under the source prefix and is still unpublished and unchanged; returns how many."
+    importForget(sourcePrefix: String!): Int!
+}
+
+input ImportBatchInput {
+    "Whether kind names nobody knows become new kinds, instead of failing the record."
+    createMissingKinds: Boolean = false
+    spex: [ImportSpexInput!]
+    pages: [ImportPageInput!]
+    characters: [ImportCharacterInput!]
+    scenes: [ImportSceneInput!]
+    numbers: [ImportNumberInput!]
+    recordings: [ImportRecordingInput!]
+    articleCategories: [ImportArticleCategoryInput!]
+    articles: [ImportArticleInput!]
+    redirects: [ImportRedirectInput!]
+}
+
+input ImportFileInput {
+    sha256: String!
+    "The name to show, e.g. the file's original name."
+    name: String
+}
+
+"A spex matched by id, or created (spex packages); a revival gives its parent by id or source key."
+input ImportSpexInput {
+    sourceKey: String!
+    id: ID
+    title: String
+    year: String!
+    "A spex category by name."
+    category: String
+    parentId: ID
+    parentSourceKey: String
+    poster: ImportFileInput
+}
+
+"A spex page; fields left out are left as they are. The spex by id or by the source key of an ImportSpexInput."
+input ImportPageInput {
+    sourceKey: String!
+    spexId: ID
+    spexSourceKey: String
+    generation: String
+    "yyyy-mm-dd"
+    premiere: String
+    introduction: String
+    shortDescription: String
+    description: String
+    synopsis: String
+    vestDescription: String
+    poster: ImportFileInput
+    rebus: ImportFileInput
+    rebusSolution: ImportFileInput
+    "Replaces the page's facts when given."
+    facts: [ImportFactInput!]
+    "Replaces the images of the sections and kinds given."
+    images: [ImportPageImageInput!]
+}
+
+input ImportFactInput {
+    "A fact kind by name or alias."
+    kind: String!
+    value: String
+}
+
+input ImportPageImageInput {
+    "SCENOGRAPHY, VEST or OTHER."
+    section: String!
+    "An image kind of the section's use; the first when left out."
+    kind: String
+    file: ImportFileInput!
+    caption: String
+}
+
+input ImportCharacterInput {
+    sourceKey: String!
+    spexId: ID
+    spexSourceKey: String
+    name: String!
+    description: String
+    "A figure by name, created when missing."
+    figure: String
+    position: Int
+    images: [ImportCharacterImageInput!]
+}
+
+input ImportCharacterImageInput {
+    "An image kind for characters; the first when left out."
+    kind: String
+    file: ImportFileInput!
+    caption: String
+}
+
+input ImportSceneInput {
+    sourceKey: String!
+    spexId: ID
+    spexSourceKey: String
+    act: Int
+    position: Int
+    title: String!
+    place: String
+    intervalAfter: Boolean
+}
+
+input ImportNumberInput {
+    sourceKey: String!
+    spexId: ID
+    spexSourceKey: String
+    act: Int
+    position: Int
+    title: String!
+    "A number kind by name or alias."
+    kind: String
+    originalTitle: String
+    originalArtist: String
+    fromWork: String
+    firstLine: String
+    "Replaces the number's credits when given."
+    credits: [ImportCreditInput!]
+    "Names of the spex's characters who sing it."
+    characters: [String!]
+}
+
+"A credit by name: exactly one published spexare with the name becomes a reference to them; else someone outside FGV with outsideFgv, else an unresolved credit for editors (spec 5.3)."
+input ImportCreditInput {
+    "A credit kind by name or alias."
+    kind: String!
+    name: String!
+    outsideFgv: Boolean
+}
+
+input ImportRecordingInput {
+    sourceKey: String!
+    catalogueNumber: String!
+    title: String!
+    "A recording medium by name or alias; the first when left out."
+    medium: String
+    spexId: ID
+    spexSourceKey: String
+    released: String
+    recorded: String
+    description: String
+    front: ImportFileInput
+    back: ImportFileInput
+    "Replaces the tracks when given."
+    tracks: [ImportTrackInput!]
+}
+
+"A track: a number by id or source key, or by its title among the spex's numbers, or a free title."
+input ImportTrackInput {
+    side: String
+    numberSourceKey: String
+    numberId: ID
+    title: String
+}
+
+input ImportArticleCategoryInput {
+    sourceKey: String!
+    name: String!
+    description: String
+    "Parent categories by name, created when missing."
+    parents: [String!]
+}
+
+"An article. The body refers to its images as ![caption](import:<key>)."
+input ImportArticleInput {
+    sourceKey: String!
+    title: String!
+    body: String!
+    "PUBLIC or MEMBERS; PUBLIC when left out."
+    visibility: String
+    "Categories by name, created when missing."
+    categories: [String!]
+    parentSourceKey: String
+    images: [ImportArticleImageInput!]
+}
+
+input ImportArticleImageInput {
+    key: String!
+    file: ImportFileInput!
+    caption: String
+}
+
+"An old title and where it leads: a path, or the page of a record imported with targetSourceKey."
+input ImportRedirectInput {
+    sourceKey: String!
+    oldTitle: String!
+    target: String
+    targetSourceKey: String
+}
+
+type ImportResult {
+    dryRun: Boolean!
+    items: [ImportItem!]!
+    created: Int!
+    updated: Int!
+    unchanged: Int!
+    kept: Int!
+    failed: Int!
+}
+
+type ImportItem {
+    kind: String!
+    sourceKey: String!
+    id: ID
+    outcome: ImportOutcome!
+    message: String
+    warnings: [String!]!
+}
+
+enum ImportOutcome {
+    CREATED
+    UPDATED
+    UNCHANGED
+    "An editor changed or removed the record since it was imported, so the import left it alone."
+    KEPT
+    FAILED
 }

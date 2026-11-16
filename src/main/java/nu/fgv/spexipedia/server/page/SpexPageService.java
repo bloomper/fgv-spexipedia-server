@@ -24,6 +24,11 @@ import nu.fgv.spexipedia.server.content.ListStore;
 import nu.fgv.spexipedia.server.content.ListStore.CreditRef;
 import nu.fgv.spexipedia.server.content.ListStore.PlacedImage;
 import nu.fgv.spexipedia.server.image.ImageService;
+import nu.fgv.spexipedia.server.kind.FactValueType;
+import nu.fgv.spexipedia.server.kind.Kind;
+import nu.fgv.spexipedia.server.kind.KindService;
+import nu.fgv.spexipedia.server.kind.KindType;
+import nu.fgv.spexipedia.server.kind.KindUse;
 import nu.fgv.spexipedia.server.revision.Revision;
 import nu.fgv.spexipedia.server.revision.RevisionDto;
 import nu.fgv.spexipedia.server.revision.RevisionService;
@@ -67,11 +72,15 @@ public class SpexPageService {
     public static final String INTRODUCTION = "INTRODUCTION";
     public static final String DESCRIPTION = "DESCRIPTION";
     public static final String SYNOPSIS = "SYNOPSIS";
+    public static final String SCENOGRAPHY = "SCENOGRAPHY";
+    public static final String VEST = "VEST";
+    public static final String OTHER = "OTHER";
 
     private final SpexPageRepository repository;
     private final BaseDataService baseData;
     private final ListStore lists;
     private final ImageService imageService;
+    private final KindService kindService;
     private final RevisionService revisionService;
     private final CallerService callerService;
     private final AuditService auditService;
@@ -79,13 +88,14 @@ public class SpexPageService {
 
     @SuppressWarnings("java:S107")
     public SpexPageService(final SpexPageRepository repository, final BaseDataService baseData, final ListStore lists,
-                           final ImageService imageService, final RevisionService revisionService,
+                           final ImageService imageService, final KindService kindService, final RevisionService revisionService,
                            final CallerService callerService, final AuditService auditService,
                            final ApplicationEventPublisher events) {
         this.repository = repository;
         this.baseData = baseData;
         this.lists = lists;
         this.imageService = imageService;
+        this.kindService = kindService;
         this.revisionService = revisionService;
         this.callerService = callerService;
         this.auditService = auditService;
@@ -108,7 +118,8 @@ public class SpexPageService {
                 : new CreditRef(page.getVestWornBySpexare(), page.getVestWornByName());
 
         return new SpexPageDto(page.getSpex().getId(), page.getSpex().getUuid(), page.getGeneration(),
-                page.getPremiere() == null ? null : page.getPremiere().toString(), page.getIntroduction(), page.getDescription(),
+                page.getPremiere() == null ? null : page.getPremiere().toString(), page.getIntroduction(), page.getShortDescription(),
+                page.getDescription(),
                 page.getSynopsis(), page.getRebus() == null ? null : page.getRebus().getId(),
                 page.getRebusSolution() == null ? null : page.getRebusSolution().getId(), page.getVestDescription(), wornBy,
                 page.isPublished(), page.getLastModifiedAt());
@@ -210,6 +221,7 @@ public class SpexPageService {
         page.setGeneration(Texts.optional(input.generation(), 255, "generation"));
         page.setPremiere(date(input.premiere()));
         page.setIntroduction(texts.get(INTRODUCTION));
+        page.setShortDescription(Texts.optional(input.shortDescription(), 1000, "shortDescription"));
         page.setDescription(texts.get(DESCRIPTION));
         page.setSynopsis(texts.get(SYNOPSIS));
         page.setVestDescription(Texts.optional(input.vestDescription(), 20_000, "vestDescription"));
@@ -235,20 +247,68 @@ public class SpexPageService {
     }
 
     /**
-     * AUTHOR. The images of a section, in order, with captions.
+     * AUTHOR. The images of a section's group, in order, with captions: SCENOGRAPHY and OTHER per image kind of that use
+     * (the first kind when none is given), VEST without kinds.
      */
     @Transactional
-    public SpexPageDto setImages(final UUID spexId, final String section, final List<ContentService.ImageRef> images) {
+    public SpexPageDto setImages(final UUID spexId, final String section, final @Nullable UUID kindId,
+                                 final List<ContentService.ImageRef> images) {
         callerService.current().requireAuthor();
 
         final Spex spex = baseData.requireSpex(spexId);
+        final KindUse use = switch (section) {
+            case SCENOGRAPHY -> KindUse.SCENOGRAPHY;
+            case OTHER -> KindUse.PAGE;
+            case VEST -> null;
+            default -> throw new BadRequestException("error.field.invalid", "section");
+        };
+        Kind kind = null;
 
-        lists.setPageImages(spex.getId(), section, images.stream()
-                .map(image -> new PlacedImage(imageService.requireUsable(image.imageId()).getId(), null,
+        if (use != null) {
+            kind = kindId == null
+                    ? kindService.first(KindType.IMAGE, use).orElseThrow(() -> new BadRequestException("error.field.invalid", "kindId"))
+                    : kindService.require(kindId, KindType.IMAGE, use, null);
+        } else if (kindId != null) {
+            throw new BadRequestException("error.field.invalid", "kindId");
+        }
+
+        final Long kindKey = kind == null ? null : kind.getId();
+
+        lists.setPageImages(spex.getId(), section, kindKey, images.stream()
+                .map(image -> new PlacedImage(imageService.requireUsable(image.imageId()).getId(), kindKey,
                         Texts.optional(image.caption(), 1000, "caption")))
                 .toList());
-        auditService.record("UPDATE", "SPEX_PAGE", spex.getUuid(), "Ändrade bilderna (" + section + ") på sidan om " + spex.label());
+        auditService.record("UPDATE", "SPEX_PAGE", spex.getUuid(), "Ändrade bilderna (" + (kind == null ? section : kind.getNameSv())
+                + ") på sidan om " + spex.label());
         return toDto(pageOf(spex));
+    }
+
+    /**
+     * AUTHOR. The facts of a spex (spec 4.2), replacing its earlier ones; at most one per fact kind.
+     */
+    @Transactional
+    public SpexPageDto setFacts(final UUID spexId, final List<FactInput> facts) {
+        callerService.current().requireAuthor();
+
+        final Spex spex = baseData.requireSpex(spexId);
+        final Map<Long, ListStore.Fact> byKind = new LinkedHashMap<>();
+
+        for (final FactInput fact : facts) {
+            final Kind kind = kindService.require(fact.kindId(), KindType.FACT, null, null);
+            final String value = kind.getValueType() == FactValueType.DATE
+                    ? Texts.partialDate(fact.value()) : Texts.optional(fact.value(), 1000, "value");
+
+            if (value != null) {
+                byKind.put(kind.getId(), new ListStore.Fact(kind.getId(), value));
+            }
+        }
+        lists.setFacts(spex.getId(), List.copyOf(byKind.values()));
+        auditService.record("UPDATE", "SPEX_PAGE", spex.getUuid(), "Ändrade fakta på sidan om " + spex.label());
+        return toDto(pageOf(spex));
+    }
+
+    public List<ListStore.Fact> facts(final long spexKey) {
+        return lists.facts(spexKey);
     }
 
     public List<PlacedImage> images(final long spexKey, final String section) {
@@ -333,7 +393,10 @@ public class SpexPageService {
     }
 
     public record PageInput(@Nullable String generation, @Nullable String premiere, @Nullable String introduction,
-                            @Nullable String description, @Nullable String synopsis, @Nullable String vestDescription,
+                            @Nullable String shortDescription, @Nullable String description, @Nullable String synopsis, @Nullable String vestDescription,
                             @Nullable CreditRef vestWornBy, @Nullable Map<String, UUID> baseRevisionIds) {
+    }
+
+    public record FactInput(UUID kindId, @Nullable String value) {
     }
 }

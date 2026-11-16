@@ -113,7 +113,7 @@ spexipedia:
     service-client-secret: ${API_KEYCLOAK_SERVICE_CLIENT_SECRET:}
   security:
     # The web, and the service accounts that read the feed (SYNC) or create revivals (REVIVAL)
-    authorized-parties: ${API_SECURITY_AUTHORIZED_PARTIES:fgv-spexipedia,fgv-spexregister-service,fgv-spexify-service,fgv-spexflix-service,fgv-spexgram-service,fgv-archive-service,fgv-revival-service}
+    authorized-parties: ${API_SECURITY_AUTHORIZED_PARTIES:fgv-spexipedia,fgv-spexregister-service,fgv-spexify-service,fgv-spexflix-service,fgv-spexgram-service,fgv-archive-service,fgv-revival-service,fgv-content-migration}
   mcp:
     # MCP clients, which only the MCP endpoint accepts
     authorized-parties: ${API_KEYCLOAK_MCP_CLIENT_ID:fgv-spexipedia-mcp}
@@ -124,6 +124,12 @@ spexipedia:
     max-upload-size: 50MB
     # magick (ImageMagick 7), convert (6) or auto: magick when it is on the path, else convert
     magick: ${API_MAGICK:auto}
+  imports:
+    # The import API's files and spex packages (spec 5.11, 5.14)
+    root: ${API_IMPORTS_ROOT:./data/imports}
+    keep-files: 7d
+    keep-packages: 30d
+    max-package-size: ${API_MAX_PACKAGE_SIZE:20GB}
   apps:
     cache-ttl: 5m
     timeout: 3s

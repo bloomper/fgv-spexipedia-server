@@ -34,7 +34,6 @@ import nu.fgv.spexipedia.server.content.ContentService;
 import nu.fgv.spexipedia.server.content.ListStore.CreditRef;
 import nu.fgv.spexipedia.server.content.ListStore.RevivalChange;
 import nu.fgv.spexipedia.server.content.ListStore.RevivalChangeKind;
-import nu.fgv.spexipedia.server.content.Medium;
 import nu.fgv.spexipedia.server.content.RecordingService;
 import nu.fgv.spexipedia.server.feed.SyncConsumerService;
 import nu.fgv.spexipedia.server.image.Image;
@@ -288,7 +287,7 @@ public class SampleDataImporter {
                 if (!fullIds.contains(spex.id()) && !spex.revival() && (large || spex.year().endsWith("0"))) {
                     baseData.setPoster(spex.id(), image(ImageKind.POSTER, 600, 840, spex.year(), spex.title()).getUuid());
                     pageService.update(spex.id(), new SpexPageService.PageInput(generation(spex), null,
-                            "%s – ett spex från %s.".formatted(spex.title(), spex.year()), null, null, null, null, null));
+                            "%s – ett spex från %s.".formatted(spex.title(), spex.year()), null, null, null, null, null, null));
                     if (large) {
                         pageService.setPublished(spex.id(), true);
                     }
@@ -412,17 +411,23 @@ public class SampleDataImporter {
                     index == 0 ? LocalDate.now().withYear(Integer.parseInt(spex.year())).toString()
                             : "%s-02-%02d".formatted(spex.year(), 1 + index % 27),
                     "%s – ett spex om makt, kärlek och en och annan felräknad tronföljd.".formatted(spex.title()),
+                    full ? "Ett spex om %s och hans hov.".formatted(spex.title()) : null,
                     description(spex), full ? synopsis(spex) : null,
                     full ? "Västen till %s är broderad i guld på mörkgrönt, med %s som motiv.".formatted(spex.title(), spex.title().toLowerCase(Locale.ROOT)) : null,
                     full ? new CreditRef(spexare(index % SPEXARE.size()), null) : null, null));
             if (full) {
-                pageService.setImages(spex.id(), "BACKDROP", List.of(placed(ImageKind.SCENOGRAPHY, "Fond: " + PLACES[index % PLACES.length], spex),
+                pageService.setImages(spex.id(), SpexPageService.SCENOGRAPHY, DefaultKinds.BACKDROP, List.of(
+                        placed(ImageKind.SCENOGRAPHY, "Fond: " + PLACES[index % PLACES.length], spex),
                         placed(ImageKind.SCENOGRAPHY, "Fond: " + PLACES[(index + 1) % PLACES.length], spex)));
-                pageService.setImages(spex.id(), "STAGE", List.of(placed(ImageKind.SCENOGRAPHY, "Scenbygget", spex)));
-                pageService.setImages(spex.id(), "PROPS", List.of(placed(ImageKind.SCENOGRAPHY, "Kronan", spex),
+                pageService.setImages(spex.id(), SpexPageService.SCENOGRAPHY, DefaultKinds.STAGE, List.of(placed(ImageKind.SCENOGRAPHY, "Scenbygget", spex)));
+                pageService.setImages(spex.id(), SpexPageService.SCENOGRAPHY, DefaultKinds.PROPS, List.of(placed(ImageKind.SCENOGRAPHY, "Kronan", spex),
                         placed(ImageKind.SCENOGRAPHY, "Tronen", spex)));
-                pageService.setImages(spex.id(), "VEST", List.of(placed(ImageKind.VEST, "Västen, framsida", spex)));
-                pageService.setImages(spex.id(), "OTHER", List.of(placed(ImageKind.OTHER, "Programbladet", spex)));
+                pageService.setImages(spex.id(), SpexPageService.VEST, null, List.of(placed(ImageKind.VEST, "Västen, framsida", spex)));
+                pageService.setImages(spex.id(), SpexPageService.OTHER, DefaultKinds.OTHER_IMAGES, List.of(placed(ImageKind.OTHER, "Programbladet", spex)));
+                pageService.setFacts(spex.id(), List.of(
+                        new SpexPageService.FactInput(DefaultKinds.VENUE, index % 2 == 0 ? "Chalmers kårhus, RunAn" : "Lisebergsteatern"),
+                        new SpexPageService.FactInput(DefaultKinds.PERFORMANCES, String.valueOf(8 + index % 7)),
+                        new SpexPageService.FactInput(DefaultKinds.SETTING, PLACES[index % PLACES.length])));
                 pageService.setRebus(spex.id(), image(ImageKind.REBUS, 1000, 700, "Programrebus", "☺ + 🎭 = ?").getUuid(),
                         image(ImageKind.REBUS, 1000, 700, "Lösning", spex.title()).getUuid());
             }
@@ -501,9 +506,9 @@ public class SampleDataImporter {
                 final CharacterDto first = created.getFirst();
 
                 contentService.setCharacterImages(first.id(), List.of(
-                        new ContentService.ImageRef(image(ImageKind.SKETCH, 700, 1000, "Skiss", first.name()).getUuid(), ImageKind.SKETCH, "Skiss"),
-                        new ContentService.ImageRef(image(ImageKind.MAKEUP, 700, 1000, "Sminkskiss", first.name()).getUuid(), ImageKind.MAKEUP, "Sminkskiss"),
-                        new ContentService.ImageRef(image(ImageKind.COSTUME, 700, 1000, "Kostymdocka", first.name()).getUuid(), ImageKind.COSTUME, null)));
+                        new ContentService.ImageRef(image(ImageKind.SKETCH, 700, 1000, "Skiss", first.name()).getUuid(), DefaultKinds.SKETCH, "Skiss"),
+                        new ContentService.ImageRef(image(ImageKind.MAKEUP, 700, 1000, "Sminkskiss", first.name()).getUuid(), DefaultKinds.MAKEUP, "Sminkskiss"),
+                        new ContentService.ImageRef(image(ImageKind.COSTUME, 700, 1000, "Kostymdocka", first.name()).getUuid(), DefaultKinds.COSTUME, null)));
             }
             return created;
         }
@@ -526,13 +531,24 @@ public class SampleDataImporter {
 
             for (int i = 0; i < count; i++) {
                 final String[] original = ORIGINALS[(index + i) % ORIGINALS.length];
-                final List<CreditRef> lyrics = i % 3 == 2 ? List.of(new CreditRef(null, "Okänd textförfattare"))
-                        : List.of(new CreditRef(spexare((index + i) % SPEXARE.size()), null));
+                final List<ContentService.NumberCreditInput> credits = new ArrayList<>();
 
+                credits.add(i % 3 == 2 ? new ContentService.NumberCreditInput(DefaultKinds.LYRICS, null, "Okänd textförfattare")
+                        : new ContentService.NumberCreditInput(DefaultKinds.LYRICS, spexare((index + i) % SPEXARE.size()), null));
+                credits.add(new ContentService.NumberCreditInput(DefaultKinds.MUSIC, null, original[2]));
+                credits.add(new ContentService.NumberCreditInput(DefaultKinds.ARRANGEMENT, spexare((index + i + 1) % SPEXARE.size()), null));
+                if (i % 4 == 0) {
+                    credits.add(new ContentService.NumberCreditInput(DefaultKinds.CHOREOGRAPHY, spexare(4), null));
+                }
+                if (index == 1 && i == 1) {
+                    // An imported name nobody has resolved yet: only editors see it (spec 5.3)
+                    credits.add(new ContentService.NumberCreditInput(DefaultKinds.CHOREOGRAPHY, null, "Kalle Koreograf", true));
+                }
                 contentService.createNumber(spex.id(), new ContentService.NumberInput(i < count / 2 ? 1 : 2, NUMBER_TITLES[i % NUMBER_TITLES.length],
-                        original[0], original[1], lyrics, List.of(new CreditRef(null, original[2])),
-                        List.of(new CreditRef(spexare((index + i + 1) % SPEXARE.size()), null)),
-                        i % 4 == 0 ? List.of(new CreditRef(spexare(4), null)) : List.of(),
+                        i == 0 ? DefaultKinds.OVERTURE : i == count - 1 ? DefaultKinds.FINALE : DefaultKinds.SONG,
+                        original[0], original[1], i % 5 == 1 ? "Mamma Mia!" : null,
+                        "Hör hur %s sjunger i natten".formatted(NUMBER_TITLES[i % NUMBER_TITLES.length].toLowerCase(Locale.ROOT)),
+                        credits,
                         List.of(characters.get(i % characters.size()).id(), characters.get((i + 1) % characters.size()).id())),
                         uuid("number", spex.id().toString(), String.valueOf(i)));
             }
@@ -564,11 +580,12 @@ public class SampleDataImporter {
                     new RevivalChange(RevivalChangeKind.NUMBER, numbers.getLast().id(), false, 1, 0)));
             contentService.createCharacter(revival.id(), "Turisten", null, "Ny i nyuppsättningen: en vilsen turist från framtiden.",
                     uuid("character", revival.id().toString(), "0"));
-            contentService.createNumber(revival.id(), new ContentService.NumberInput(2, "Turistens tango", "Euphoria", "Loreen",
-                    List.of(new CreditRef(spexare(0), null)), List.of(new CreditRef(null, "Thomas G:son")), List.of(), List.of(), null),
+            contentService.createNumber(revival.id(), new ContentService.NumberInput(2, "Turistens tango", DefaultKinds.SONG, "Euphoria", "Loreen",
+                    null, null, List.of(new ContentService.NumberCreditInput(DefaultKinds.LYRICS, spexare(0), null),
+                    new ContentService.NumberCreditInput(DefaultKinds.MUSIC, null, "Thomas G:son")), null),
                     uuid("number", revival.id().toString(), "0"));
             pageService.update(revival.id(), new SpexPageService.PageInput("Gamla Chalmersspexet", null,
-                    "Nyuppsättningen av Lasse-Maja, med en turist från framtiden.", null, null, null, null, null));
+                    "Nyuppsättningen av Lasse-Maja, med en turist från framtiden.", null, null, null, null, null, null));
             baseData.setPoster(revival.id(), image(ImageKind.POSTER, 900, 1260, "Nyuppsättning " + revival.year(), "Lasse-Maja").getUuid());
             pageService.setPublished(revival.id(), true);
             pageService.setPublished(lasseMaja.get(1).id(), true);
@@ -584,7 +601,7 @@ public class SampleDataImporter {
                 return;
             }
 
-            final RecordingDto ep = recordingService.create(new RecordingService.RecordingInput("CEP 019", "Lasse-Maja", Medium.EP,
+            final RecordingDto ep = recordingService.create(new RecordingService.RecordingInput("CEP 019", "Lasse-Maja", DefaultKinds.EP,
                     lasseMaja.id(), "1984-12-01", "1984-11", new CreditRef(spexare(2), null),
                     "Spexets EP, inspelad i kårhuset efter sista föreställningen.",
                     image(ImageKind.COVER, 1000, 1000, "CEP 019", "Lasse-Maja").getUuid(),
@@ -596,7 +613,7 @@ public class SampleDataImporter {
             recordingService.setPublished(ep.id(), true);
 
             final RecordingDto lp = recordingService.create(new RecordingService.RecordingInput("CLP 100", "Det bästa från Chalmersspexet",
-                    Medium.LP, null, "1988", null, new CreditRef(null, "Gästdirigent Harald Hornblåsare"), "En samlingsskiva.",
+                    DefaultKinds.LP, null, "1988", null, new CreditRef(null, "Gästdirigent Harald Hornblåsare"), "En samlingsskiva.",
                     image(ImageKind.COVER, 1000, 1000, "CLP 100", "Det bästa").getUuid(), null, null));
             final List<RecordingService.TrackInput> tracks = new ArrayList<>();
 
@@ -605,7 +622,7 @@ public class SampleDataImporter {
             tracks.add(new RecordingService.TrackInput("B", null, "Applåder och extranummer"));
             recordingService.setTracks(lp.id(), tracks);
             recordingService.setPublished(lp.id(), true);
-            recordingService.create(new RecordingService.RecordingInput("CCD 042", "Napoleon – jubileumsutgåva", Medium.CD, napoleon.id(),
+            recordingService.create(new RecordingService.RecordingInput("CCD 042", "Napoleon – jubileumsutgåva", DefaultKinds.CD, napoleon.id(),
                     "2006", "2006-03", null, "Opublicerad: väntar på omslaget.", null, null, null));
         }
 

@@ -14,18 +14,28 @@
  * limitations under the License.
  */
 
-package nu.fgv.spexipedia.server.content;
+package nu.fgv.spexipedia.server.kind;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
- * What a recording was released on.
- *
  * @author Anders Jacobsson
  * @since 1.0
  */
-public enum Medium {
-    LP,
-    EP,
-    CD,
-    DIGITAL,
-    OTHER
+public interface KindRepository extends JpaRepository<Kind, Long> {
+
+    Optional<Kind> findByUuid(UUID uuid);
+
+    List<Kind> findByUuidIn(Collection<UUID> uuids);
+
+    List<Kind> findByTypeAndUseForOrderByPositionAsc(KindType type, String useFor);
+
+    @Query("SELECT COALESCE(MAX(k.position), 0) FROM Kind k WHERE k.type = :type AND k.useFor = :useFor")
+    int maxPosition(KindType type, String useFor);
 }
