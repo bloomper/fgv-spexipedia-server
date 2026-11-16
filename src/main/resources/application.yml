@@ -93,7 +93,7 @@ spexipedia:
   media:
     root: ${API_MEDIA_ROOT:./data/media}
     uploads: ${API_UPLOADS_ROOT:./data/uploads}
-    base-url: ${API_MEDIA_BASE_URL:http://localhost:8089/media}
+    base-url: ${API_MEDIA_BASE_URL:https://media.spexipedia.fgv.local.nu:8443/media}
     max-upload-size: 50MB
     # magick (ImageMagick 7), convert (6) or auto: magick when it is on the path, else convert
     magick: ${API_MAGICK:auto}

@@ -59,7 +59,7 @@ $ docker compose up -d
 ----
 
 The API answers on ``https://api.spexipedia.fgv.local.nu:8443`` (through Caddy) and the images on
-``http://localhost:8089/media/``. To run the API from the IDE instead, stop ``spexipedia-api`` and start
+``https://media.spexipedia.fgv.local.nu:8443/media/`` (Caddy, from ``spexipedia-media`` on port 8089). To run the API from the IDE instead, stop ``spexipedia-api`` and start
 ``SpexipediaApplication`` with the profile ``local``: it listens on port 8088 and uses MySQL on port 3311.
 
 [[sample_data]]
