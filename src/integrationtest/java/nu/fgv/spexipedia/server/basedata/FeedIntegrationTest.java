@@ -50,7 +50,7 @@ class FeedIntegrationTest extends AbstractIntegrationTest {
 
         expectError(graphQl(null).document(CHANGES).execute(), "UNAUTHORIZED");
         expectError(graphQl(ADMIN).document(CHANGES).execute(), "FORBIDDEN");
-        graphQlWithToken(serviceToken("spexregister-service")).document(CHANGES).execute()
+        graphQlWithToken(serviceToken("fgv-spexregister-service")).document(CHANGES).execute()
                 .path("baseDataChanges.changes[*].spex.title").entityList(String.class).containsExactly("Lasse-Maja");
     }
 
@@ -95,11 +95,11 @@ class FeedIntegrationTest extends AbstractIntegrationTest {
         graphQl(ADMIN).document("mutation($id: ID!, $into: ID!) { baseDataMerge(kind: TASK, id: $id, intoId: $into) }")
                 .variable("id", duplicate).variable("into", directeur).execute().path("baseDataMerge").entity(Boolean.class).isEqualTo(true);
 
-        final List<String> changes = graphQlWithToken(serviceToken("spexregister-service")).document(CHANGES).execute()
+        final List<String> changes = graphQlWithToken(serviceToken("fgv-spexregister-service")).document(CHANGES).execute()
                 .path("baseDataChanges.changes[*].change").entityList(String.class).get();
 
         assertThat(changes).last().isEqualTo("MERGE");
-        graphQlWithToken(serviceToken("spexregister-service")).document(CHANGES).execute()
+        graphQlWithToken(serviceToken("fgv-spexregister-service")).document(CHANGES).execute()
                 .path("baseDataChanges.changes[3].id").entity(String.class).isEqualTo(duplicate)
                 .path("baseDataChanges.changes[3].mergedIntoId").entity(String.class).isEqualTo(directeur);
     }
@@ -108,10 +108,10 @@ class FeedIntegrationTest extends AbstractIntegrationTest {
     void consumersAreToldOnlyAtTheApplicationsAddresses() {
         // Notifications carry Spexipedia's service token, so an address outside the applications' APIs is refused
         expectError(graphQl(ADMIN).document("""
-                        mutation($url: String) { syncConsumerSave(input: {name: "Någon", clientId: "spexregister-service", notifyUrl: $url, enabled: true}) { id } }""")
+                        mutation($url: String) { syncConsumerSave(input: {name: "Någon", clientId: "fgv-spexregister-service", notifyUrl: $url, enabled: true}) { id } }""")
                 .variable("url", "https://elsewhere.example.org/notify").execute(), "BAD_REQUEST");
         expectError(graphQl(ADMIN).document("""
-                        mutation($url: String) { syncConsumerSave(input: {name: "Någon", clientId: "spexregister-service", notifyUrl: $url, enabled: true}) { id } }""")
+                        mutation($url: String) { syncConsumerSave(input: {name: "Någon", clientId: "fgv-spexregister-service", notifyUrl: $url, enabled: true}) { id } }""")
                 .variable("url", WIREMOCK.baseUrl().replace("://", "://user:pass@") + "/notify").execute(), "BAD_REQUEST");
     }
 
@@ -119,17 +119,17 @@ class FeedIntegrationTest extends AbstractIntegrationTest {
     void consumersAreToldAndTheirReadingIsRemembered() {
         WIREMOCK.stubFor(post(urlEqualTo("/notify")).willReturn(aResponse().withStatus(204)));
         graphQl(ADMIN).document("""
-                        mutation($url: String) { syncConsumerSave(input: {name: "Spexregister", clientId: "spexregister-service", notifyUrl: $url, enabled: true}) { id } }""")
+                        mutation($url: String) { syncConsumerSave(input: {name: "Spexregister", clientId: "fgv-spexregister-service", notifyUrl: $url, enabled: true}) { id } }""")
                 .variable("url", WIREMOCK.baseUrl() + "/notify").execute().path("syncConsumerSave.id").hasValue();
         createSpex("1984", "Lasse-Maja", null);
         notifier.notifyConsumers();
 
         await().untilAsserted(() -> WIREMOCK.verify(postRequestedFor(urlEqualTo("/notify")).withHeader("Authorization", matching("Bearer .+"))));
 
-        final String cursor = graphQlWithToken(serviceToken("spexregister-service")).document(CHANGES).execute()
+        final String cursor = graphQlWithToken(serviceToken("fgv-spexregister-service")).document(CHANGES).execute()
                 .path("baseDataChanges.cursor").entity(String.class).get();
 
-        graphQlWithToken(serviceToken("spexregister-service")).document(CHANGES).variable("after", cursor).execute()
+        graphQlWithToken(serviceToken("fgv-spexregister-service")).document(CHANGES).variable("after", cursor).execute()
                 .path("baseDataChanges.changes").entityList(Object.class).hasSize(0);
         graphQl(ADMIN).document("{ syncConsumers { name acknowledged lag lastError } }").execute()
                 .path("syncConsumers[0].acknowledged").entity(String.class).isEqualTo(cursor)

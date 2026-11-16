@@ -113,7 +113,7 @@ spexipedia:
     service-client-secret: ${API_KEYCLOAK_SERVICE_CLIENT_SECRET:}
   security:
     # The web, and the service accounts that read the feed (SYNC) or create revivals (REVIVAL)
-    authorized-parties: ${API_SECURITY_AUTHORIZED_PARTIES:fgv-spexipedia,spexregister-service,fgv-spexify-service,fgv-spexflix-service,fgv-spexgram-service,fgv-archive-service,fgv-revival-service}
+    authorized-parties: ${API_SECURITY_AUTHORIZED_PARTIES:fgv-spexipedia,fgv-spexregister-service,fgv-spexify-service,fgv-spexflix-service,fgv-spexgram-service,fgv-archive-service,fgv-revival-service}
   mcp:
     # MCP clients, which only the MCP endpoint accepts
     authorized-parties: ${API_KEYCLOAK_MCP_CLIENT_ID:fgv-spexipedia-mcp}

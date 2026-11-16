@@ -77,7 +77,7 @@ class CallerServiceTest {
     @Test
     void rolesComeFromTheClientsAuthoritiesOnly() {
         final Caller caller = CallerService.fromJwt(jwt("s-1", "lisa@spexipedia.test"),
-                List.of("ROLE_fgv-spexipedia_USER", "ROLE_fgv-spexipedia_EDITOR", "ROLE_fgv-spexipedia_UNKNOWN", "ROLE_spexregister_ADMIN"));
+                List.of("ROLE_fgv-spexipedia_USER", "ROLE_fgv-spexipedia_EDITOR", "ROLE_fgv-spexipedia_UNKNOWN", "ROLE_fgv-spexregister_ADMIN"));
 
         assertThat(caller.roles()).containsExactlyInAnyOrder(Role.USER, Role.EDITOR);
         assertThat(caller.username()).isEqualTo("lisa@spexipedia.test");

@@ -363,7 +363,7 @@ public class SampleDataImporter {
         }
 
         private void consumers() {
-            consumerService.register("Spexregister", "spexregister-service", "http://spexregister-api:8080/api/sync/notify");
+            consumerService.register("Spexregister", "fgv-spexregister-service", "http://spexregister-api:8080/api/sync/notify");
             consumerService.register("Spexify", "fgv-spexify-service", "http://spexify-api:8080/api/sync/notify");
             consumerService.register("Spexflix", "fgv-spexflix-service", "http://spexflix-api:8080/api/sync/notify");
             consumerService.register("Spexgram", "fgv-spexgram-service", "http://spexgram-api:8080/api/sync/notify");

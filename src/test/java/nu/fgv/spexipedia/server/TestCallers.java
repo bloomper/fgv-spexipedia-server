@@ -58,6 +58,6 @@ public final class TestCallers {
     }
 
     public static Caller syncService() {
-        return new Caller("client:spexregister-service", "service-account-spexregister-service", null, Set.of(Role.SYNC), Set.of());
+        return new Caller("client:fgv-spexregister-service", "service-account-fgv-spexregister-service", null, Set.of(Role.SYNC), Set.of());
     }
 }

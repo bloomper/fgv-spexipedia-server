@@ -172,7 +172,7 @@ public abstract class AbstractIntegrationTest {
             unbound.setDirectAccessGrantsEnabled(true);
             realm.clients().create(unbound).close();
             // USER comes with the realm's default role, as for every approved user
-            createUser(realm, MEMBER, "Lisa", List.of(), List.of("spexregister"));
+            createUser(realm, MEMBER, "Lisa", List.of(), List.of("fgv-spexregister"));
             createUser(realm, AUTHOR, "Agnes", List.of("AUTHOR"), List.of());
             createUser(realm, EDITOR, "Erik", List.of("EDITOR"), List.of("fgv-spexgram"));
             createUser(realm, ADMIN, "Anna", List.of("ADMIN"), List.of());
@@ -242,7 +242,7 @@ public abstract class AbstractIntegrationTest {
      */
     protected static void createSpexregisterUser(final String email) {
         try (Keycloak admin = KEYCLOAK.getKeycloakAdminClient()) {
-            createUser(admin.realm(REALM), email, "Spexregister", List.of(), List.of("spexregister"));
+            createUser(admin.realm(REALM), email, "Spexregister", List.of(), List.of("fgv-spexregister"));
         }
     }
 
@@ -254,7 +254,7 @@ public abstract class AbstractIntegrationTest {
     }
 
     /**
-     * A service account's access token, by client credentials, e.g. {@code spexregister-service}'s, which holds SYNC.
+     * A service account's access token, by client credentials, e.g. {@code fgv-spexregister-service}'s, which holds SYNC.
      */
     protected static String serviceToken(final String clientId) {
         return TOKENS.computeIfAbsent("client:" + clientId, _ -> {

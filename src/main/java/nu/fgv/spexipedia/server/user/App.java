@@ -24,7 +24,7 @@ package nu.fgv.spexipedia.server.user;
  * @since 1.0
  */
 public enum App {
-    SPEXREGISTER("spexregister"),
+    SPEXREGISTER("fgv-spexregister"),
     SPEXGRAM("fgv-spexgram"),
     SPEXIFY("fgv-spexify"),
     SPEXFLIX("fgv-spexflix"),
