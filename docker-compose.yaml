@@ -69,7 +69,7 @@ services:
       API_SPEXIFY_GRAPHQL_URL: http://spexify-api:8080/api/graphql
       API_SPEXFLIX_GRAPHQL_URL: http://spexflix-api:8080/api/graphql
       API_ARCHIVE_GRAPHQL_URL: http://archive-api:8080/api/graphql
-      API_IMPORT_SAMPLE_DATA: true
+      API_IMPORT_SAMPLE_DATA: ${API_IMPORT_SAMPLE_DATA:-false}
       API_SAMPLE_DATA_SIZE: ${API_SAMPLE_DATA_SIZE:-small}
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak-server:8080/auth/realms/fgv/protocol/openid-connect/certs
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: https://auth.fgv.local.nu:8443/auth/realms/fgv
