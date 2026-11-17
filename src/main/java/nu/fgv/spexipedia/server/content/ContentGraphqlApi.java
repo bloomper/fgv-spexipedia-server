@@ -250,13 +250,15 @@ public class ContentGraphqlApi {
     }
 
     @SuppressWarnings("unchecked")
-    private static ContentService.NumberInput number(final Map<String, Object> input) {
+    static ContentService.NumberInput number(final Map<String, Object> input) {
         return new ContentService.NumberInput(((Number) input.get("act")).intValue(), (String) input.get("title"),
                 Ids.optional((String) input.get("kindId")), (String) input.get("originalTitle"), (String) input.get("originalArtist"),
                 (String) input.get("fromWork"), (String) input.get("firstLine"),
-                input.get("credits") == null ? null : ((List<Map<String, String>>) input.get("credits")).stream()
-                        .map(credit -> new ContentService.NumberCreditInput(Ids.require(credit.get("kindId")),
-                                Ids.optional(credit.get("spexareId")), credit.get("name")))
+                input.get("credits") == null ? null : ((List<Map<String, Object>>) input.get("credits")).stream()
+                        .map(credit -> new ContentService.NumberCreditInput(Ids.require((String) credit.get("kindId")),
+                                Ids.optional((String) credit.get("spexareId")), (String) credit.get("name"),
+                                // An unresolved credit saved again with the others stays unresolved (spec 5.3)
+                                Boolean.TRUE.equals(credit.get("unresolved"))))
                         .toList(),
                 input.get("characterIds") == null ? null : ((List<String>) input.get("characterIds")).stream().map(Ids::require).toList());
     }

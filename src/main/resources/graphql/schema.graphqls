@@ -532,6 +532,8 @@ input NumberCreditInput {
     spexareId: ID
     "Only for people outside FGV."
     name: String
+    "Keeps an unresolved credit (spec 5.3) as it is, with its imported name, when the credits are saved again; resolve it with creditResolve."
+    unresolved: Boolean = false
 }
 
 type UnresolvedCredits {
