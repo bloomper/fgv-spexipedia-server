@@ -376,6 +376,8 @@ type Spex {
     recordings: [Recording!]!
     "The board and the tasks of the spex and its revivals, from Spexregister. Visitors see nicknames only."
     people: SpexPeople!
+    "How much of the page is filled in, by section of the editing page; for AUTHOR, null for others. A revival is measured by what belongs to the production itself (poster, premiere, facts, photos), as it shows its original's content for the rest."
+    completeness: Completeness
     "Links to the other applications that have something about the spex, for the viewer: Spexgram's public albums for everyone; the rest only for users with access to that application."
     links: [AppLink!]!
     createdAt: Instant!
@@ -795,6 +797,65 @@ input SpexPageRevisionIdsInput {
     introduction: ID
     description: ID
     synopsis: ID
+}
+
+"How much of a spex's page is filled in: every item weighs the same, and the share is of all items."
+type Completeness {
+    "0 to 1."
+    share: Float!
+    sections: [CompletenessSection!]!
+}
+
+type CompletenessSection {
+    section: CompletenessSectionName!
+    "0 to 1: the share of the section's items."
+    share: Float!
+    items: [CompletenessItem!]!
+}
+
+type CompletenessItem {
+    item: CompletenessItemName!
+    "0 to 1: 1 when filled in; for a list, the share of its rows that have it (characters with a description, numbers with credits)."
+    filled: Float!
+}
+
+"The sections of the spex's editing page. FACTS is left out when no fact kind is in use."
+enum CompletenessSectionName {
+    BASE
+    TEXTS
+    FACTS
+    MEDIA
+    CHARACTERS
+    SCENES
+    NUMBERS
+}
+
+"What a spex page can have. FACTS is the share of the fact kinds in use that have a value."
+enum CompletenessItemName {
+    POSTER
+    PREMIERE
+    INTRODUCTION
+    SHORT_DESCRIPTION
+    DESCRIPTION
+    SYNOPSIS
+    VEST_DESCRIPTION
+    VEST_WORN_BY
+    FACTS
+    SCENOGRAPHY
+    VEST
+    REBUS
+    REBUS_SOLUTION
+    GROUP_PHOTOS
+    BOARD_PHOTOS
+    CHARACTERS
+    CHARACTER_DESCRIPTIONS
+    CHARACTER_IMAGES
+    SCENES
+    SCENE_PLACES
+    NUMBERS
+    NUMBER_ORIGINALS
+    NUMBER_CREDITS
+    NUMBER_CHARACTERS
 }
 
 enum ImageSection {

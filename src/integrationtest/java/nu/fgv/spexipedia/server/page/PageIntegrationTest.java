@@ -77,6 +77,30 @@ class PageIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void authorsSeeHowMuchOfAPageIsFilledInAndARevivalIsMeasuredByItsOwn() {
+        final String spex = createSpex("1984", "Lasse-Maja", null);
+
+        createCharacter(spex, "Narren");
+        graphQl(AUTHOR).document("mutation($s: ID!) { spexPageUpdate(spexId: $s, input: {introduction: \"Om Lasse-Maja\", synopsis: \"  \"}) { introduction } }")
+                .variable("s", spex).execute().path("spexPageUpdate.introduction").hasValue();
+
+        final String revival = graphQl(EDITOR).document("mutation($p: ID!) { spexRevivalCreate(parentId: $p, year: \"2013\") { id } }")
+                .variable("p", spex).execute().path("spexRevivalCreate.id").entity(String.class).get();
+        final String query = "query($s: ID!) { spex(id: $s) { completeness { share sections { section share items { item filled } } } } }";
+
+        graphQl(AUTHOR).document(query).variable("s", spex).execute()
+                .path("spex.completeness.sections[*].section").entityList(String.class)
+                .containsExactly("BASE", "TEXTS", "FACTS", "MEDIA", "CHARACTERS", "SCENES", "NUMBERS")
+                .path("spex.completeness.sections[1].share").entity(Double.class).isEqualTo(1.0 / 7)
+                .path("spex.completeness.sections[4].items[*].filled").entityList(Double.class).containsExactly(1.0, 0.0, 0.0);
+        // The revival's page shows the original's introduction, but it has nothing of its own
+        graphQl(AUTHOR).document(query).variable("s", revival).execute()
+                .path("spex.completeness.sections[*].section").entityList(String.class).containsExactly("BASE", "TEXTS", "FACTS", "MEDIA")
+                .path("spex.completeness.share").entity(Double.class).isEqualTo(0.0);
+        graphQl(MEMBER).document(query).variable("s", spex).execute().path("spex.completeness").valueIsNull();
+    }
+
+    @Test
     void visitorsSeeNicknamesAndSpexregisterIsNotAskedForTheirNames() {
         final String spex = createSpex("1984", "Lasse-Maja", null);
 
