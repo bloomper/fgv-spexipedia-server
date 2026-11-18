@@ -220,14 +220,14 @@ SELECT '385d38bc-c04a-32d7-8a29-731ffa0b7272', '2024-jeanne-d-arc', '2024', id, 
 INSERT INTO spex (uuid, slug, year, parent_id, created_by, created_at)
 SELECT '485930d1-bc72-38f5-b2f1-e5c6386450b7', '2024-krosus', '2024', id, 'system', NOW(6) FROM spex WHERE uuid = 'e77b28a4-1dc2-3155-9583-fc0363d2b8ce';
 
--- The committee is the board on spex pages; the musicians' tasks are Spexarkivet's instruments
-INSERT INTO task_category (uuid, name, actor_present, board, instruments, created_by, created_at)
-VALUES ('01c7f0bc-9dc9-30ef-99c8-c70fb2e3b321', 'Kommitté', 0, 1, 0, 'system', NOW(6)),
-       ('228a0f16-58f8-3e07-9c7b-9afcfca43464', 'Orkester', 0, 0, 1, 'system', NOW(6)),
-       ('9a0f33aa-7941-3213-84ad-29dd9332d15a', 'Ensemble', 1, 0, 0, 'system', NOW(6)),
-       ('234b0702-9099-35d0-964c-99de1b6a0aa6', 'Bandet', 0, 0, 1, 'system', NOW(6)),
-       ('f0629f8b-2059-3e7a-a28c-55e4c1a4caff', 'Symphonin', 0, 0, 1, 'system', NOW(6)),
-       ('2c0e0fde-3db8-36a7-97f6-661d504f682f', 'Annat', 0, 0, 0, 'system', NOW(6));
+-- The musicians' tasks are Spexarkivet's instruments
+INSERT INTO task_category (uuid, name, actor_present, instruments, created_by, created_at)
+VALUES ('01c7f0bc-9dc9-30ef-99c8-c70fb2e3b321', 'Kommitté', 0, 0, 'system', NOW(6)),
+       ('228a0f16-58f8-3e07-9c7b-9afcfca43464', 'Orkester', 0, 1, 'system', NOW(6)),
+       ('9a0f33aa-7941-3213-84ad-29dd9332d15a', 'Ensemble', 1, 0, 'system', NOW(6)),
+       ('234b0702-9099-35d0-964c-99de1b6a0aa6', 'Bandet', 0, 1, 'system', NOW(6)),
+       ('f0629f8b-2059-3e7a-a28c-55e4c1a4caff', 'Symphonin', 0, 1, 'system', NOW(6)),
+       ('2c0e0fde-3db8-36a7-97f6-661d504f682f', 'Annat', 0, 0, 'system', NOW(6));
 
 INSERT INTO task (uuid, name, category_id, created_by, created_at)
 VALUES ('9838400c-6364-3a06-90ad-05408fb66d4e', 'Affisch', (SELECT id FROM task_category WHERE uuid = '2c0e0fde-3db8-36a7-97f6-661d504f682f'), 'system', NOW(6)),
@@ -374,3 +374,8 @@ VALUES ('9838400c-6364-3a06-90ad-05408fb66d4e', 'Affisch', (SELECT id FROM task_
        ('bd20bdb5-e45a-3fd8-8f4e-99d314125822', 'Viola', (SELECT id FROM task_category WHERE uuid = 'f0629f8b-2059-3e7a-a28c-55e4c1a4caff'), 'system', NOW(6)),
        ('2a255dde-5be1-3f86-b1b6-5c1314798198', 'Violin 1', (SELECT id FROM task_category WHERE uuid = 'f0629f8b-2059-3e7a-a28c-55e4c1a4caff'), 'system', NOW(6)),
        ('9ea2b9bd-3602-3013-8b96-613c9447df05', 'Violin 2', (SELECT id FROM task_category WHERE uuid = 'f0629f8b-2059-3e7a-a28c-55e4c1a4caff'), 'system', NOW(6));
+
+-- The direktion is shown on spex pages
+UPDATE task SET board = 1 WHERE uuid IN ('0dfb4fba-8167-3a0f-b960-ce741bc8289d', '986c5dc4-3184-34d6-84d2-fe53443a4238',
+                                         '1f96a103-3283-3f23-a774-81b0da6ef2b4', '464cc900-efd6-315a-abc6-56a4beabc863',
+                                         'a776354a-96ae-33a0-a632-c4c0a2ab03b5');

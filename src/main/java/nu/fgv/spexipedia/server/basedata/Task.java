@@ -57,6 +57,12 @@ public class Task extends AbstractAuditable {
     @JoinColumn(name = "category_id", nullable = false)
     private TaskCategory category;
 
+    /**
+     * Whether it is a task of the direktion, shown as such on spex pages.
+     */
+    @Column(name = "board", nullable = false)
+    private boolean board;
+
     @Column(name = "retired", nullable = false)
     private boolean retired;
 }

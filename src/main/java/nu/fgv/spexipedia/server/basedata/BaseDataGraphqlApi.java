@@ -173,23 +173,24 @@ public class BaseDataGraphqlApi {
     @MutationMapping
     public TaskCategoryDto taskCategoryCreate(@Argument final Map<String, Object> input) {
         return service.createTaskCategory((String) input.get("name"), Boolean.TRUE.equals(input.get("actorPresent")),
-                Boolean.TRUE.equals(input.get("board")), Boolean.TRUE.equals(input.get("instruments")));
+                Boolean.TRUE.equals(input.get("instruments")));
     }
 
     @MutationMapping
     public TaskCategoryDto taskCategoryUpdate(@Argument final String id, @Argument final Map<String, Object> input) {
         return service.updateTaskCategory(Ids.require(id), (String) input.get("name"), Boolean.TRUE.equals(input.get("actorPresent")),
-                Boolean.TRUE.equals(input.get("board")), Boolean.TRUE.equals(input.get("instruments")));
+                Boolean.TRUE.equals(input.get("instruments")));
     }
 
     @MutationMapping
-    public TaskDto taskCreate(@Argument final Map<String, String> input) {
-        return service.createTask(input.get("name"), Ids.require(input.get("categoryId")));
+    public TaskDto taskCreate(@Argument final Map<String, Object> input) {
+        return service.createTask((String) input.get("name"), Ids.require((String) input.get("categoryId")), Boolean.TRUE.equals(input.get("board")));
     }
 
     @MutationMapping
-    public TaskDto taskUpdate(@Argument final String id, @Argument final Map<String, String> input) {
-        return service.updateTask(Ids.require(id), input.get("name"), Ids.require(input.get("categoryId")));
+    public TaskDto taskUpdate(@Argument final String id, @Argument final Map<String, Object> input) {
+        return service.updateTask(Ids.require(id), (String) input.get("name"), Ids.require((String) input.get("categoryId")),
+                Boolean.TRUE.equals(input.get("board")));
     }
 
     @MutationMapping
@@ -344,8 +345,8 @@ public class BaseDataGraphqlApi {
                 .toList();
 
         return new SpexPeopleDto(true,
-                sorted.stream().filter(h -> categories.get(h.task().categoryKey()).board()).toList(),
-                sorted.stream().filter(h -> !categories.get(h.task().categoryKey()).board()).toList(),
+                sorted.stream().filter(h -> h.task().board()).toList(),
+                sorted.stream().filter(h -> !h.task().board()).toList(),
                 boardPhotos);
     }
 

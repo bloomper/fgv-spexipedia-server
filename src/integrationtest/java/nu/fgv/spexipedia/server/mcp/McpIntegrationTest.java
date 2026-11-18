@@ -236,10 +236,10 @@ class McpIntegrationTest extends AbstractIntegrationTest {
     @Test
     void tasksAndTaskCategories() {
         final String orchestra = graphQl(EDITOR).document("""
-                        mutation { c: taskCategoryCreate(input: {name: "Orkester", actorPresent: false, board: false, instruments: true}) { id } }""")
+                        mutation { c: taskCategoryCreate(input: {name: "Orkester", actorPresent: false, instruments: true}) { id } }""")
                 .execute().path("c.id").entity(String.class).get();
         final String actors = graphQl(EDITOR).document("""
-                        mutation { c: taskCategoryCreate(input: {name: "Skådespelare", actorPresent: true, board: false}) { id } }""")
+                        mutation { c: taskCategoryCreate(input: {name: "Skådespelare", actorPresent: true}) { id } }""")
                 .execute().path("c.id").entity(String.class).get();
         final String violin = createTask("Fiol", orchestra);
         final String flute = createTask("Flöjt", orchestra);

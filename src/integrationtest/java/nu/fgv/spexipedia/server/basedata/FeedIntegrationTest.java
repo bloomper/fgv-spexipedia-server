@@ -73,7 +73,7 @@ class FeedIntegrationTest extends AbstractIntegrationTest {
     @Test
     void instrumentCategoriesAreMarkedForSpexarkivet() {
         final String orchestra = graphQl(EDITOR).document("""
-                        mutation { c: taskCategoryCreate(input: {name: "Orkester", actorPresent: false, board: false, instruments: true}) { id instruments } }""")
+                        mutation { c: taskCategoryCreate(input: {name: "Orkester", actorPresent: false, instruments: true}) { id instruments } }""")
                 .execute().path("c.instruments").entity(Boolean.class).isEqualTo(true)
                 .path("c.id").entity(String.class).get();
 
@@ -85,9 +85,9 @@ class FeedIntegrationTest extends AbstractIntegrationTest {
     @Test
     void aMergeTellsWhereReferencesGo() {
         final String task = graphQl(EDITOR).document("""
-                        mutation { c: taskCategoryCreate(input: {name: "Kommitté", actorPresent: false, board: true}) { id } }""")
+                        mutation { c: taskCategoryCreate(input: {name: "Kommitté", actorPresent: false}) { id } }""")
                 .execute().path("c.id").entity(String.class).get();
-        final String directeur = graphQl(EDITOR).document("mutation($c: ID!) { taskCreate(input: {name: \"Directeur\", categoryId: $c}) { id } }")
+        final String directeur = graphQl(EDITOR).document("mutation($c: ID!) { taskCreate(input: {name: \"Directeur\", categoryId: $c, board: true}) { id } }")
                 .variable("c", task).execute().path("taskCreate.id").entity(String.class).get();
         final String duplicate = graphQl(EDITOR).document("mutation($c: ID!) { taskCreate(input: {name: \"Direktör\", categoryId: $c}) { id } }")
                 .variable("c", task).execute().path("taskCreate.id").entity(String.class).get();

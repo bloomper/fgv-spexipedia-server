@@ -218,7 +218,7 @@ public class MergeService {
             case CHARACTER, NUMBER, SPEX_CATEGORY, TASK_CATEGORY -> "%s %s".formatted(kind.name().toLowerCase(java.util.Locale.ROOT).replace('_', ' '),
                     jdbc.sql("SELECT %s FROM %s WHERE id = :id".formatted(kind == BaseDataKind.NUMBER ? "title" : "name", table(kind)))
                             .param("id", key).query(String.class).single());
-            case TASK -> "post " + jdbc.sql("SELECT name FROM task WHERE id = :id").param("id", key).query(String.class).single();
+            case TASK -> "funktion " + jdbc.sql("SELECT name FROM task WHERE id = :id").param("id", key).query(String.class).single();
         };
     }
 

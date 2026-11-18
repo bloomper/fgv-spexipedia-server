@@ -794,7 +794,7 @@ public class SampleDataImporter {
 
             final UUID directeur = jdbc.sql("SELECT t.uuid FROM task t JOIN task_category c ON c.id = t.category_id WHERE t.name = 'Directeur' AND c.name = 'Kommitté'")
                     .query(String.class).optional().map(UUID::fromString).orElseThrow();
-            final TaskDto duplicate = baseData.importTask(uuid("task", "Kommitté", "Direktör"), "Direktör", taskCategories.get("Kommitté"));
+            final TaskDto duplicate = baseData.importTask(uuid("task", "Kommitté", "Direktör"), "Direktör", taskCategories.get("Kommitté"), true);
 
             mergeService.merge(BaseDataKind.TASK, duplicate.id(), directeur);
         }
