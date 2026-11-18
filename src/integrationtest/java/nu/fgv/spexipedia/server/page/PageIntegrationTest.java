@@ -81,7 +81,7 @@ class PageIntegrationTest extends AbstractIntegrationTest {
         final String spex = createSpex("1984", "Lasse-Maja", null);
 
         publish(spex);
-        graphQl(AUTHOR).document("mutation($s: ID!, $p: ID) { spexPageUpdate(spexId: $s, input: {vestWornBy: {spexareId: $p}}) { generation } }")
+        graphQl(AUTHOR).document("mutation($s: ID!, $p: ID) { spexPageUpdate(spexId: $s, input: {vestWornBy: {spexareId: $p}}) { premiere } }")
                 .variable("s", spex).variable("p", SPEXARE).execute().path("spexPageUpdate").hasValue();
         WIREMOCK.stubFor(post(urlEqualTo("/spexregister/graphql")).withRequestBody(matchingJsonPath("$.variables.names", equalTo("false")))
                 .willReturn(aResponse().withHeader("Content-Type", "application/json").withBody("""

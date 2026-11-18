@@ -24,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * The small sample data, built on the base data the migration seeds, with what the content migration brings in: facts,
- * kinds, an unresolved credit, a record from the song register and a spex book whose tracks are the spex' numbers.
+ * kinds, an unresolved credit, a record from the song register and a book whose songs are the spex' numbers.
  */
 class SampleDataImporterIntegrationTest extends AbstractIntegrationTest {
 
@@ -40,9 +40,11 @@ class SampleDataImporterIntegrationTest extends AbstractIntegrationTest {
         assertThat(jdbcClient.sql("SELECT COUNT(*) FROM spex_fact").query(Long.class).single()).isPositive();
         assertThat(jdbcClient.sql("SELECT COUNT(*) FROM number_credit WHERE unresolved = 1").query(Long.class).single()).isPositive();
         assertThat(jdbcClient.sql("""
-                SELECT COUNT(*) FROM recording_track t JOIN recording r ON r.id = t.recording_id JOIN kind k ON k.id = r.medium_id
-                WHERE k.uuid = ? AND t.number_id IS NOT NULL""").param(DefaultKinds.SPEX_BOOK.toString()).query(Long.class).single())
-                .isGreaterThan(10);
+                SELECT COUNT(*) FROM book_song s JOIN book b ON b.id = s.book_id
+                WHERE b.title = 'Chalmersspex I' AND s.number_id IS NOT NULL""").query(Long.class).single()).isGreaterThan(10);
+        assertThat(jdbcClient.sql("SELECT COUNT(*) FROM book_song WHERE text_only = 1").query(Long.class).single()).isPositive();
+        // A spex book is a book, not a recording medium
+        assertThat(jdbcClient.sql("SELECT COUNT(*) FROM kind WHERE type = 'MEDIUM' AND name_sv = 'Spexbok'").query(Long.class).single()).isZero();
         assertThat(jdbcClient.sql("SELECT COUNT(*) FROM recording WHERE catalogue_number = 'CCD 004' AND description IS NULL")
                 .query(Long.class).single()).isEqualTo(1);
 

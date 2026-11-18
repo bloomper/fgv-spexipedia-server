@@ -58,9 +58,6 @@ public class SpexPage extends AbstractAuditable {
     @JoinColumn(name = "spex_id", nullable = false, updatable = false)
     private Spex spex;
 
-    @Column(name = "generation")
-    private @Nullable String generation;
-
     @Column(name = "premiere")
     private @Nullable LocalDate premiere;
 

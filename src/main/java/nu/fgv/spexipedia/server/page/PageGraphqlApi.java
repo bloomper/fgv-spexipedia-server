@@ -89,7 +89,7 @@ public class PageGraphqlApi {
         if (parent == null) {
             return own;
         }
-        return new SpexPageDto(own.spexKey(), own.spexId(), either(own.generation(), parent.generation()), own.premiere(),
+        return new SpexPageDto(own.spexKey(), own.spexId(), own.premiere(),
                 either(own.introduction(), parent.introduction()), either(own.shortDescription(), parent.shortDescription()),
                 either(own.description(), parent.description()),
                 either(own.synopsis(), parent.synopsis()), either(own.rebusKey(), parent.rebusKey()),
@@ -116,7 +116,7 @@ public class PageGraphqlApi {
                 baseIds.put(field.toUpperCase(java.util.Locale.ROOT), Ids.optional(base.get(field)));
             }
         }
-        return service.update(Ids.require(spexId), new SpexPageService.PageInput((String) input.get("generation"),
+        return service.update(Ids.require(spexId), new SpexPageService.PageInput(
                 (String) input.get("premiere"), (String) input.get("introduction"), (String) input.get("shortDescription"),
                 (String) input.get("description"),
                 (String) input.get("synopsis"), (String) input.get("vestDescription"),

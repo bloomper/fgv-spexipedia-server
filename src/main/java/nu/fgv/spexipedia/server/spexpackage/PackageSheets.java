@@ -61,7 +61,7 @@ public final class PackageSheets {
         }
     }
 
-    public record CharacterRow(int row, String name, @Nullable String figure, @Nullable String description) {
+    public record CharacterRow(int row, String name, @Nullable String description) {
     }
 
     public record SceneRow(int row, @Nullable Integer act, String title, @Nullable String place, boolean intervalAfter) {
@@ -125,7 +125,7 @@ public final class PackageSheets {
             final String name = row.getOrDefault("name", "");
 
             if (!name.isBlank()) {
-                characters.add(new CharacterRow(r + 2, name, blank(row.get("figure")), blank(row.get("description"))));
+                characters.add(new CharacterRow(r + 2, name, blank(row.get("description"))));
             }
         }
         return characters;

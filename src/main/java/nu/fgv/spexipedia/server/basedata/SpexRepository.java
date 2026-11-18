@@ -16,6 +16,7 @@
 
 package nu.fgv.spexipedia.server.basedata;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -46,6 +47,12 @@ public interface SpexRepository extends JpaRepository<Spex, Long> {
 
     @Query("SELECT s FROM Spex s LEFT JOIN FETCH s.parent p LEFT JOIN FETCH s.category LEFT JOIN FETCH p.category ORDER BY s.year, s.id")
     List<Spex> findAllWithParents();
+
+    /**
+     * Whether the category has an original in the year, not retired, other than the spex with the id (null for a new one).
+     */
+    @Query("SELECT COUNT(s) > 0 FROM Spex s WHERE s.category = :category AND s.year = :year AND s.parent IS NULL AND s.retired = false AND (:id IS NULL OR s.id <> :id)")
+    boolean existsOriginal(SpexCategory category, String year, @Nullable Long id);
 
     @Query("SELECT s FROM Spex s LEFT JOIN s.parent p WHERE s.category = :category OR p.category = :category ORDER BY s.year, s.id")
     List<Spex> findAllOfCategory(SpexCategory category);

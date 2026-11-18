@@ -61,15 +61,16 @@ class LinkServiceTest {
     }
 
     @Test
-    void visitorsSeePublicPhotosAndAreNotToldOfTheOthers() {
+    void visitorsSeeNoPhotosEvenPublicOnesAndAreNotToldOfThem() {
         when(callerService.currentIfAny()).thenReturn(Optional.empty());
 
         final LinkDtos.PhotoSetDto photos = service.photos(List.of(PUBLIC, MEMBERS));
 
-        assertThat(photos.photos()).extracting(LinkDtos.PhotoDto::itemId).containsExactly(PUBLIC);
+        assertThat(photos.photos()).isEmpty();
         assertThat(photos.hiddenCount()).isZero();
         assertThat(photos.itemIds()).isEmpty();
-        verify(client, never()).spexgramItems(any(), eq(true));
+        assertThat(photos.available()).isTrue();
+        verify(client, never()).spexgramItems(any(), anyBoolean());
     }
 
     @Test
@@ -95,7 +96,7 @@ class LinkServiceTest {
 
     @Test
     void anUnreachableSpexgramIsTold() {
-        when(callerService.currentIfAny()).thenReturn(Optional.empty());
+        when(callerService.currentIfAny()).thenReturn(Optional.of(TestCallers.member()));
         when(client.spexgramItems(any(), anyBoolean())).thenReturn(Optional.empty());
 
         assertThat(service.photos(List.of(PUBLIC)).available()).isFalse();

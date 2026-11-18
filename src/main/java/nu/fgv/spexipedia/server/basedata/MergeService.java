@@ -57,7 +57,7 @@ public class MergeService {
             BaseDataKind.TASK_CATEGORY, List.of("task.category_id"),
             BaseDataKind.TASK, List.of(),
             BaseDataKind.CHARACTER, List.of("spex_page_photo.character_id"),
-            BaseDataKind.NUMBER, List.of("recording_track.number_id")
+            BaseDataKind.NUMBER, List.of("recording_track.number_id", "book_song.number_id")
     );
 
     private final JdbcClient jdbc;
@@ -116,11 +116,14 @@ public class MergeService {
         final long key = key(kind, id);
         final UUID uuid = uuid(kind, key);
 
+        if (kind == BaseDataKind.SPEX && !retired) {
+            baseData.requireFreeYearToUnretire(uuid);
+        }
         jdbc.sql("UPDATE " + table(kind) + " SET retired = :retired WHERE id = :id").param("retired", retired).param("id", key).update();
         feed.record(kind, uuid, retired ? ChangeType.RETIRE : ChangeType.UPSERT, null, snapshot(kind, key));
         index(kind, uuid);
         auditService.record(retired ? "RETIRE" : "UNRETIRE", kind.name(), uuid,
-                (retired ? "Pensionerade " : "Återinförde ") + label(kind, key));
+                (retired ? "Deaktiverade " : "Aktiverade ") + label(kind, key));
         return true;
     }
 

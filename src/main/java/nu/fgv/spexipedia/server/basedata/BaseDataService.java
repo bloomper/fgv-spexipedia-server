@@ -363,6 +363,7 @@ public class BaseDataService {
         spex.setYear(Texts.year(year));
         spex.setTitle(Texts.required(title, 255, "title"));
         spex.setCategory(categoryId == null ? null : requireCategory(categoryId));
+        requireFreeYear(spex);
         spex.setSlug(slug(spex));
         spexRepository.save(spex);
         changed(spex);
@@ -381,9 +382,54 @@ public class BaseDataService {
             spex.setTitle(Texts.required(title, 255, "title"));
             spex.setCategory(categoryId == null ? null : requireCategory(categoryId));
         }
+        requireFreeYear(spex);
         changedWithRevivals(spex);
         auditService.record("UPDATE", "SPEX", id, "Ändrade spexet " + spex.label());
         return BaseDataDtos.toDto(spex);
+    }
+
+    /**
+     * One original per category and year; a revival later than its original, and one revival of an original per year.
+     * Revivals share their years with originals and with other originals' revivals. A retired spex takes no year.
+     */
+    private void requireFreeYear(final Spex spex) {
+        final Spex parent = spex.getParent();
+
+        if (spex.isRetired()) {
+            return;
+        }
+
+        if (parent != null) {
+            if (spex.getYear().compareTo(parent.getYear()) <= 0) {
+                throw new BadRequestException("error.spex.revivalYear");
+            }
+            if (spexRepository.findByParentOrderByYearAsc(parent).stream()
+                    .anyMatch(other -> !other.getUuid().equals(spex.getUuid()) && !other.isRetired() && other.getYear().equals(spex.getYear()))) {
+                throw new BadRequestException("error.spex.revivalYearTaken", spex.getYear());
+            }
+            return;
+        }
+        if (spex.getId() != null && spexRepository.findByParentOrderByYearAsc(spex).stream()
+                .anyMatch(revival -> revival.getYear().compareTo(spex.getYear()) <= 0)) {
+            throw new BadRequestException("error.spex.revivalYear");
+        }
+        final SpexCategory category = spex.getCategory();
+
+        if (category != null && spexRepository.existsOriginal(category, spex.getYear(), spex.getId())) {
+            throw new BadRequestException("error.spex.yearTaken", category.getName(), spex.getYear());
+        }
+    }
+
+    /**
+     * Before a retired spex is brought back: it takes its year again.
+     */
+    void requireFreeYearToUnretire(final UUID id) {
+        final Spex spex = requireSpex(id);
+
+        if (spex.isRetired()) {
+            spex.setRetired(false);
+            requireFreeYear(spex);
+        }
     }
 
     /**
@@ -403,17 +449,12 @@ public class BaseDataService {
             throw new BadRequestException("error.spex.revivalOfRevival");
         }
 
-        final String revivalYear = Texts.year(year);
-
-        if (revivalYear.compareTo(parent.getYear()) <= 0) {
-            throw new BadRequestException("error.spex.revivalYear");
-        }
-
         final Spex revival = new Spex();
 
         revival.setUuid(Uuids.v7());
-        revival.setYear(revivalYear);
+        revival.setYear(Texts.year(year));
         revival.setParent(parent);
+        requireFreeYear(revival);
         revival.setSlug(slug(revival));
         spexRepository.save(revival);
         changed(revival);
@@ -609,6 +650,7 @@ public class BaseDataService {
         spex.setTitle(parentId == null ? Texts.required(title, 255, "title") : null);
         spex.setCategory(parentId == null && categoryId != null ? requireCategory(categoryId) : null);
         spex.setRetired(retired);
+        requireFreeYear(spex);
         if (spex.getSlug() == null) {
             spex.setSlug(slug(spex));
         }

@@ -20,12 +20,10 @@ import nu.fgv.spexipedia.server.basedata.BaseDataDtos.SpexDto;
 import nu.fgv.spexipedia.server.basedata.BaseDataService;
 import nu.fgv.spexipedia.server.basedata.Spex;
 import nu.fgv.spexipedia.server.content.ContentDtos.CharacterDto;
-import nu.fgv.spexipedia.server.content.ContentDtos.FigureDto;
 import nu.fgv.spexipedia.server.content.ContentDtos.NumberDto;
 import nu.fgv.spexipedia.server.content.ContentDtos.RecordingDto;
 import nu.fgv.spexipedia.server.content.ContentDtos.TrackDto;
 import nu.fgv.spexipedia.server.content.ContentService;
-import nu.fgv.spexipedia.server.content.Figure;
 import nu.fgv.spexipedia.server.kind.KindService;
 import nu.fgv.spexipedia.server.content.Recording;
 import nu.fgv.spexipedia.server.content.RecordingService;
@@ -47,9 +45,9 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * The MCP tools for what is on spex pages: characters, scenes, numbers, figures and recordings. Characters and numbers
- * are base data, read by anyone by id; lists by spex, figures' characters and recordings follow the GraphQL API's rules
- * (retired ones and unpublished recordings for EDITOR, figures' characters on published pages unless AUTHOR). EDITOR
+ * The MCP tools for what is on spex pages: characters, scenes, numbers and recordings. Characters and numbers
+ * are base data, read by anyone by id; lists by spex and recordings follow the GraphQL API's rules
+ * (retired ones and unpublished recordings for EDITOR). EDITOR
  * adds characters, scenes, numbers and tracks by pasting text, as in the web.
  *
  * @author Anders Jacobsson
@@ -85,7 +83,7 @@ public class ContentMcpTools {
     }
 
     @McpTool(name = "get_character",
-            description = "Get a character by id: the spex it belongs to, its figure, description and the numbers it sings.",
+            description = "Get a character (a role) by id: the spex it belongs to, its description and the numbers it sings.",
             annotations = @McpAnnotations(readOnlyHint = true, destructiveHint = false, openWorldHint = false))
     public McpCharacterDetails getCharacter(@McpToolParam(description = "Character id") final String id) {
         return support.call(() -> {
@@ -111,32 +109,6 @@ public class ContentMcpTools {
             final NumberDto number = content.number(id).orElseThrow(() -> new ResourceNotFoundException(SpexNumber.class, id));
 
             return new McpNumberDetails(SpexMcpTools.McpNumber.of(number), SpexMcpTools.McpSpexRef.of(baseData.spexByKey(number.spexKey())));
-        });
-    }
-
-    @McpTool(name = "list_figures",
-            description = "List figures, by name: who or what characters portray across spex, e.g. a historical person.",
-            annotations = @McpAnnotations(readOnlyHint = true, destructiveHint = false, openWorldHint = false))
-    public McpToolSupport.ListResult<McpFigure> listFigures() {
-        return support.call(() -> new McpToolSupport.ListResult<>(content.figures().stream().map(McpFigure::of).toList()));
-    }
-
-    @McpTool(name = "get_figure",
-            description = "Get a figure by id or slug, with its characters by year: those on published pages, all for AUTHOR.",
-            annotations = @McpAnnotations(readOnlyHint = true, destructiveHint = false, openWorldHint = false))
-    public McpFigureDetails getFigure(@McpToolParam(description = "Figure id or slug") final String id) {
-        return support.call(() -> {
-            final FigureDto figure = content.figure(id).orElseThrow(() -> new ResourceNotFoundException(Figure.class, id));
-            final Set<Long> published = pages.publishedSpexKeys();
-            final boolean author = pages.isAuthor();
-            final List<CharacterDto> characters = content.charactersOfFigure(figure.key()).stream()
-                    .filter(character -> author || published.contains(character.spexKey()))
-                    .toList();
-            final Map<Long, SpexDto> spex = baseData.spexByKeys(characters.stream().map(CharacterDto::spexKey).collect(Collectors.toSet()));
-
-            return new McpFigureDetails(McpFigure.of(figure), characters.stream()
-                    .map(character -> new McpFigureCharacter(character.id(), character.name(), SpexMcpTools.McpSpexRef.of(spex.get(character.spexKey()))))
-                    .toList());
         });
     }
 
@@ -195,10 +167,7 @@ public class ContentMcpTools {
     }
 
     private List<McpCharacter> characters(final List<CharacterDto> characters) {
-        final Set<Long> figureKeys = characters.stream().map(CharacterDto::figureKey).filter(Objects::nonNull).collect(Collectors.toSet());
-        final Map<Long, FigureDto> figures = figureKeys.isEmpty() ? Map.of() : content.figuresByKeys(figureKeys);
-
-        return characters.stream().map(character -> McpCharacter.of(character, figures)).toList();
+        return characters.stream().map(McpCharacter::of).toList();
     }
 
     private McpRecording recording(final RecordingDto recording) {
@@ -210,18 +179,12 @@ public class ContentMcpTools {
     }
 
     /**
-     * A character on a spex's page.
-     *
-     * @param figure the name of the figure (e.g. a historical person) the character portrays, if any
+     * A character (a role) on a spex's page.
      */
-    public record McpCharacter(UUID id, String name, @Nullable String figure, @Nullable String description,
-                               boolean retired) {
+    public record McpCharacter(UUID id, String name, @Nullable String description, boolean retired) {
 
-        static McpCharacter of(final CharacterDto character, final Map<Long, FigureDto> figures) {
-            final FigureDto figure = character.figureKey() == null ? null : figures.get(character.figureKey());
-
-            return new McpCharacter(character.id(), character.name(), figure == null ? null : figure.name(), character.description(),
-                    character.retired());
+        static McpCharacter of(final CharacterDto character) {
+            return new McpCharacter(character.id(), character.name(), character.description(), character.retired());
         }
     }
 
@@ -230,19 +193,6 @@ public class ContentMcpTools {
     }
 
     public record McpNumberDetails(SpexMcpTools.McpNumber number, SpexMcpTools.McpSpexRef spex) {
-    }
-
-    public record McpFigure(UUID id, String slug, String name, @Nullable String description) {
-
-        static McpFigure of(final FigureDto figure) {
-            return new McpFigure(figure.id(), figure.slug(), figure.name(), figure.description());
-        }
-    }
-
-    public record McpFigureCharacter(UUID id, String name, SpexMcpTools.McpSpexRef spex) {
-    }
-
-    public record McpFigureDetails(McpFigure figure, List<McpFigureCharacter> characters) {
     }
 
     public record McpRecording(SpexMcpTools.McpRecordingRef recording, @Nullable String medium,

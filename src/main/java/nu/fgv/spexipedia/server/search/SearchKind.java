@@ -25,8 +25,8 @@ package nu.fgv.spexipedia.server.search;
 public enum SearchKind {
     SPEX,
     CHARACTER,
-    FIGURE,
     NUMBER,
     RECORDING,
+    BOOK,
     ARTICLE
 }

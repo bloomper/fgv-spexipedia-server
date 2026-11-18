@@ -37,7 +37,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Search across spex, characters, figures, numbers (original songs included), recordings and articles, with MySQL's
+ * Search across spex, characters, numbers (original songs included), recordings, books and articles, with MySQL's
  * full-text index over one table of documents. A document carries who may find it: everyone (PUBLIC), logged-in users
  * (MEMBERS) or only those who may see unpublished pages (HIDDEN). People are never indexed or searched.
  *
@@ -94,9 +94,9 @@ public class SearchService {
         return switch (kind) {
             case SPEX -> "spex";
             case CHARACTER -> "spex_character";
-            case FIGURE -> "figure";
             case NUMBER -> "spex_number";
             case RECORDING -> "recording";
+            case BOOK -> "book";
             case ARTICLE -> "article";
         };
     }
@@ -159,11 +159,6 @@ public class SearchService {
                     .flatMap(row -> spexPart((Long) row[0]).map(part -> new Document(kind, id, (String) row[1], part.label(),
                             markdown.plain((String) row[2]), "/spex/" + part.slug() + "#character-" + id,
                             (Boolean) row[3] ? "HIDDEN" : part.visibility())));
-            case FIGURE -> jdbc.sql("SELECT slug, name, description FROM figure WHERE uuid = :id")
-                    .param("id", uuid)
-                    .query((rs, _) -> new Document(kind, id, rs.getString(2), null, markdown.plain(rs.getString(3)),
-                            "/figures/" + rs.getString(1), "PUBLIC"))
-                    .optional();
             case NUMBER -> jdbc.sql("SELECT spex_id, title, original_title, original_artist, retired FROM spex_number WHERE uuid = :id")
                     .param("id", uuid)
                     .query((rs, _) -> new Object[]{rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getBoolean(5)})
@@ -180,6 +175,16 @@ public class SearchService {
                     .query((rs, _) -> new Document(kind, id, rs.getString(2) + " " + rs.getString(3), null,
                             join(markdown.plain(rs.getString(4)), rs.getString(6)), "/recordings/" + rs.getString(1),
                             rs.getBoolean(5) ? "PUBLIC" : "HIDDEN"))
+                    .optional();
+            case BOOK -> jdbc.sql("""
+                            SELECT b.slug, b.title, b.description, b.published,
+                                   (SELECT GROUP_CONCAT(COALESCE(n.title, s.title) SEPARATOR ' ') FROM book_song s
+                                    LEFT JOIN spex_number n ON n.id = s.number_id WHERE s.book_id = b.id) AS songs
+                            FROM book b WHERE b.uuid = :id""")
+                    .param("id", uuid)
+                    .query((rs, _) -> new Document(kind, id, rs.getString(2), null,
+                            join(markdown.plain(rs.getString(3)), rs.getString(5)), "/books/" + rs.getString(1),
+                            rs.getBoolean(4) ? "PUBLIC" : "HIDDEN"))
                     .optional();
             case ARTICLE -> jdbc.sql("SELECT slug, title, body, visibility, published, trashed_at FROM article WHERE uuid = :id")
                     .param("id", uuid)
@@ -256,7 +261,7 @@ public class SearchService {
      */
     @Transactional(readOnly = true)
     public List<String> publicPaths() {
-        return jdbc.sql("SELECT path FROM search_document WHERE visibility = 'PUBLIC' AND kind IN ('SPEX', 'FIGURE', 'RECORDING', 'ARTICLE') ORDER BY path")
+        return jdbc.sql("SELECT path FROM search_document WHERE visibility = 'PUBLIC' AND kind IN ('SPEX', 'RECORDING', 'BOOK', 'ARTICLE') ORDER BY path")
                 .query(String.class).list();
     }
 

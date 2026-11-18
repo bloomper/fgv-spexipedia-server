@@ -28,6 +28,7 @@ import nu.fgv.spexipedia.server.basedata.BaseDataKind;
 import nu.fgv.spexipedia.server.basedata.BaseDataService;
 import nu.fgv.spexipedia.server.basedata.MergeService;
 import nu.fgv.spexipedia.server.config.SpexipediaProperties;
+import nu.fgv.spexipedia.server.content.ContentDtos;
 import nu.fgv.spexipedia.server.content.ContentDtos.CharacterDto;
 import nu.fgv.spexipedia.server.content.ContentDtos.NumberDto;
 import nu.fgv.spexipedia.server.content.ContentDtos.RecordingDto;
@@ -36,6 +37,7 @@ import nu.fgv.spexipedia.server.content.ListStore.CreditRef;
 import nu.fgv.spexipedia.server.content.ListStore.RevivalChange;
 import nu.fgv.spexipedia.server.content.ListStore.RevivalChangeKind;
 import nu.fgv.spexipedia.server.content.RecordingService;
+import nu.fgv.spexipedia.server.content.BookService;
 import nu.fgv.spexipedia.server.feed.SyncConsumerService;
 import nu.fgv.spexipedia.server.image.Image;
 import nu.fgv.spexipedia.server.image.ImageKind;
@@ -46,6 +48,7 @@ import nu.fgv.spexipedia.server.search.SearchService;
 import nu.fgv.spexipedia.server.settings.SettingsService;
 import nu.fgv.spexipedia.server.util.security.KeycloakJwtRolesConverter;
 import nu.fgv.spexipedia.server.util.security.SecurityUtil;
+import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.Ordered;
@@ -113,10 +116,10 @@ public class SampleDataImporter {
             new String[]{"00000000-0000-7000-a000-000000000006", "Greta Gitarrqvist", "", "false"});
     // user@fgv.nu's Keycloak id, fixed in fgv-infra-deploy's sample-users.tsv
     static final String USER_ID = "00000000-0000-4000-8000-000000000003";
-    private static final List<String> TABLES = List.of("article_editing", "article_article_category", "article", "article_category",
+    private static final List<String> TABLES = List.of("book_song", "book", "article_editing", "article_link", "article_article_category", "article", "article_category_parent", "article_category",
             "revision", "redirect", "search_document", "recording_track", "recording", "number_character", "number_credit",
-            "spex_number", "character_image", "spex_character", "figure", "scene", "revival_change", "spex_page_photo",
-            "spex_page_image", "spex_page", "id_alias", "sync_consumer",
+            "spex_number", "character_image", "spex_character", "scene", "revival_change", "spex_page_photo",
+            "spex_page_image", "spex_fact", "spex_page", "id_alias", "sync_consumer",
             "image", "audit_entry", "app_user");
     private static final String[][] ORIGINALS = {
             {"Dancing Queen", "ABBA", "Benny Andersson, Björn Ulvaeus"}, {"Waterloo", "ABBA", "Benny Andersson, Björn Ulvaeus"},
@@ -133,11 +136,6 @@ public class SampleDataImporter {
             "Bonden Örjan", "Kocken", "Prinsessan", "Ärkebiskopen"};
     private static final String[] PLACES = {"Slottet", "Torget", "Kungliga sovgemaket", "Skogen", "Hamnen", "Tronsalen",
             "Krogen Gyldene Freden", "Fängelsehålan"};
-    private static final Map<String, String> FIGURES = Map.of(
-            "Napoleon", "Kejsare av Frankrike och återkommande gestalt i spexen, oftast kortare än han själv tror.",
-            "Kleopatra", "Egyptens drottning; spexens favorit bland antikens härskare.",
-            "Gustav Vasa", "Landsfader och skidlöpare.",
-            "Bellman", "Carl Michael Bellman, skald och flitig gäst i spex om 1700-talet.");
 
     private final SpexipediaProperties properties;
     private final Environment environment;
@@ -147,6 +145,7 @@ public class SampleDataImporter {
     private final MergeService mergeService;
     private final ContentService contentService;
     private final RecordingService recordingService;
+    private final BookService bookService;
     private final SpexPageService pageService;
     private final ArticleService articleService;
     private final ImageService imageService;
@@ -158,7 +157,7 @@ public class SampleDataImporter {
     @SuppressWarnings("java:S107")
     public SampleDataImporter(final SpexipediaProperties properties, final Environment environment, final JdbcClient jdbc, final SeededBaseData seededBaseData,
                               final BaseDataService baseData, final MergeService mergeService,
-                              final ContentService contentService, final RecordingService recordingService,
+                              final ContentService contentService, final RecordingService recordingService, final BookService bookService,
                               final SpexPageService pageService, final ArticleService articleService,
                               final ImageService imageService, final RedirectService redirectService,
                               final SettingsService settingsService, final SyncConsumerService consumerService,
@@ -171,6 +170,7 @@ public class SampleDataImporter {
         this.mergeService = mergeService;
         this.contentService = contentService;
         this.recordingService = recordingService;
+        this.bookService = bookService;
         this.pageService = pageService;
         this.articleService = articleService;
         this.imageService = imageService;
@@ -273,7 +273,6 @@ public class SampleDataImporter {
         private final boolean large;
         private final Map<String, UUID> categories = new LinkedHashMap<>();
         private final Map<String, UUID> taskCategories = new LinkedHashMap<>();
-        private final Map<String, UUID> figures = new HashMap<>();
         private final List<Image> pool = new ArrayList<>();
         private int images;
 
@@ -285,7 +284,6 @@ public class SampleDataImporter {
             baseData();
             settings();
             consumers();
-            figures();
 
             final List<SpexDto> all = baseData.spexAll(true);
             final List<SpexDto> full = full(all);
@@ -298,7 +296,7 @@ public class SampleDataImporter {
             for (final SpexDto spex : all) {
                 if (!fullIds.contains(spex.id()) && !spex.revival() && (large || spex.year().endsWith("0"))) {
                     baseData.setPoster(spex.id(), image(ImageKind.POSTER, 600, 840, spex.year(), spex.title()).getUuid());
-                    pageService.update(spex.id(), new SpexPageService.PageInput(generation(spex), null,
+                    pageService.update(spex.id(), new SpexPageService.PageInput(null,
                             "%s – ett spex från %s.".formatted(spex.title(), spex.year()), null, null, null, null, null, null));
                     if (large) {
                         pageService.setPublished(spex.id(), true);
@@ -329,7 +327,7 @@ public class SampleDataImporter {
             settingsService.save(new SettingsService.SettingsDto(
                     "Välkommen till Spexipedia! Här finns allt om spexen, och som inloggad ser du även vilka som var med.",
                     "Welcome to Spexipedia! Everything about the spex, and as a member you also see who took part.",
-                    "Spexipedia är FGV:s uppslagsverk om Chalmersspexet och de andra spexen. Exempeldata – inget här är på riktigt.",
+                    "Spexipedia är FGV:s uppslagsverk om Chalmersspexet: alla spex sedan 1948, rollerna, musiken och traditionerna. Exempeldata – inget här är på riktigt.",
                     "Spexipedia is FGV's encyclopedia of the spex. Sample data – nothing here is real.",
                     "spexipedia@fgv.nu", null), "sample-data");
         }
@@ -340,10 +338,6 @@ public class SampleDataImporter {
             consumerService.register("Spexflix", "fgv-spexflix-service", "http://spexflix-api:8080/api/sync/notify");
             consumerService.register("Spexgram", "fgv-spexgram-service", "http://spexgram-api:8080/api/sync/notify");
             consumerService.register("Spexarkivet", "fgv-archive-service", "http://archive-api:8080/api/sync/notify");
-        }
-
-        private void figures() {
-            FIGURES.forEach((name, description) -> figures.put(name, contentService.createFigure(name, description).id()));
         }
 
         // Spex pages ---------------------------------------------------------------------------------------------------
@@ -364,12 +358,6 @@ public class SampleDataImporter {
             return all.stream().filter(spex -> !spex.revival() && chosen.contains(spex.title() + "|" + spex.year())).toList();
         }
 
-        private String generation(final SpexDto spex) {
-            final int year = Integer.parseInt(spex.year());
-
-            return year < 2003 ? "Gamla Chalmersspexet" : year < 2020 ? "Bob & Vera" : "Nya Chalmersspexet";
-        }
-
         /**
          * A page with every section filled (full), or only a few.
          */
@@ -380,7 +368,7 @@ public class SampleDataImporter {
 
             scenes(spex);
             numbers(spex, characters, index);
-            pageService.update(spex.id(), new SpexPageService.PageInput(generation(spex),
+            pageService.update(spex.id(), new SpexPageService.PageInput(
                     index == 0 ? LocalDate.now().withYear(Integer.parseInt(spex.year())).toString()
                             : "%s-02-%02d".formatted(spex.year(), 1 + index % 27),
                     "%s – ett spex om makt, kärlek och en och annan felräknad tronföljd.".formatted(spex.title()),
@@ -408,7 +396,10 @@ public class SampleDataImporter {
                 // Spexgram's sample photos of its first album, about the earliest spex: public ones and members' ones
                 pageService.setPhotos(spex.id(), "GROUP", null, List.of(spexgramItem(1), spexgramItem(2), spexgramItem(21), spexgramItem(22)));
                 pageService.setPhotos(spex.id(), "BOARD", null, List.of(spexgramItem(3), spexgramItem(23)));
+                // Actors of three roles; Spexgram's first album is public but for every fifth item, its second is for members
                 pageService.setPhotos(spex.id(), "ACTOR", characters.getFirst().key(), List.of(spexgramItem(4), spexgramItem(24)));
+                pageService.setPhotos(spex.id(), "ACTOR", characters.get(1).key(), List.of(spexgramItem(6), spexgramItem(25)));
+                pageService.setPhotos(spex.id(), "ACTOR", characters.get(2).key(), List.of(spexgramItem(7), spexgramItem(10)));
             }
             pageService.setPublished(spex.id(), index % 7 != 6);
         }
@@ -441,11 +432,11 @@ public class SampleDataImporter {
 
         private String description(final SpexDto spex) {
             return """
-                    **%s** sattes upp av %s %s. Exempeldata: texten är påhittad, men visar hur en sida ser ut med *Markdown*, \
+                    **%s** sattes upp av Chalmersspexet %s. Exempeldata: texten är påhittad, men visar hur en sida ser ut med *Markdown*, \
                     länkar till [[Spexets traditioner]] och till [andra spex](/spex).
 
                     Spexet minns för sin finalkör, som publiken krävde tre gånger, och för en kuliss som föll i fel ögonblick \
-                    – se [[Anekdot: Kulissen som föll|anekdoten]]. Åäö fungerar.""".formatted(spex.title(), generation(spex), spex.year());
+                    – se [[Anekdot: Kulissen som föll|anekdoten]]. Åäö fungerar.""".formatted(spex.title(), spex.year());
         }
 
         private String synopsis(final SpexDto spex) {
@@ -460,30 +451,42 @@ public class SampleDataImporter {
         private List<CharacterDto> characters(final SpexDto spex, final int index) {
             final List<CharacterDto> created = new ArrayList<>();
             final String titleRole = spex.title().replaceAll("\\s+\\d+$", "");
-            final UUID figure = figures.entrySet().stream().filter(entry -> spex.title().contains(entry.getKey().split(" ")[0]))
-                    .map(Map.Entry::getValue).findFirst().orElse(null);
             final int count = large ? 4 : 5 + index % 4;
 
-            created.add(contentService.createCharacter(spex.id(), titleRole, figure,
+            created.add(contentService.createCharacter(spex.id(), titleRole,
                     "Titelrollen. %s är både hjälte och skurk, beroende på akt.".formatted(titleRole), uuid("character", spex.id().toString(), "0")));
             for (int i = 0; i < count; i++) {
                 final String role = ROLES[(index + i) % ROLES.length];
-                final UUID roleFigure = i == 1 && index % 3 == 0 ? figures.get("Bellman") : null;
-                final String name = roleFigure != null ? "Bellman" : role;
+                // Now and then a historical person, as in many spex
+                final String name = i == 1 && index % 3 == 0 ? "Bellman" : role;
 
-                created.add(contentService.createCharacter(spex.id(), name, roleFigure,
+                created.add(contentService.createCharacter(spex.id(), name,
                         i % 2 == 0 ? "%s, som alla misstänker men ingen förstår.".formatted(name) : null,
                         uuid("character", spex.id().toString(), String.valueOf(i + 1))));
             }
             if (!large || index < 3) {
-                final CharacterDto first = created.getFirst();
+                // Sketches show no spexare, so visitors see them: every kind for the title role, a sketch and often a
+                // make-up sketch for the next roles
+                for (int i = 0; i < created.size(); i++) {
+                    final CharacterDto character = created.get(i);
 
-                contentService.setCharacterImages(first.id(), List.of(
-                        new ContentService.ImageRef(image(ImageKind.SKETCH, 700, 1000, "Skiss", first.name()).getUuid(), DefaultKinds.SKETCH, "Skiss"),
-                        new ContentService.ImageRef(image(ImageKind.MAKEUP, 700, 1000, "Sminkskiss", first.name()).getUuid(), DefaultKinds.MAKEUP, "Sminkskiss"),
-                        new ContentService.ImageRef(image(ImageKind.COSTUME, 700, 1000, "Kostymdocka", first.name()).getUuid(), DefaultKinds.COSTUME, null)));
+                    if (i == 0) {
+                        contentService.setCharacterImages(character.id(), List.of(sketch(character, ImageKind.SKETCH, DefaultKinds.SKETCH, "Skiss"),
+                                sketch(character, ImageKind.MAKEUP, DefaultKinds.MAKEUP, "Sminkskiss"),
+                                sketch(character, ImageKind.COSTUME, DefaultKinds.COSTUME, "Kostymdocka")));
+                    } else if (i <= 3) {
+                        contentService.setCharacterImages(character.id(), (i + index) % 2 == 0
+                                ? List.of(sketch(character, ImageKind.SKETCH, DefaultKinds.SKETCH, "Skiss"),
+                                          sketch(character, ImageKind.MAKEUP, DefaultKinds.MAKEUP, "Sminkskiss"))
+                                : List.of(sketch(character, ImageKind.SKETCH, DefaultKinds.SKETCH, "Skiss")));
+                    }
+                }
             }
             return created;
+        }
+
+        private ContentService.ImageRef sketch(final CharacterDto character, final ImageKind kind, final UUID kindId, final String caption) {
+            return new ContentService.ImageRef(image(kind, 700, 1000, caption, character.name()).getUuid(), kindId, caption);
         }
 
         private void scenes(final SpexDto spex) {
@@ -551,13 +554,13 @@ public class SampleDataImporter {
             contentService.setRevivalChanges(revival.id(), RevivalChangeKind.NUMBER, List.of(
                     new RevivalChange(RevivalChangeKind.NUMBER, numbers.get(1).id(), true, null, null),
                     new RevivalChange(RevivalChangeKind.NUMBER, numbers.getLast().id(), false, 1, 0)));
-            contentService.createCharacter(revival.id(), "Turisten", null, "Ny i nyuppsättningen: en vilsen turist från framtiden.",
+            contentService.createCharacter(revival.id(), "Turisten", "Ny i nyuppsättningen: en vilsen turist från framtiden.",
                     uuid("character", revival.id().toString(), "0"));
             contentService.createNumber(revival.id(), new ContentService.NumberInput(2, "Turistens tango", DefaultKinds.SONG, "Euphoria", "Loreen",
                     null, null, List.of(new ContentService.NumberCreditInput(DefaultKinds.LYRICS, spexare(0), null),
                     new ContentService.NumberCreditInput(DefaultKinds.MUSIC, null, "Thomas G:son")), null),
                     uuid("number", revival.id().toString(), "0"));
-            pageService.update(revival.id(), new SpexPageService.PageInput("Gamla Chalmersspexet", null,
+            pageService.update(revival.id(), new SpexPageService.PageInput(null,
                     "Nyuppsättningen av Lasse-Maja, med en turist från framtiden.", null, null, null, null, null, null));
             baseData.setPoster(revival.id(), image(ImageKind.POSTER, 900, 1260, "Nyuppsättning " + revival.year(), "Lasse-Maja").getUuid());
             pageService.setPublished(revival.id(), true);
@@ -602,7 +605,7 @@ public class SampleDataImporter {
 
         /**
          * What the content migration brings from the song register: a record the wiki had no page for, only its catalogue
-         * number and tracks, and a spex book with the songs of several spex, each linked to its number.
+         * number and tracks, and a book with the songs of several spex, each linked to its number (and an unpublished one).
          */
         private void imported(final List<SpexDto> all) {
             final List<SpexDto> originals = full(all).stream().filter(spex -> !spex.revival()).limit(4).toList();
@@ -615,52 +618,122 @@ public class SampleDataImporter {
             recordingService.setTracks(record.id(), recordTracks);
             recordingService.setPublished(record.id(), true);
 
-            final RecordingDto book = recordingService.create(new RecordingService.RecordingInput("Spexbok I", "Chalmersspex I",
-                    DefaultKinds.SPEX_BOOK, null, "1990", null, null, "Sångtexterna från spexen, i spexets ordning.", null, null, null));
-            final List<RecordingService.TrackInput> songs = new ArrayList<>();
+            // A book is printed, not a recording: its songs are the spex' numbers, some with only the words
+            final ContentDtos.BookDto book = bookService.create(new BookService.BookInput("Chalmersspex I", DefaultKinds.SPEX_BOOK, 1, "1990",
+                    "Sångtexterna från de första spexen, i spexens ordning. Några sånger har bara texten, utan noter.", null));
+            final List<BookService.SongInput> songs = new ArrayList<>();
 
             originals.forEach(spex -> contentService.numbers(spex.key())
-                    .forEach(n -> songs.add(new RecordingService.TrackInput(null, n.id(), null))));
-            recordingService.setTracks(book.id(), songs);
-            recordingService.setPublished(book.id(), true);
+                    .forEach(n -> songs.add(new BookService.SongInput(n.id(), null, songs.size() % 4 == 3))));
+            songs.add(new BookService.SongInput(null, "Tackkören", false));
+            bookService.setSongs(book.id(), songs);
+            bookService.setPublished(book.id(), true);
+            bookService.create(new BookService.BookInput("Chalmersspex II", DefaultKinds.SPEX_BOOK, 2, "2005",
+                    "Opublicerad: sångerna är inte inlagda än.", null));
+            // Books of other kinds, without songs
+            bookService.setPublished(bookService.create(new BookService.BookInput("FGV 50 år", DefaultKinds.ANNIVERSARY_BOOK, null, "1998",
+                    "Jubileumsboken om de första femtio åren, med bilder och minnen från spexen.", null)).id(), true);
+            bookService.setPublished(bookService.create(new BookService.BookInput("Sånghäftet", DefaultKinds.SONGBOOK, null, "2001",
+                    "Häftet med sångerna som sjungs på sittningar.", null)).id(), true);
         }
 
         // Articles -----------------------------------------------------------------------------------------------------
 
         private void articles() {
-            final Map<String, UUID> articleCategories = new LinkedHashMap<>();
+            final Map<String, UUID> categories = new LinkedHashMap<>();
 
             for (final String name : List.of("Traditioner", "Organisationer", "Turnéer", "Anekdoter", "Spexikon", "Adrianpokalen")) {
-                final ArticleCategoryDto category = articleService.createCategory(name, "Artiklar om " + name.toLowerCase(Locale.ROOT) + ".");
-
-                articleCategories.put(name, category.id());
+                categories.put(name, articleService.createCategory(name, "Artiklar om " + name.toLowerCase(Locale.ROOT) + ".").id());
             }
+            // Categories nest too
+            categories.put("Sånger", articleService.createCategory("Sånger", "Sångerna som hör till traditionerna.",
+                    List.of(categories.get("Traditioner"))).id());
+            categories.put("Västen", articleService.createCategory("Västen", "Allt om västen.",
+                    List.of(categories.get("Traditioner"))).id());
 
-            final ArticleDto traditions = article("Spexets traditioner", Visibility.PUBLIC, true, List.of(articleCategories.get("Traditioner")),
+            // Articles form a tree, up to three levels deep here -----------------------------------------------------
+
+            final ArticleDto traditions = article("Spexets traditioner", Visibility.PUBLIC, true, null, List.of(categories.get("Traditioner")),
                     "Chalmersspexet har många traditioner. Den viktigaste är **tackkören**, som sjungs efter varje föreställning.");
 
             update(traditions, """
                     Chalmersspexet har många traditioner. Den viktigaste är **tackkören**, som sjungs efter varje föreställning.
+
+                    ## Översikt
 
                     | Tradition | Sedan |
                     |-----------|-------|
                     | Tackkören | 1948  |
                     | Västen    | 1960  |
 
-                    Se även [[Adrianpokalen]] och [[FGV]].""", "Lade till en tabell");
-            article("Adrianpokalen", Visibility.PUBLIC, true, List.of(articleCategories.get("Adrianpokalen")),
+                    Läs mer i underartiklarna nedan. Se även [[FGV]] och [[Spexets historia]].""", "Lade till en tabell");
+            article("Tackkören", Visibility.PUBLIC, true, traditions, List.of(categories.get("Traditioner"), categories.get("Sånger")), """
+                    Tackkören sjungs av hela ensemblen efter varje föreställning, med publiken stående.
+
+                    ## Texten
+
+                    Texten har ändrats några gånger genom åren, men refrängen är densamma sedan premiären 1948.
+
+                    ## Se även
+
+                    - [[Spexets traditioner]]
+                    - [[Ouvertyren]]""");
+            article("Ouvertyren", Visibility.PUBLIC, true, traditions, List.of(categories.get("Sånger")),
+                    "Orkestern spelar ouvertyren innan ridån går upp. Den är skriven på nytt för varje spex.");
+
+            final ArticleDto vest = article("Västen", Visibility.PUBLIC, true, traditions, List.of(categories.get("Västen")), """
+                    Västen är spexets mest kända symbol. Varje spex har sin egen väst, som bärs av den som gjort spexet störst tjänst.
+
+                    Se [[Västens färger]] och [[Västbärare]].""");
+            article("Västens färger", Visibility.PUBLIC, true, vest, List.of(categories.get("Västen")), """
+                    Varje väst har spexets egna färger. Ordningen går igen i affischen och i programmet.
+
+                    | Decennium | Vanligaste färg |
+                    |-----------|-----------------|
+                    | 1960-talet | Röd |
+                    | 1980-talet | Blå |
+                    | 2000-talet | Grön |""");
+            article("Västbärare", Visibility.MEMBERS, true, vest, List.of(categories.get("Västen")),
+                    "Västbärarna väljs av den förra västbäraren. Listan är bara för medlemmar.");
+            article("Västens vård", Visibility.PUBLIC, false, vest, List.of(categories.get("Västen")),
+                    "Utkast: hur västarna tvättas och förvaras.");
+            article("Adrianpokalen", Visibility.PUBLIC, true, traditions, List.of(categories.get("Adrianpokalen"), categories.get("Traditioner")),
                     "Adrianpokalen delas ut till den som under året gjort spexet störst tjänst. Ingen vet vem Adrian var.");
-            article("FGV", Visibility.PUBLIC, true, List.of(articleCategories.get("Organisationer")),
-                    "Föreningen Gamla Västar, FGV, samlar alla som varit med i Chalmersspexet.");
-            article("Turnén till Helsingfors 1972", Visibility.PUBLIC, false, List.of(articleCategories.get("Turnéer")),
+            article("Ölrepet", Visibility.MEMBERS, false, traditions, List.of(categories.get("Traditioner")), "Utkast om ölrepet.");
+
+            final ArticleDto organisations = article("Organisationerna kring spexet", Visibility.PUBLIC, true, null,
+                    List.of(categories.get("Organisationer")), "Spexet är inte ensamt. Här är föreningarna och grupperna runt omkring.");
+            final ArticleDto fgv = article("FGV", Visibility.PUBLIC, true, organisations, List.of(categories.get("Organisationer")), """
+                    Föreningen Gamla Västar, FGV, samlar alla som varit med i Chalmersspexet.
+
+                    ## Verksamhet
+
+                    FGV håller [[Spexarkivet]] och ordnar nyuppsättningar av gamla spex.""");
+            article("FGV:s styrelse", Visibility.PUBLIC, true, fgv, List.of(categories.get("Organisationer")),
+                    "Styrelsen väljs på årsmötet och består av ordförande, kassör, sekreterare och ledamöter.");
+            article("Spexarkivet", Visibility.PUBLIC, true, fgv, List.of(categories.get("Organisationer")),
+                    "Spexarkivet samlar manus, noter, affischer och program från alla spex sedan 1948.");
+            article("Spexkommittén", Visibility.PUBLIC, true, organisations, List.of(categories.get("Organisationer")),
+                    "Spexkommittén leder årets spex, från idé till sista föreställning. Se även [[FGV]].");
+
+            final ArticleDto tours = article("Turnéer", Visibility.PUBLIC, true, null, List.of(categories.get("Turnéer")),
+                    "Spexet har turnerat i Norden många gånger. Turnéerna står i tidsordning nedan.");
+            article("Turnén till Helsingfors 1972", Visibility.PUBLIC, false, tours, List.of(categories.get("Turnéer")),
                     "Opublicerad: väntar på granskning av en författare.");
-            article("Spexikon", Visibility.PUBLIC, true, List.of(articleCategories.get("Spexikon")), """
+            article("Turnén till Stockholm 1985", Visibility.PUBLIC, true, tours, List.of(categories.get("Turnéer")),
+                    "Spexet spelade tre föreställningar i Stockholm och reste dit med nattåg.");
+            article("Turnén till Trondheim 1994", Visibility.PUBLIC, true, tours, List.of(categories.get("Turnéer")),
+                    "Turnén till Trondheim gjordes tillsammans med studentersamfundet där.");
+
+            article("Spexikon", Visibility.PUBLIC, true, null, List.of(categories.get("Spexikon")), """
                     | Ord | Betydelse |
                     |-----|-----------|
                     | Omstart | När publiken kräver att ett nummer tas om |
                     | Directeur | Den som leder spexet |""");
 
-            final ArticleDto anecdote = article("Anekdot: Kulissen som föll", Visibility.MEMBERS, true, List.of(articleCategories.get("Anekdoter")),
+            final ArticleDto anecdotes = article("Anekdoter", Visibility.PUBLIC, true, null, List.of(categories.get("Anekdoter")),
+                    "Historier från scenen och bakom den. De flesta är bara för medlemmar.");
+            final ArticleDto anecdote = article("Anekdot: Kulissen som föll", Visibility.MEMBERS, true, anecdotes, List.of(categories.get("Anekdoter")),
                     "Under premiären föll en kuliss rakt ner på scenen. Ensemblen improviserade vidare som om ingenting hänt.");
 
             final ArticleDto withName = update(anecdote, "Under premiären föll en kuliss rakt ner på Basen. Ensemblen improviserade vidare.", "Lade till vem");
@@ -669,15 +742,17 @@ public class SampleDataImporter {
             revisionHidden(withName);
             update(withName, "Under premiären föll en kuliss rakt ner på scenen. Ensemblen improviserade vidare som om ingenting hänt.",
                     "Tog bort namnet igen");
-            article("Ölrepet", Visibility.MEMBERS, false, List.of(articleCategories.get("Traditioner")), "Utkast om ölrepet.");
+            article("Anekdot: Den försvunna kostymen", Visibility.MEMBERS, true, anecdotes, List.of(categories.get("Anekdoter")),
+                    "En kostym försvann mellan två föreställningar och hittades året efter i en kuliss.");
             // Written by user@fgv.nu (its fixed id in fgv-infra-deploy's sample-users.tsv), as far as the history tells
             jdbc.sql("UPDATE revision SET author = :author, author_name = 'User Exempel' WHERE target = 'ARTICLE' AND comment IN ('Lade till vem', 'Tog bort namnet igen')")
                     .param("author", USER_ID).update();
         }
 
-        private ArticleDto article(final String title, final Visibility visibility, final boolean published, final List<UUID> categories,
-                                   final String body) {
-            final ArticleDto article = articleService.create(new ArticleService.ArticleInput(title, body, visibility, categories, "Skapade artikeln"));
+        private ArticleDto article(final String title, final Visibility visibility, final boolean published, final @Nullable ArticleDto parent,
+                                   final List<UUID> categories, final String body) {
+            final ArticleDto article = articleService.create(new ArticleService.ArticleInput(title, body, visibility, categories, "Skapade artikeln",
+                    parent == null ? null : parent.id()));
 
             if (published) {
                 articleService.setPublished(article.id(), true);
@@ -713,7 +788,8 @@ public class SampleDataImporter {
 
             final UUID wrong = uuid("spex", "1999", "Felregistrerat spex");
 
-            baseData.importSpex(wrong, "1999", "Felregistrerat spex", categories.get("Gamla Chalmersspexet"), null, false);
+            // Retired at once: it shares its year with the right one
+            baseData.importSpex(wrong, "1999", "Felregistrerat spex", categories.get("Gamla Chalmersspexet"), null, true);
             mergeService.retire(BaseDataKind.SPEX, wrong, true);
 
             final UUID directeur = jdbc.sql("SELECT t.uuid FROM task t JOIN task_category c ON c.id = t.category_id WHERE t.name = 'Directeur' AND c.name = 'Kommitté'")

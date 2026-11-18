@@ -36,16 +36,6 @@ public final class ContentRepositories {
     private ContentRepositories() {
     }
 
-    public interface FigureRepository extends JpaRepository<Figure, Long> {
-        Optional<Figure> findByUuid(UUID uuid);
-
-        Optional<Figure> findBySlug(String slug);
-
-        boolean existsBySlug(String slug);
-
-        List<Figure> findAllByOrderByNameAsc();
-    }
-
     public interface CharacterRepository extends JpaRepository<SpexCharacter, Long> {
         Optional<SpexCharacter> findByUuid(UUID uuid);
 
@@ -54,10 +44,6 @@ public final class ContentRepositories {
         List<SpexCharacter> findBySpexOrderByPositionAsc(Spex spex);
 
         List<SpexCharacter> findBySpexInOrderByPositionAsc(Collection<Spex> spex);
-
-        List<SpexCharacter> findByFigure(Figure figure);
-
-        long countByFigure(Figure figure);
 
         @Query("SELECT COALESCE(MAX(c.position), 0) FROM SpexCharacter c WHERE c.spex = :spex")
         int maxPosition(Spex spex);
@@ -103,6 +89,28 @@ public final class ContentRepositories {
         List<Track> findByRecordingOrderByPositionAsc(Recording recording);
 
         void deleteByRecording(Recording recording);
+
+        long countByNumber(SpexNumber number);
+    }
+
+    public interface BookRepository extends JpaRepository<Book, Long> {
+        Optional<Book> findByUuid(UUID uuid);
+
+        Optional<Book> findBySlug(String slug);
+
+        boolean existsBySlug(String slug);
+
+        @Query("SELECT b FROM Book b ORDER BY CASE WHEN b.volume IS NULL THEN 1 ELSE 0 END, b.volume, b.title")
+        List<Book> findAllInOrder();
+    }
+
+    public interface BookSongRepository extends JpaRepository<BookSong, Long> {
+        List<BookSong> findByBookOrderByPositionAsc(Book book);
+
+        @Query("SELECT s FROM BookSong s JOIN FETCH s.book WHERE s.number.id IN :numberKeys ORDER BY s.book.volume, s.book.title")
+        List<BookSong> findByNumberKeys(Collection<Long> numberKeys);
+
+        void deleteByBook(Book book);
 
         long countByNumber(SpexNumber number);
     }

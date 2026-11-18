@@ -32,5 +32,7 @@ public enum KindType {
     /** Image kinds, within a {@link KindUse}. */
     IMAGE,
     /** Facts on spex pages: venue, number of performances … */
-    FACT
+    FACT,
+    /** Book kinds: spex book, songbook, anniversary book … */
+    BOOK
 }

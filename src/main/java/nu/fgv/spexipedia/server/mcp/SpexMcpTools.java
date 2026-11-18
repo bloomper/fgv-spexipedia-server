@@ -23,7 +23,6 @@ import nu.fgv.spexipedia.server.basedata.BaseDataService;
 import nu.fgv.spexipedia.server.basedata.Spex;
 import nu.fgv.spexipedia.server.basedata.SpexCategory;
 import nu.fgv.spexipedia.server.content.ContentDtos.CharacterDto;
-import nu.fgv.spexipedia.server.content.ContentDtos.FigureDto;
 import nu.fgv.spexipedia.server.content.ContentDtos.NumberDto;
 import nu.fgv.spexipedia.server.content.ContentDtos.RecordingDto;
 import nu.fgv.spexipedia.server.content.ContentDtos.SceneDto;
@@ -151,7 +150,6 @@ public class SpexMcpTools {
             @McpToolParam(required = false, description = "The short introduction, at most 2000 characters") final @Nullable String introduction,
             @McpToolParam(required = false, description = "The description: the spex's story and background") final @Nullable String description,
             @McpToolParam(required = false, description = "The synopsis: the plot, act by act") final @Nullable String synopsis,
-            @McpToolParam(required = false, description = "The generation, e.g. a name for the year's ensemble") final @Nullable String generation,
             @McpToolParam(required = false, description = "The premiere, yyyy-MM-dd") final @Nullable String premiere,
             @McpToolParam(required = false, description = "About the vest of the year") final @Nullable String vestDescription) {
         return support.call(() -> {
@@ -160,7 +158,6 @@ public class SpexMcpTools {
             final SpexPageDto current = pages.page(spex.key()).orElseGet(() -> SpexPageDto.empty(spex.key(), spex.id()));
 
             return McpPage.of(pages.update(spex.id(), new SpexPageService.PageInput(
-                    either(generation, current.generation()),
                     either(premiere, current.premiere()),
                     either(introduction, current.introduction()),
                     current.shortDescription(),
@@ -220,10 +217,7 @@ public class SpexMcpTools {
 
     private List<ContentMcpTools.McpCharacter> characters(final SpexDto spex) {
         final List<CharacterDto> characters = content.characters(spex.key());
-        final Collection<Long> figureKeys = characters.stream().map(CharacterDto::figureKey).filter(Objects::nonNull).collect(Collectors.toSet());
-        final Map<Long, FigureDto> figures = figureKeys.isEmpty() ? Map.of() : content.figuresByKeys(figureKeys);
-
-        return characters.stream().map(character -> ContentMcpTools.McpCharacter.of(character, figures)).toList();
+        return characters.stream().map(ContentMcpTools.McpCharacter::of).toList();
     }
 
     /**
@@ -252,12 +246,12 @@ public class SpexMcpTools {
     /**
      * A spex page's texts, in Markdown.
      */
-    public record McpPage(@Nullable String generation, @Nullable String premiere, @Nullable String introduction,
+    public record McpPage(@Nullable String premiere, @Nullable String introduction,
                           @Nullable String description, @Nullable String synopsis, @Nullable String vestDescription,
                           boolean published) {
 
         static McpPage of(final SpexPageDto page) {
-            return new McpPage(page.generation(), page.premiere(), page.introduction(), page.description(), page.synopsis(),
+            return new McpPage(page.premiere(), page.introduction(), page.description(), page.synopsis(),
                     page.vestDescription(), page.published());
         }
     }

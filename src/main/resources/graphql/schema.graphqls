@@ -45,14 +45,14 @@ type Query {
     number(id: ID!): Number
     "Anyone. Numbers by id, in the given order; unknown ids are left out. At most 500."
     numbersByIds(ids: [ID!]!): [Number!]!
-    "Anyone. Every figure, by name."
-    figures: [Figure!]!
-    "Anyone. A figure by id or slug."
-    figure(id: ID!): Figure
     "Anyone. Recordings: published ones; all for EDITOR. By catalogue number."
     recordings: [Recording!]!
     "Anyone. A published recording by id or slug; any for EDITOR."
     recording(id: ID!): Recording
+    "Anyone. Books: published ones; all for EDITOR. By volume, then title."
+    books: [Book!]!
+    "Anyone. A published book by id or slug; any for EDITOR."
+    book(id: ID!): Book
     "Anyone. The kinds admins keep (spec 4.6) of a type, in order; use only for IMAGE kinds. Retired ones only with includeRetired."
     kinds(type: KindType!, use: KindUse, includeRetired: Boolean! = false): [Kind!]!
     "EDITOR. Credits that an import brought as names nobody has resolved yet (spec 5.3), oldest numbers first."
@@ -81,7 +81,7 @@ type Query {
     "ADMIN. Every redirect, by old title."
     redirects: [Redirect!]!
 
-    "Anyone. Spex, characters, figures, numbers, original songs, recordings and articles that match the words. People are never searched."
+    "Anyone. Spex, characters, numbers, original songs, recordings, books and articles that match the words. People are never searched."
     search(q: String!, limit: Int! = 50): [SearchHit!]!
     "Anyone. Every public page, for the sitemap."
     sitemap: [SitemapEntry!]!
@@ -140,12 +140,6 @@ type Mutation {
     "ADMIN. Moves everything that refers to the record to another of the same kind, tells the consumers to do the same, and keeps the merged id as an alias."
     baseDataMerge(kind: BaseDataKind!, id: ID!, intoId: ID!): Boolean!
 
-    "EDITOR."
-    figureCreate(input: FigureInput!): Figure!
-    "EDITOR."
-    figureUpdate(id: ID!, input: FigureInput!): Figure!
-    "EDITOR. Only a figure no character refers to."
-    figureDelete(id: ID!): Boolean!
     "EDITOR. On an original spex, or on a revival for a character of its own."
     characterCreate(spexId: ID!, input: CharacterInput!): Character!
     "EDITOR."
@@ -194,6 +188,16 @@ type Mutation {
     recordingSetPublished(id: ID!, published: Boolean!): Recording!
     "EDITOR."
     recordingDelete(id: ID!): Boolean!
+    "EDITOR."
+    bookCreate(input: BookInput!): Book!
+    "EDITOR."
+    bookUpdate(id: ID!, input: BookInput!): Book!
+    "EDITOR. The songs as given, in the book's order, replacing the old ones."
+    bookSetSongs(id: ID!, songs: [BookSongInput!]!): Book!
+    "EDITOR."
+    bookSetPublished(id: ID!, published: Boolean!): Book!
+    "EDITOR."
+    bookDelete(id: ID!): Boolean!
 
     "AUTHOR. The texts of a spex page; every changed text is a revision. Refused with CONFLICT when baseRevisionIds no longer match the texts' latest revisions."
     spexPageUpdate(spexId: ID!, input: SpexPageInput!): SpexPage!
@@ -419,28 +423,11 @@ input TaskInput {
     categoryId: ID!
 }
 
-type Figure {
-    id: ID!
-    slug: String!
-    name: String!
-    description: String
-    "The description as HTML, safe to show."
-    descriptionHtml: String
-    "Characters of this figure on published pages (all for EDITOR), by year."
-    characters: [Character!]!
-}
-
-input FigureInput {
-    name: String!
-    description: String
-}
-
 type Character {
     id: ID!
     "The spex the character belongs to: an original, or a revival that added it."
     spex: Spex!
     name: String!
-    figure: Figure
     description: String
     "The description as HTML, safe to show."
     descriptionHtml: String
@@ -449,7 +436,7 @@ type Character {
     images: [PageImage!]!
     "Who played the character in the spex and each of its revivals, from Spexregister. Visitors see nicknames only."
     playedBy: [PlayedBy!]!
-    "Photos of the actors from Spexgram: public ones for everyone, members' ones for users with access to Spexgram."
+    "Photos of the actors from Spexgram: none for visitors; public ones for logged-in users, members' ones for users with access to Spexgram."
     photos: PhotoSet!
     "Numbers the character sings."
     numbers: [Number!]!
@@ -457,7 +444,6 @@ type Character {
 
 input CharacterInput {
     name: String!
-    figureId: ID
     description: String
 }
 
@@ -504,6 +490,8 @@ type Number {
     retired: Boolean!
     "Links for the viewer: the track in Spexify, the arrangement in Spexarkivet."
     links: [AppLink!]!
+    "The books the number is in: published ones; all for EDITOR."
+    books: [BookSong!]!
 }
 
 input NumberInput {
@@ -595,6 +583,7 @@ enum KindType {
     MEDIUM
     IMAGE
     FACT
+    BOOK
 }
 
 "Where image kinds are used; other types of kinds have none."
@@ -663,6 +652,58 @@ type Recording {
     links: [AppLink!]!
 }
 
+"""
+A book: something printed, e.g. a book such as Chalmersspex I. Not a recording. Its songs, if any, are the spex'
+numbers or free titles, in the book's order.
+"""
+type Book {
+    id: ID!
+    slug: String!
+    title: String!
+    "A book kind (spec 4.6), e.g. a spex book."
+    kind: Kind!
+    "Its number in the series: 1 for Chalmersspex I."
+    volume: Int
+    "yyyy, yyyy-mm or yyyy-mm-dd"
+    publishedYear: String
+    description: String
+    "The description as HTML, safe to show."
+    descriptionHtml: String
+    cover: Image
+    songs: [BookSong!]!
+    published: Boolean!
+}
+
+type BookSong {
+    id: ID!
+    book: Book!
+    "From 1, in the book's order."
+    position: Int!
+    "Null for a song that is not a number of a spex."
+    number: Number
+    "The number's title when there is a number."
+    title: String!
+    "Whether the book has only the words."
+    textOnly: Boolean!
+}
+
+input BookInput {
+    title: String!
+    "A book kind; when left out, the book keeps its kind, and a new one gets the first."
+    kindId: ID
+    volume: Int
+    publishedYear: String
+    description: String
+    coverImageId: ID
+}
+
+"A song: a number by id, or a free title."
+input BookSongInput {
+    numberId: ID
+    title: String
+    textOnly: Boolean = false
+}
+
 input RecordingInput {
     catalogueNumber: String!
     title: String!
@@ -696,8 +737,6 @@ input TrackInput {
 
 type SpexPage {
     spex: Spex!
-    "Spex generation, e.g. 'Bob & Vera'."
-    generation: String
     "yyyy-mm-dd"
     premiere: String
     "Short, for tiles and previews."
@@ -742,7 +781,6 @@ type SpexPageRevisionIds {
 }
 
 input SpexPageInput {
-    generation: String
     premiere: String
     introduction: String
     shortDescription: String
@@ -839,8 +877,9 @@ input ImageRefInput {
 }
 
 """
-Photos and short videos from Spexgram. Public ones are shown to everyone; members' ones only to users with access to Spexgram, and
-counted for other logged-in users, who see placeholders. Visitors are not told about members' photos.
+Photos and short videos from Spexgram. They show people, so visitors get none, even of the public ones, and are not told of
+them. Logged-in users see the public ones; members' ones only users with access to Spexgram, and they are counted for other
+logged-in users, who see placeholders.
 """
 type PhotoSet {
     photos: [Photo!]!
@@ -1060,9 +1099,9 @@ input RedirectInput {
 enum SearchKind {
     SPEX
     CHARACTER
-    FIGURE
     NUMBER
     RECORDING
+    BOOK
     ARTICLE
 }
 
@@ -1298,6 +1337,7 @@ input ImportBatchInput {
     scenes: [ImportSceneInput!]
     numbers: [ImportNumberInput!]
     recordings: [ImportRecordingInput!]
+    books: [ImportBookInput!]
     articleCategories: [ImportArticleCategoryInput!]
     articles: [ImportArticleInput!]
     redirects: [ImportRedirectInput!]
@@ -1327,7 +1367,6 @@ input ImportPageInput {
     sourceKey: String!
     spexId: ID
     spexSourceKey: String
-    generation: String
     "yyyy-mm-dd"
     premiere: String
     introduction: String
@@ -1365,8 +1404,6 @@ input ImportCharacterInput {
     spexSourceKey: String
     name: String!
     description: String
-    "A figure by name, created when missing."
-    figure: String
     position: Int
     images: [ImportCharacterImageInput!]
 }
@@ -1439,6 +1476,28 @@ input ImportTrackInput {
     numberSourceKey: String
     numberId: ID
     title: String
+}
+
+"A book (sourceKey e.g. register:spexbok:1 for a spex book)."
+input ImportBookInput {
+    sourceKey: String!
+    title: String!
+    "A book kind by name or alias; the first when left out."
+    kind: String
+    volume: Int
+    publishedYear: String
+    description: String
+    cover: ImportFileInput
+    "Replaces the songs when given."
+    songs: [ImportBookSongInput!]
+}
+
+"A song of a book: a number by id or source key, or a free title."
+input ImportBookSongInput {
+    numberSourceKey: String
+    numberId: ID
+    title: String
+    textOnly: Boolean
 }
 
 input ImportArticleCategoryInput {

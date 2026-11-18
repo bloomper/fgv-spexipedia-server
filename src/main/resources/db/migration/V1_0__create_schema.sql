@@ -389,7 +389,6 @@ CREATE TABLE spex_page
 (
     id                    BIGINT       NOT NULL AUTO_INCREMENT,
     spex_id               BIGINT       NOT NULL,
-    generation            VARCHAR(255) NULL,
     premiere              DATE         NULL,
     introduction          TEXT         NULL,
     description           MEDIUMTEXT   NULL,

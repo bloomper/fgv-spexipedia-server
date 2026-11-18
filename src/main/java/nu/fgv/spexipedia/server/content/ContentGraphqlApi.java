@@ -20,7 +20,6 @@ import nu.fgv.spexipedia.server.basedata.BaseDataDtos.SpexDto;
 import nu.fgv.spexipedia.server.basedata.BaseDataGraphqlApi;
 import nu.fgv.spexipedia.server.basedata.BaseDataService;
 import nu.fgv.spexipedia.server.content.ContentDtos.CharacterDto;
-import nu.fgv.spexipedia.server.content.ContentDtos.FigureDto;
 import nu.fgv.spexipedia.server.content.ContentDtos.NumberDto;
 import nu.fgv.spexipedia.server.content.ContentDtos.RecordingDto;
 import nu.fgv.spexipedia.server.content.ContentDtos.SceneDto;
@@ -62,7 +61,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * GraphQL for figures, characters, scenes, numbers, recordings and revivals' changes.
+ * GraphQL for characters, scenes, numbers, recordings and revivals' changes.
  *
  * @author Anders Jacobsson
  * @since 1.0
@@ -118,16 +117,6 @@ public class ContentGraphqlApi {
     }
 
     @QueryMapping
-    public List<FigureDto> figures() {
-        return service.figures();
-    }
-
-    @QueryMapping
-    public @Nullable FigureDto figure(@Argument final String id) {
-        return service.figure(id).orElse(null);
-    }
-
-    @QueryMapping
     public List<RecordingDto> recordings() {
         return recordingService.recordings();
     }
@@ -140,28 +129,13 @@ public class ContentGraphqlApi {
     // Mutations --------------------------------------------------------------------------------------------------------
 
     @MutationMapping
-    public FigureDto figureCreate(@Argument final Map<String, String> input) {
-        return service.createFigure(input.get("name"), input.get("description"));
-    }
-
-    @MutationMapping
-    public FigureDto figureUpdate(@Argument final String id, @Argument final Map<String, String> input) {
-        return service.updateFigure(Ids.require(id), input.get("name"), input.get("description"));
-    }
-
-    @MutationMapping
-    public boolean figureDelete(@Argument final String id) {
-        return service.deleteFigure(Ids.require(id));
-    }
-
-    @MutationMapping
     public CharacterDto characterCreate(@Argument final String spexId, @Argument final Map<String, String> input) {
-        return service.createCharacter(Ids.require(spexId), input.get("name"), Ids.optional(input.get("figureId")), input.get("description"));
+        return service.createCharacter(Ids.require(spexId), input.get("name"), input.get("description"));
     }
 
     @MutationMapping
     public CharacterDto characterUpdate(@Argument final String id, @Argument final Map<String, String> input) {
-        return service.updateCharacter(Ids.require(id), input.get("name"), Ids.optional(input.get("figureId")), input.get("description"));
+        return service.updateCharacter(Ids.require(id), input.get("name"), input.get("description"));
     }
 
     @MutationMapping
@@ -369,18 +343,6 @@ public class ContentGraphqlApi {
         return baseData.spexByKeys(Set.copyOf(keys));
     }
 
-    // Figure -----------------------------------------------------------------------------------------------------------
-
-    @SchemaMapping(typeName = "Figure", field = "characters")
-    public List<CharacterDto> figureCharacters(final FigureDto figure) {
-        final Set<Long> published = pageService.publishedSpexKeys();
-        final boolean author = pageService.isAuthor();
-
-        return service.charactersOfFigure(figure.key()).stream()
-                .filter(character -> author || published.contains(character.spexKey()))
-                .toList();
-    }
-
     // Character --------------------------------------------------------------------------------------------------------
 
     @BatchMapping(typeName = "Character", field = "spex")
@@ -388,16 +350,6 @@ public class ContentGraphqlApi {
         final Map<Long, SpexDto> spex = spexOf(characters.stream().map(CharacterDto::spexKey).toList());
 
         return characters.stream().collect(Collectors.toMap(c -> c, c -> spex.get(c.spexKey()), (a, _) -> a));
-    }
-
-    @BatchMapping(typeName = "Character", field = "figure")
-    public Map<CharacterDto, @Nullable FigureDto> characterFigure(final List<CharacterDto> characters) {
-        final Map<Long, FigureDto> figures = service.figuresByKeys(characters.stream().map(CharacterDto::figureKey)
-                .filter(Objects::nonNull).collect(Collectors.toSet()));
-        final Map<CharacterDto, @Nullable FigureDto> result = new HashMap<>();
-
-        characters.forEach(c -> result.put(c, c.figureKey() == null ? null : figures.get(c.figureKey())));
-        return result;
     }
 
     @BatchMapping(typeName = "Character", field = "images")
