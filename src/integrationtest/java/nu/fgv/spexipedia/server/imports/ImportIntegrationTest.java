@@ -139,7 +139,11 @@ class ImportIntegrationTest extends AbstractIntegrationTest {
         final String token = serviceToken(MIGRATION);
         final ByteArrayOutputStream out = new ByteArrayOutputStream();
 
-        ImageIO.write(new BufferedImage(600, 840, BufferedImage.TYPE_INT_RGB), "png", out);
+        final BufferedImage image = new BufferedImage(600, 840, BufferedImage.TYPE_INT_RGB);
+
+        // The file store outlives a run (the database does not), so each run uploads a file it has not seen
+        image.setRGB(0, 0, (int) System.nanoTime() & 0xffffff);
+        ImageIO.write(image, "png", out);
 
         final byte[] png = out.toByteArray();
         final String sha = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(png));
