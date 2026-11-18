@@ -124,7 +124,7 @@ public final class PackageTemplate {
                                      final Function<KindUse, List<Kind>> imageKinds) {
         final List<String[]> lines = new ArrayList<>();
 
-        lines.add(new String[]{"Spexpaket", ""});
+        lines.add(new String[]{"Importera ett spex", ""});
         lines.add(new String[]{"", "Fyll i bladen Spex, Karaktärer, Scener och Nummer. Ett blad som är tomt ändrar ingenting."});
         lines.add(new String[]{"", "Ladda upp kalkylarket i Spexipedia, med en zip-fil om du har filer. Du får se vad som skapas i varje applikation innan något händer."});
         lines.add(new String[]{"", "Namn i kolumnerna för medverkande (" + String.join(", ", creditKinds) + ") skiljs åt med kommatecken."});

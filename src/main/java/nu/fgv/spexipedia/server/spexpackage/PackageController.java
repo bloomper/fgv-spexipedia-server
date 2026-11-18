@@ -65,7 +65,7 @@ public class PackageController {
     public ResponseEntity<byte[]> template() throws IOException {
         return ResponseEntity.ok()
                 .contentType(XLSX)
-                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename("Spexpaket.xlsx", StandardCharsets.UTF_8).build().toString())
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename("Importmall.xlsx", StandardCharsets.UTF_8).build().toString())
                 .body(service.template());
     }
 
