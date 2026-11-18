@@ -23,8 +23,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * The small sample data, with what the content migration brings in: facts, kinds, an unresolved credit, a record from
- * the song register and a spex book whose tracks are the spex' numbers.
+ * The small sample data, built on the base data the migration seeds, with what the content migration brings in: facts,
+ * kinds, an unresolved credit, a record from the song register and a spex book whose tracks are the spex' numbers.
  */
 class SampleDataImporterIntegrationTest extends AbstractIntegrationTest {
 
@@ -32,9 +32,11 @@ class SampleDataImporterIntegrationTest extends AbstractIntegrationTest {
     private SampleDataImporter importer;
 
     @Test
-    void importsWhatTheContentMigrationBringsIn() {
+    void buildsOnTheSeededBaseData() {
+        seedBaseData();
         importer.importSampleData();
 
+        assertThat(jdbcClient.sql("SELECT COUNT(*) FROM spex WHERE created_by = 'system'").query(Long.class).single()).isEqualTo(SEEDED_SPEX);
         assertThat(jdbcClient.sql("SELECT COUNT(*) FROM spex_fact").query(Long.class).single()).isPositive();
         assertThat(jdbcClient.sql("SELECT COUNT(*) FROM number_credit WHERE unresolved = 1").query(Long.class).single()).isPositive();
         assertThat(jdbcClient.sql("""
@@ -43,5 +45,13 @@ class SampleDataImporterIntegrationTest extends AbstractIntegrationTest {
                 .isGreaterThan(10);
         assertThat(jdbcClient.sql("SELECT COUNT(*) FROM recording WHERE catalogue_number = 'CCD 004' AND description IS NULL")
                 .query(Long.class).single()).isEqualTo(1);
+
+        // Again: the seeded spex stay, without the posters and the examples the first import added
+        importer.importSampleData();
+
+        assertThat(jdbcClient.sql("SELECT COUNT(*) FROM spex").query(Long.class).single()).isEqualTo(SEEDED_SPEX + 1);
+        assertThat(jdbcClient.sql("SELECT COUNT(*) FROM spex_category").query(Long.class).single()).isEqualTo(5 + 1);
+        assertThat(jdbcClient.sql("SELECT COUNT(*) FROM spex WHERE poster_id IS NOT NULL AND poster_id NOT IN (SELECT id FROM image)")
+                .query(Long.class).single()).isZero();
     }
 }

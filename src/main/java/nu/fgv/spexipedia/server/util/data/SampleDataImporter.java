@@ -23,6 +23,7 @@ import nu.fgv.spexipedia.server.article.ArticleService;
 import nu.fgv.spexipedia.server.article.Visibility;
 import nu.fgv.spexipedia.server.basedata.BaseDataDtos.SpexDto;
 import nu.fgv.spexipedia.server.basedata.BaseDataDtos.TaskDto;
+import nu.fgv.spexipedia.server.basedata.SeededBaseData;
 import nu.fgv.spexipedia.server.basedata.BaseDataKind;
 import nu.fgv.spexipedia.server.basedata.BaseDataService;
 import nu.fgv.spexipedia.server.basedata.MergeService;
@@ -50,7 +51,6 @@ import org.springframework.context.event.EventListener;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.env.Environment;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -80,8 +80,9 @@ import java.util.function.Supplier;
  * Replaces everything with sample data at every start while {@code spexipedia.data.import-sample-data} is set
  * (section 5.13 of the spec); refuses to run in the {@code production} profile.
  *
- * <p>Spexipedia comes first: it is the source of the sample spex, categories and tasks, with fixed ids made from their
- * names, which Spexregister copies from the change feed and the other applications read. Images are generated. Credits
+ * <p>Spexipedia comes first: it is the source of the spex, categories and tasks, which Spexregister copies from the change
+ * feed and the other applications read. They are FGV's real ones, which a migration inserts with fixed ids (V1_5); the
+ * import builds on them, and removes only the base data it added itself. Images are generated. Credits
  * refer to a few spexare that Spexregister's sample data creates with the same fixed ids ({@link #SPEXARE}), published
  * and unpublished, with and without nicknames, so that section 5.3 can be tested; who played which character comes from
  * Spexregister's sample actors, which it links to these characters.</p>
@@ -115,7 +116,7 @@ public class SampleDataImporter {
     private static final List<String> TABLES = List.of("article_editing", "article_article_category", "article", "article_category",
             "revision", "redirect", "search_document", "recording_track", "recording", "number_character", "number_credit",
             "spex_number", "character_image", "spex_character", "figure", "scene", "revival_change", "spex_page_photo",
-            "spex_page_image", "spex_page", "spex", "spex_category", "task", "task_category", "id_alias", "sync_consumer",
+            "spex_page_image", "spex_page", "id_alias", "sync_consumer",
             "image", "audit_entry", "app_user");
     private static final String[][] ORIGINALS = {
             {"Dancing Queen", "ABBA", "Benny Andersson, Björn Ulvaeus"}, {"Waterloo", "ABBA", "Benny Andersson, Björn Ulvaeus"},
@@ -141,6 +142,7 @@ public class SampleDataImporter {
     private final SpexipediaProperties properties;
     private final Environment environment;
     private final JdbcClient jdbc;
+    private final SeededBaseData seededBaseData;
     private final BaseDataService baseData;
     private final MergeService mergeService;
     private final ContentService contentService;
@@ -154,7 +156,7 @@ public class SampleDataImporter {
     private final SearchService searchService;
 
     @SuppressWarnings("java:S107")
-    public SampleDataImporter(final SpexipediaProperties properties, final Environment environment, final JdbcClient jdbc,
+    public SampleDataImporter(final SpexipediaProperties properties, final Environment environment, final JdbcClient jdbc, final SeededBaseData seededBaseData,
                               final BaseDataService baseData, final MergeService mergeService,
                               final ContentService contentService, final RecordingService recordingService,
                               final SpexPageService pageService, final ArticleService articleService,
@@ -164,6 +166,7 @@ public class SampleDataImporter {
         this.properties = properties;
         this.environment = environment;
         this.jdbc = jdbc;
+        this.seededBaseData = seededBaseData;
         this.baseData = baseData;
         this.mergeService = mergeService;
         this.contentService = contentService;
@@ -206,6 +209,7 @@ public class SampleDataImporter {
 
         log.info("Importing {} sample data", large ? "large" : "small");
         wipe();
+        seededBaseData.publish();
         asSampleAdmin(() -> {
             new Generator(large).generate();
             return null;
@@ -218,6 +222,14 @@ public class SampleDataImporter {
         for (final String table : TABLES) {
             jdbc.sql("TRUNCATE TABLE " + table).update();
         }
+        // The base data the sample data added (retired and merged examples) goes; the seeded records are as migrated
+        for (final String table : List.of("spex", "spex_category", "task", "task_category")) {
+            jdbc.sql("DELETE FROM " + table + " WHERE created_by <> 'system'").update();
+        }
+        jdbc.sql("UPDATE spex SET poster_id = NULL, retired = 0").update();
+        jdbc.sql("UPDATE spex_category SET logo_id = NULL, description = NULL, retired = 0").update();
+        jdbc.sql("UPDATE task SET retired = 0").update();
+        jdbc.sql("UPDATE task_category SET retired = 0").update();
         // Deleted, not truncated: the sequence goes on, so that consumers read the new sample data from their cursors
         jdbc.sql("DELETE FROM change_feed_entry").update();
         jdbc.sql("SET FOREIGN_KEY_CHECKS = 1").update();
@@ -303,53 +315,14 @@ public class SampleDataImporter {
 
         // Base data ----------------------------------------------------------------------------------------------------
 
+        /**
+         * The seeded categories and task categories by name, for the records the sample data adds itself.
+         */
         private void baseData() {
-            for (final String[] row : rows("spex-categories.tsv")) {
-                final UUID id = uuid("spex-category", row[0]);
-
-                baseData.importCategory(id, row[0], row[1], false);
-                categories.put(row[0], id);
-            }
-
-            final Map<String, UUID> originals = new HashMap<>();
-
-            for (final String[] row : rows("spex.tsv")) {
-                final String year = row[0];
-                final String title = row[1];
-
-                if (row.length < 4 || row[3].isEmpty()) {
-                    final UUID id = uuid("spex", year, title);
-
-                    baseData.importSpex(id, year, title, categories.get(row[2]), null, false);
-                    originals.put(title + "|" + year, id);
-                } else {
-                    final UUID parent = originals.get(title + "|" + row[3]);
-
-                    if (parent != null) {
-                        baseData.importSpex(uuid("spex", year, title, "revival"), year, null, null, parent, false);
-                    }
-                }
-            }
-            for (final String[] row : rows("task-categories.tsv")) {
-                final UUID id = uuid("task-category", row[0]);
-
-                // The committee is shown as the board on spex pages; the musicians' tasks are Spexarkivet's instruments
-                baseData.importTaskCategory(id, row[0], "1".equals(row[1]), "Kommitté".equals(row[0]),
-                        Set.of("Orkester", "Bandet", "Symphonin").contains(row[0]));
-                taskCategories.put(row[0], id);
-            }
-            for (final String[] row : rows("tasks.tsv")) {
-                baseData.importTask(uuid("task", row[1], row[0]), row[0], taskCategories.get(row[1]));
-            }
-        }
-
-        private List<String[]> rows(final String file) {
-            try {
-                return new String(new ClassPathResource("sampledata/" + file).getContentAsByteArray(), StandardCharsets.UTF_8)
-                        .lines().filter(line -> !line.isBlank()).map(line -> line.split("\t", -1)).toList();
-            } catch (final IOException e) {
-                throw new UncheckedIOException(e);
-            }
+            jdbc.sql("SELECT name, uuid FROM spex_category").query((rs, n) -> Map.entry(rs.getString(1), UUID.fromString(rs.getString(2))))
+                    .list().forEach(entry -> categories.put(entry.getKey(), entry.getValue()));
+            jdbc.sql("SELECT name, uuid FROM task_category").query((rs, n) -> Map.entry(rs.getString(1), UUID.fromString(rs.getString(2))))
+                    .list().forEach(entry -> taskCategories.put(entry.getKey(), entry.getValue()));
         }
 
         private void settings() {
@@ -743,7 +716,8 @@ public class SampleDataImporter {
             baseData.importSpex(wrong, "1999", "Felregistrerat spex", categories.get("Gamla Chalmersspexet"), null, false);
             mergeService.retire(BaseDataKind.SPEX, wrong, true);
 
-            final UUID directeur = uuid("task", "Kommitté", "Directeur");
+            final UUID directeur = jdbc.sql("SELECT t.uuid FROM task t JOIN task_category c ON c.id = t.category_id WHERE t.name = 'Directeur' AND c.name = 'Kommitté'")
+                    .query(String.class).optional().map(UUID::fromString).orElseThrow();
             final TaskDto duplicate = baseData.importTask(uuid("task", "Kommitté", "Direktör"), "Direktör", taskCategories.get("Kommitté"));
 
             mergeService.merge(BaseDataKind.TASK, duplicate.id(), directeur);
