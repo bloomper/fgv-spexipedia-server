@@ -95,7 +95,8 @@ public abstract class AbstractIntegrationTest {
     private static final JacksonJsonParser JSON = new JacksonJsonParser();
     private static final Map<String, String> SECRETS = clientSecrets();
     private static final Map<String, String> TOKENS = new ConcurrentHashMap<>();
-    private static final List<String> TABLES = List.of("article_editing", "article_article_category", "article", "article_category",
+    private static final List<String> TABLES = List.of("import_key", "spex_package", "spex_fact", "article_link",
+            "article_category_parent", "article_editing", "article_article_category", "article", "article_category",
             "revision", "redirect", "search_document", "recording_track", "recording", "number_character", "number_credit",
             "spex_number", "character_image", "spex_character", "figure", "scene", "revival_change", "spex_page_photo",
             "spex_page_image", "spex_page", "spex", "spex_category", "task", "task_category", "id_alias", "sync_consumer",
@@ -320,6 +321,9 @@ public abstract class AbstractIntegrationTest {
         for (final String table : TABLES) {
             jdbcClient.sql("TRUNCATE TABLE " + table).update();
         }
+        // The default kinds come from Flyway; tests' own kinds go
+        jdbcClient.sql("DELETE FROM kind WHERE created_by <> 'system'").update();
+        jdbcClient.sql("UPDATE kind SET retired = 0").update();
         jdbcClient.sql("SET FOREIGN_KEY_CHECKS = 1").update();
         jdbcClient.sql("UPDATE shedlock SET lock_until = UTC_TIMESTAMP(3)").update();
         jdbcClient.sql("UPDATE settings SET welcome_sv = NULL, welcome_en = NULL, public_welcome_sv = NULL, public_welcome_en = NULL, contact_email = NULL").update();

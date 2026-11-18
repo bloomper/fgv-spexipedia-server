@@ -27,6 +27,8 @@ import nu.fgv.spexipedia.server.content.ContentRepositories.RecordingRepository;
 import nu.fgv.spexipedia.server.content.ContentRepositories.TrackRepository;
 import nu.fgv.spexipedia.server.content.ListStore.CreditRef;
 import nu.fgv.spexipedia.server.image.ImageService;
+import nu.fgv.spexipedia.server.kind.KindService;
+import nu.fgv.spexipedia.server.kind.KindType;
 import nu.fgv.spexipedia.server.search.IndexEvent;
 import nu.fgv.spexipedia.server.search.SearchKind;
 import nu.fgv.spexipedia.server.user.Caller;
@@ -70,6 +72,7 @@ public class RecordingService {
     private final BaseDataService baseData;
     private final ContentService contentService;
     private final ImageService imageService;
+    private final KindService kindService;
     private final CallerService callerService;
     private final AuditService auditService;
     private final ApplicationEventPublisher events;
@@ -78,7 +81,7 @@ public class RecordingService {
     public RecordingService(final RecordingRepository repository, final TrackRepository trackRepository,
                             final NumberRepository numberRepository, final BaseDataService baseData,
                             final ContentService contentService, final ImageService imageService,
-                            final CallerService callerService, final AuditService auditService,
+                            final KindService kindService, final CallerService callerService, final AuditService auditService,
                             final ApplicationEventPublisher events) {
         this.repository = repository;
         this.trackRepository = trackRepository;
@@ -86,6 +89,7 @@ public class RecordingService {
         this.baseData = baseData;
         this.contentService = contentService;
         this.imageService = imageService;
+        this.kindService = kindService;
         this.callerService = callerService;
         this.auditService = auditService;
         this.events = events;
@@ -189,7 +193,7 @@ public class RecordingService {
     private void apply(final Recording recording, final RecordingInput input) {
         recording.setCatalogueNumber(Texts.required(input.catalogueNumber(), 50, "catalogueNumber"));
         recording.setTitle(Texts.required(input.title(), 255, "title"));
-        recording.setMedium(input.medium());
+        recording.setMedium(kindService.require(input.mediumId(), KindType.MEDIUM, null, recording.getMedium()));
         recording.setSpex(input.spexId() == null ? null : baseData.requireSpex(input.spexId()));
         recording.setReleased(Texts.partialDate(input.released()));
         recording.setRecorded(Texts.partialDate(input.recorded()));
@@ -287,7 +291,7 @@ public class RecordingService {
         return repository.findByUuid(id).orElseThrow(() -> new ResourceNotFoundException(Recording.class, id));
     }
 
-    public record RecordingInput(String catalogueNumber, String title, Medium medium, @Nullable UUID spexId,
+    public record RecordingInput(String catalogueNumber, String title, UUID mediumId, @Nullable UUID spexId,
                                  @Nullable String released, @Nullable String recorded, @Nullable CreditRef conductor,
                                  @Nullable String description, @Nullable UUID frontImageId, @Nullable UUID backImageId,
                                  @Nullable UUID spexifyAlbumId) {

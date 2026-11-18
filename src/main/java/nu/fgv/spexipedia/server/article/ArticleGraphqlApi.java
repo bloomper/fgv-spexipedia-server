@@ -16,6 +16,7 @@
 
 package nu.fgv.spexipedia.server.article;
 
+import nu.fgv.spexipedia.server.revision.MarkdownRenderer;
 import nu.fgv.spexipedia.server.article.ArticleDtos.ArticleCategoryDto;
 import nu.fgv.spexipedia.server.article.ArticleDtos.ArticleDto;
 import nu.fgv.spexipedia.server.page.SpexPageService;
@@ -66,8 +67,23 @@ public class ArticleGraphqlApi {
     }
 
     @QueryMapping
-    public List<ArticleDto> articles(@Argument final @Nullable String categoryId) {
-        return service.articles(Ids.optional(categoryId));
+    public List<ArticleDto> articles(@Argument final @Nullable String categoryId, @Argument final boolean includeSubcategories) {
+        return service.articles(Ids.optional(categoryId), includeSubcategories);
+    }
+
+    @QueryMapping
+    public List<ArticleDto> articleRoots() {
+        return service.children(null);
+    }
+
+    @QueryMapping
+    public List<ArticleDtos.WantedArticleDto> wantedArticles(@Argument final int limit) {
+        return service.wanted(limit);
+    }
+
+    @QueryMapping
+    public List<ArticleDto> orphanArticles() {
+        return service.orphans();
     }
 
     @QueryMapping
@@ -135,7 +151,18 @@ public class ArticleGraphqlApi {
         return new ArticleService.ArticleInput((String) input.get("title"), (String) input.get("body"),
                 Visibility.valueOf((String) input.get("visibility")),
                 input.get("categoryIds") == null ? null : ((List<String>) input.get("categoryIds")).stream().map(Ids::require).toList(),
-                (String) input.get("comment"));
+                (String) input.get("comment"), Ids.optional((String) input.get("parentId")));
+    }
+
+    @MutationMapping
+    public ArticleDto articleMove(@Argument final String id, @Argument final @Nullable String parentId,
+                                  @Argument final @Nullable Integer position) {
+        return service.move(Ids.require(id), Ids.optional(parentId), position);
+    }
+
+    @MutationMapping
+    public List<ArticleDto> articleReorderChildren(@Argument final @Nullable String parentId, @Argument final List<String> ids) {
+        return service.reorderChildren(Ids.optional(parentId), ids.stream().map(Ids::require).toList());
     }
 
     @MutationMapping
@@ -154,8 +181,8 @@ public class ArticleGraphqlApi {
     }
 
     @MutationMapping
-    public boolean articleTrash(@Argument final String id) {
-        return service.trash(Ids.require(id));
+    public boolean articleTrash(@Argument final String id, @Argument final boolean withChildren) {
+        return service.trash(Ids.require(id), withChildren);
     }
 
     @MutationMapping
@@ -169,13 +196,18 @@ public class ArticleGraphqlApi {
     }
 
     @MutationMapping
-    public ArticleCategoryDto articleCategoryCreate(@Argument final Map<String, String> input) {
-        return service.createCategory(input.get("name"), input.get("description"));
+    public ArticleCategoryDto articleCategoryCreate(@Argument final Map<String, Object> input) {
+        return service.createCategory((String) input.get("name"), (String) input.get("description"), parentIds(input));
     }
 
     @MutationMapping
-    public ArticleCategoryDto articleCategoryUpdate(@Argument final String id, @Argument final Map<String, String> input) {
-        return service.updateCategory(Ids.require(id), input.get("name"), input.get("description"));
+    public ArticleCategoryDto articleCategoryUpdate(@Argument final String id, @Argument final Map<String, Object> input) {
+        return service.updateCategory(Ids.require(id), (String) input.get("name"), (String) input.get("description"), parentIds(input));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static @Nullable List<UUID> parentIds(final Map<String, Object> input) {
+        return input.get("parentIds") == null ? null : ((List<String>) input.get("parentIds")).stream().map(Ids::require).toList();
     }
 
     // Article ----------------------------------------------------------------------------------------------------------
@@ -208,5 +240,51 @@ public class ArticleGraphqlApi {
     @SchemaMapping(typeName = "Article")
     public List<String> editingBy(final ArticleDto article) {
         return service.editingBy(article.key());
+    }
+
+    @SchemaMapping(typeName = "Article")
+    public @Nullable ArticleDto parent(final ArticleDto article) {
+        final List<ArticleDto> ancestors = article.parentKey() == null ? List.of() : service.ancestors(article.key());
+
+        return ancestors.isEmpty() ? null : ancestors.getLast();
+    }
+
+    @SchemaMapping(typeName = "Article")
+    public List<ArticleDto> ancestors(final ArticleDto article) {
+        return service.ancestors(article.key());
+    }
+
+    @SchemaMapping(typeName = "Article")
+    public List<ArticleDto> children(final ArticleDto article) {
+        return service.children(article.key());
+    }
+
+    @SchemaMapping(typeName = "Article")
+    public List<ArticleDto> siblings(final ArticleDto article) {
+        return service.children(article.parentKey());
+    }
+
+    @SchemaMapping(typeName = "Article")
+    public List<ArticleDto> backlinks(final ArticleDto article) {
+        return service.backlinks(article.key());
+    }
+
+    @SchemaMapping(typeName = "Article")
+    public List<MarkdownRenderer.Heading> toc(final ArticleDto article) {
+        return service.toc(service.html(article.body()));
+    }
+
+    // ArticleCategory --------------------------------------------------------------------------------------------------
+
+    @SchemaMapping(typeName = "ArticleCategory")
+    public List<ArticleCategoryDto> parents(final ArticleCategoryDto category) {
+        final Map<Long, ArticleCategoryDto> parents = service.categoriesByKeys(category.parentKeys());
+
+        return category.parentKeys().stream().map(parents::get).filter(java.util.Objects::nonNull).toList();
+    }
+
+    @SchemaMapping(typeName = "ArticleCategory")
+    public List<ArticleCategoryDto> subcategories(final ArticleCategoryDto category) {
+        return service.subcategories(category.key());
     }
 }

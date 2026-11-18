@@ -54,7 +54,7 @@ public class RedirectService {
         this.auditService = auditService;
     }
 
-    static String normalize(final String title) {
+    public static String normalize(final String title) {
         return title.replace('_', ' ').replaceAll("\\s+", " ").strip().toLowerCase(Locale.ROOT);
     }
 
@@ -119,6 +119,33 @@ public class RedirectService {
         }
         auditService.record("DELETE", "REDIRECT", id, "Tog bort en omdirigering");
         return true;
+    }
+
+    /**
+     * Without checking the caller, for the import.
+     */
+    @Transactional(readOnly = true)
+    public Optional<RedirectDto> byId(final UUID id) {
+        return jdbc.sql("SELECT uuid, old_title, target FROM redirect WHERE uuid = :u").param("u", id.toString())
+                .query((rs, _) -> new RedirectDto(UUID.fromString(rs.getString(1)), rs.getString(2), rs.getString(3)))
+                .optional();
+    }
+
+    /**
+     * The redirect of an old title, without checking the caller, for the import.
+     */
+    @Transactional(readOnly = true)
+    public Optional<UUID> idOf(final String oldTitle) {
+        return jdbc.sql("SELECT uuid FROM redirect WHERE normalized_title = :n").param("n", normalize(oldTitle))
+                .query((rs, _) -> UUID.fromString(rs.getString(1))).optional();
+    }
+
+    /**
+     * Without checking the caller, for the import's forget.
+     */
+    @Transactional
+    public boolean remove(final UUID id) {
+        return jdbc.sql("DELETE FROM redirect WHERE uuid = :u").param("u", id.toString()).update() == 1;
     }
 
     public record RedirectDto(UUID id, String oldTitle, String target) {

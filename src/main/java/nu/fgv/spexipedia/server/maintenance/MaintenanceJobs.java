@@ -21,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import nu.fgv.spexipedia.server.article.ArticleService;
 import nu.fgv.spexipedia.server.feed.SyncNotifier;
 import nu.fgv.spexipedia.server.image.ImageService;
+import nu.fgv.spexipedia.server.imports.ImportFileStore;
 import nu.fgv.spexipedia.server.links.LinkService;
 import nu.fgv.spexipedia.server.search.SearchService;
 import nu.fgv.spexipedia.server.user.CallerService;
@@ -54,16 +55,21 @@ public class MaintenanceJobs {
     @Autowired
     public MaintenanceJobs(final ImageService imageService, final LinkService linkService, final SearchService searchService,
                            final SyncNotifier syncNotifier, final CallerService callerService,
-                           final ArticleService articleService) {
+                           final ArticleService articleService, final ImportFileStore importFiles,
+                           final nu.fgv.spexipedia.server.spexpackage.PackageService packages) {
         this(Map.of(
                 MaintenanceJob.IMAGE_VARIANTS, imageService::makeMissingVariants,
                 MaintenanceJob.LINK_CHECK, linkService::check,
                 MaintenanceJob.SEARCH_REBUILD, searchService::rebuild,
                 MaintenanceJob.SYNC_NOTIFY, syncNotifier::notifyConsumers,
-                MaintenanceJob.UPLOAD_CLEANUP, imageService::cleanUpUploads,
+                MaintenanceJob.UPLOAD_CLEANUP, () -> {
+                    imageService.cleanUpUploads();
+                    importFiles.cleanUp();
+                },
                 MaintenanceJob.RETENTION, () -> {
                     callerService.cleanUp();
                     articleService.cleanUpEditing();
+                    packages.cleanUp();
                 }
         ));
     }

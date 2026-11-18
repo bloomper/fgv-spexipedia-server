@@ -163,6 +163,7 @@ public class SpexMcpTools {
                     either(generation, current.generation()),
                     either(premiere, current.premiere()),
                     either(introduction, current.introduction()),
+                    current.shortDescription(),
                     either(description, current.description()),
                     either(synopsis, current.synopsis()),
                     either(vestDescription, current.vestDescription()),

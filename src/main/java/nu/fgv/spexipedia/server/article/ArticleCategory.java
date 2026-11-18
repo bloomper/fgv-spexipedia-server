@@ -21,12 +21,18 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 import nu.fgv.spexipedia.server.util.AbstractAuditable;
 import org.jspecify.annotations.Nullable;
 
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -56,4 +62,10 @@ public class ArticleCategory extends AbstractAuditable {
 
     @Column(name = "description")
     private @Nullable String description;
+
+    /** The categories this one belongs to, as in the MediaWiki (spec 4.5). */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "article_category_parent", joinColumns = @JoinColumn(name = "category_id"),
+            inverseJoinColumns = @JoinColumn(name = "parent_id"))
+    private Set<ArticleCategory> parents = new LinkedHashSet<>();
 }

@@ -26,7 +26,7 @@ import nu.fgv.spexipedia.server.content.ContentDtos.RecordingDto;
 import nu.fgv.spexipedia.server.content.ContentDtos.TrackDto;
 import nu.fgv.spexipedia.server.content.ContentService;
 import nu.fgv.spexipedia.server.content.Figure;
-import nu.fgv.spexipedia.server.content.Medium;
+import nu.fgv.spexipedia.server.kind.KindService;
 import nu.fgv.spexipedia.server.content.Recording;
 import nu.fgv.spexipedia.server.content.RecordingService;
 import nu.fgv.spexipedia.server.content.SpexCharacter;
@@ -65,9 +65,11 @@ public class ContentMcpTools {
     private final BaseDataService baseData;
     private final SpexPageService pages;
     private final McpToolSupport support;
+    private final KindService kinds;
 
     public ContentMcpTools(final ContentService content, final RecordingService recordings, final BaseDataService baseData,
-                           final SpexPageService pages, final McpToolSupport support) {
+                           final SpexPageService pages, final McpToolSupport support, final KindService kinds) {
+        this.kinds = kinds;
         this.content = content;
         this.recordings = recordings;
         this.baseData = baseData;
@@ -200,7 +202,8 @@ public class ContentMcpTools {
     }
 
     private McpRecording recording(final RecordingDto recording) {
-        return new McpRecording(SpexMcpTools.McpRecordingRef.of(recording), recording.medium(),
+        return new McpRecording(SpexMcpTools.McpRecordingRef.of(recording),
+                kinds.byKeys(List.of(recording.mediumKey())).values().stream().findFirst().map(kind -> kind.getNameSv()).orElse(null),
                 recording.spexKey() == null ? null : SpexMcpTools.McpSpexRef.of(baseData.spexByKey(recording.spexKey())),
                 recording.recorded(), recording.description(),
                 recordings.tracks(recording.key()).stream().map(McpTrack::of).toList());
@@ -242,7 +245,7 @@ public class ContentMcpTools {
     public record McpFigureDetails(McpFigure figure, List<McpFigureCharacter> characters) {
     }
 
-    public record McpRecording(SpexMcpTools.McpRecordingRef recording, Medium medium,
+    public record McpRecording(SpexMcpTools.McpRecordingRef recording, @Nullable String medium,
                                SpexMcpTools.@Nullable McpSpexRef spex, @Nullable String recorded,
                                @Nullable String description, List<McpTrack> tracks) {
     }

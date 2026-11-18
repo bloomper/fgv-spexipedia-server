@@ -25,15 +25,16 @@ import nu.fgv.spexipedia.server.content.ContentDtos.NumberDto;
 import nu.fgv.spexipedia.server.content.ContentDtos.RecordingDto;
 import nu.fgv.spexipedia.server.content.ContentDtos.SceneDto;
 import nu.fgv.spexipedia.server.content.ContentDtos.TrackDto;
-import nu.fgv.spexipedia.server.content.ListStore.CreditKind;
+import nu.fgv.spexipedia.server.content.ListStore.Credit;
 import nu.fgv.spexipedia.server.content.ListStore.CreditRef;
 import nu.fgv.spexipedia.server.content.ListStore.PlacedImage;
 import nu.fgv.spexipedia.server.content.ListStore.RevivalChange;
 import nu.fgv.spexipedia.server.content.ListStore.RevivalChangeKind;
 import nu.fgv.spexipedia.server.image.Image;
 import nu.fgv.spexipedia.server.image.ImageDto;
-import nu.fgv.spexipedia.server.image.ImageKind;
 import nu.fgv.spexipedia.server.image.ImageService;
+import nu.fgv.spexipedia.server.kind.Kind;
+import nu.fgv.spexipedia.server.kind.KindService;
 import nu.fgv.spexipedia.server.links.LinkDtos.AppLinkDto;
 import nu.fgv.spexipedia.server.links.LinkDtos.PhotoSetDto;
 import nu.fgv.spexipedia.server.links.LinkService;
@@ -77,11 +78,12 @@ public class ContentGraphqlApi {
     private final ImageService imageService;
     private final PeopleService peopleService;
     private final LinkService linkService;
+    private final KindService kindService;
 
     @SuppressWarnings("java:S107")
     public ContentGraphqlApi(final ContentService service, final RecordingService recordingService, final BaseDataService baseData,
                              final BaseDataGraphqlApi baseDataApi, final SpexPageService pageService, final ImageService imageService,
-                             final PeopleService peopleService, final LinkService linkService) {
+                             final PeopleService peopleService, final LinkService linkService, final KindService kindService) {
         this.service = service;
         this.recordingService = recordingService;
         this.baseData = baseData;
@@ -90,6 +92,7 @@ public class ContentGraphqlApi {
         this.imageService = imageService;
         this.peopleService = peopleService;
         this.linkService = linkService;
+        this.kindService = kindService;
     }
 
     // Queries ----------------------------------------------------------------------------------------------------------
@@ -183,7 +186,7 @@ public class ContentGraphqlApi {
 
     public static List<ContentService.ImageRef> imageRefs(final List<Map<String, String>> images) {
         return images.stream().map(image -> new ContentService.ImageRef(Ids.require(image.get("imageId")),
-                image.get("kind") == null ? null : ImageKind.valueOf(image.get("kind")), image.get("caption"))).toList();
+                Ids.optional(image.get("kindId")), image.get("caption"))).toList();
     }
 
     @MutationMapping
@@ -247,17 +250,35 @@ public class ContentGraphqlApi {
     }
 
     @SuppressWarnings("unchecked")
-    private static ContentService.NumberInput number(final Map<String, Object> input) {
+    static ContentService.NumberInput number(final Map<String, Object> input) {
         return new ContentService.NumberInput(((Number) input.get("act")).intValue(), (String) input.get("title"),
-                (String) input.get("originalTitle"), (String) input.get("originalArtist"),
-                credits((List<Map<String, String>>) input.get("lyrics")), credits((List<Map<String, String>>) input.get("composers")),
-                credits((List<Map<String, String>>) input.get("arrangers")),
-                credits((List<Map<String, String>>) input.get("choreographers")),
+                Ids.optional((String) input.get("kindId")), (String) input.get("originalTitle"), (String) input.get("originalArtist"),
+                (String) input.get("fromWork"), (String) input.get("firstLine"),
+                input.get("credits") == null ? null : ((List<Map<String, Object>>) input.get("credits")).stream()
+                        .map(credit -> new ContentService.NumberCreditInput(Ids.require((String) credit.get("kindId")),
+                                Ids.optional((String) credit.get("spexareId")), (String) credit.get("name"),
+                                // An unresolved credit saved again with the others stays unresolved (spec 5.3)
+                                Boolean.TRUE.equals(credit.get("unresolved"))))
+                        .toList(),
                 input.get("characterIds") == null ? null : ((List<String>) input.get("characterIds")).stream().map(Ids::require).toList());
     }
 
-    private static @Nullable List<CreditRef> credits(final @Nullable List<Map<String, String>> credits) {
-        return credits == null ? null : credits.stream().map(ContentGraphqlApi::credit).toList();
+    @QueryMapping
+    public UnresolvedCreditsDto unresolvedCredits(@Argument final int limit) {
+        final List<ListStore.UnresolvedCredit> credits = service.unresolvedCredits(limit);
+        final Map<Long, NumberDto> numbers = service.numbersByKeys(credits.stream().map(ListStore.UnresolvedCredit::numberId).collect(Collectors.toSet()));
+        final Map<Long, Kind> kinds = kindService.byKeys(credits.stream().map(ListStore.UnresolvedCredit::kindId).collect(Collectors.toSet()));
+
+        return new UnresolvedCreditsDto(service.countUnresolvedCredits(), credits.stream()
+                .filter(credit -> numbers.containsKey(credit.numberId()))
+                .map(credit -> new UnresolvedCreditDto(numbers.get(credit.numberId()), kinds.get(credit.kindId()), credit.position(), credit.name()))
+                .toList());
+    }
+
+    @MutationMapping
+    public NumberDto creditResolve(@Argument final String numberId, @Argument final String kindId, @Argument final int position,
+                                   @Argument final Map<String, String> credit) {
+        return service.resolveCredit(Ids.require(numberId), Ids.require(kindId), position, credit(credit));
     }
 
     public static CreditRef credit(final Map<String, String> credit) {
@@ -288,7 +309,7 @@ public class ContentGraphqlApi {
     @SuppressWarnings("unchecked")
     private static RecordingService.RecordingInput recording(final Map<String, Object> input) {
         return new RecordingService.RecordingInput((String) input.get("catalogueNumber"), (String) input.get("title"),
-                Medium.valueOf((String) input.get("medium")), Ids.optional((String) input.get("spexId")),
+                Ids.require((String) input.get("mediumId")), Ids.optional((String) input.get("spexId")),
                 (String) input.get("released"), (String) input.get("recorded"),
                 input.get("conductor") == null ? null : credit((Map<String, String>) input.get("conductor")),
                 (String) input.get("description"), Ids.optional((String) input.get("frontImageId")),
@@ -384,22 +405,25 @@ public class ContentGraphqlApi {
         final Map<Long, List<PlacedImage>> placed = service.characterImages(characters.stream().map(CharacterDto::key).toList());
         final Map<Long, Image> images = imageService.byIds(placed.values().stream().flatMap(List::stream).map(PlacedImage::imageId)
                 .collect(Collectors.toSet()));
+        final Map<Long, Kind> kinds = kindService.byKeys(placed.values().stream().flatMap(List::stream).map(PlacedImage::kindId)
+                .filter(Objects::nonNull).collect(Collectors.toSet()));
 
         return characters.stream().collect(Collectors.toMap(c -> c,
-                c -> pageImages(placed.getOrDefault(c.key(), List.of()), images), (a, _) -> a));
+                c -> pageImages(placed.getOrDefault(c.key(), List.of()), images, kinds), (a, _) -> a));
     }
 
     /**
      * Placed images as the viewer sees them; images in the trash are left out.
      */
-    public List<PageImageDto> pageImages(final List<PlacedImage> placed, final Map<Long, Image> images) {
+    public List<PageImageDto> pageImages(final List<PlacedImage> placed, final Map<Long, Image> images, final Map<Long, Kind> kinds) {
         final List<PageImageDto> result = new ArrayList<>();
 
         for (final PlacedImage image : placed) {
             final ImageDto dto = imageService.visible(images.get(image.imageId()));
 
             if (dto != null) {
-                result.add(new PageImageDto(dto, image.kind(), image.caption() != null ? image.caption() : dto.caption()));
+                result.add(new PageImageDto(dto, image.kindId() == null ? null : kinds.get(image.kindId()),
+                        image.caption() != null ? image.caption() : dto.caption()));
             }
         }
         return result;
@@ -446,36 +470,42 @@ public class ContentGraphqlApi {
         return numbers.stream().collect(Collectors.toMap(n -> n, n -> spex.get(n.spexKey()), (a, _) -> a));
     }
 
-    @BatchMapping(typeName = "Number")
-    public Map<NumberDto, List<CreditDto>> lyrics(final List<NumberDto> numbers) {
-        return credits(numbers, CreditKind.LYRICS);
+    @BatchMapping(typeName = "Number", field = "kind")
+    public Map<NumberDto, @Nullable Kind> numberKind(final List<NumberDto> numbers) {
+        final Map<Long, Kind> kinds = kindService.byKeys(numbers.stream().map(NumberDto::kindKey).filter(Objects::nonNull).collect(Collectors.toSet()));
+        final Map<NumberDto, @Nullable Kind> result = new HashMap<>();
+
+        numbers.forEach(n -> result.put(n, n.kindKey() == null ? null : kinds.get(n.kindKey())));
+        return result;
     }
 
-    @BatchMapping(typeName = "Number")
-    public Map<NumberDto, List<CreditDto>> composers(final List<NumberDto> numbers) {
-        return credits(numbers, CreditKind.COMPOSER);
-    }
+    /**
+     * A number's credits, by credit kind in the kinds' order; unresolved ones only for EDITOR (spec 5.3).
+     */
+    @BatchMapping(typeName = "Number", field = "credits")
+    public Map<NumberDto, List<NumberCreditDto>> credits(final List<NumberDto> numbers) {
+        final List<Credit> credits = service.credits(numbers.stream().map(NumberDto::key).toList());
+        final Map<UUID, PersonDto> people = persons(credits.stream().filter(credit -> !credit.unresolved()).map(Credit::ref).toList());
+        final Map<Long, Kind> kinds = kindService.byKeys(credits.stream().map(Credit::kindId).collect(Collectors.toSet()));
 
-    @BatchMapping(typeName = "Number")
-    public Map<NumberDto, List<CreditDto>> arrangers(final List<NumberDto> numbers) {
-        return credits(numbers, CreditKind.ARRANGER);
-    }
+        return numbers.stream().collect(Collectors.toMap(n -> n, n -> {
+            final List<NumberCreditDto> result = new ArrayList<>();
+            final Map<Long, Integer> positions = new HashMap<>();
 
-    @BatchMapping(typeName = "Number")
-    public Map<NumberDto, List<CreditDto>> choreographers(final List<NumberDto> numbers) {
-        return credits(numbers, CreditKind.CHOREOGRAPHER);
-    }
+            for (final Credit credit : credits) {
+                if (credit.numberId() != n.key()) {
+                    continue;
+                }
 
-    private Map<NumberDto, List<CreditDto>> credits(final List<NumberDto> numbers, final CreditKind kind) {
-        final List<ListStore.Credit> credits = service.credits(numbers.stream().map(NumberDto::key).toList()).stream()
-                .filter(credit -> credit.kind() == kind).toList();
-        final Map<UUID, PersonDto> people = persons(credits.stream().map(credit -> credit.ref()).toList());
+                final int position = positions.merge(credit.kindId(), 1, Integer::sum) - 1;
+                final Optional<CreditDto> shown = credit.unresolved()
+                        ? Optional.of(new CreditDto(null, credit.ref().name(), true))
+                        : toCredit(credit.ref(), people);
 
-        return numbers.stream().collect(Collectors.toMap(n -> n, n -> credits.stream()
-                .filter(credit -> credit.numberId() == n.key())
-                .map(credit -> toCredit(credit.ref(), people))
-                .flatMap(Optional::stream)
-                .toList(), (a, _) -> a));
+                shown.ifPresent(dto -> result.add(new NumberCreditDto(kinds.get(credit.kindId()), position, dto)));
+            }
+            return result;
+        }, (a, _) -> a));
     }
 
     /**
@@ -494,9 +524,9 @@ public class ContentGraphqlApi {
             return Optional.empty();
         }
         if (ref.spexareId() == null) {
-            return Optional.of(new CreditDto(null, ref.name()));
+            return Optional.of(new CreditDto(null, ref.name(), false));
         }
-        return Optional.ofNullable(people.get(ref.spexareId())).map(person -> new CreditDto(person, null));
+        return Optional.ofNullable(people.get(ref.spexareId())).map(person -> new CreditDto(person, null, false));
     }
 
     @BatchMapping(typeName = "Number", field = "characters")
@@ -530,6 +560,11 @@ public class ContentGraphqlApi {
                 : toCredit(recording.conductor(), persons(List.of(recording.conductor()))).orElse(null);
     }
 
+    @SchemaMapping(typeName = "Recording", field = "medium")
+    public @Nullable Kind recordingMedium(final RecordingDto recording) {
+        return kindService.byKeys(List.of(recording.mediumKey())).get(recording.mediumKey());
+    }
+
     @SchemaMapping(typeName = "Recording")
     public List<TrackDto> tracks(final RecordingDto recording) {
         return recordingService.tracks(recording.key());
@@ -560,10 +595,22 @@ public class ContentGraphqlApi {
         return result;
     }
 
-    public record CreditDto(@Nullable PersonDto person, @Nullable String name) {
+    /**
+     * A credit as the viewer sees it. An unresolved one (only editors see those) carries the imported name.
+     */
+    public record CreditDto(@Nullable PersonDto person, @Nullable String name, boolean unresolved) {
     }
 
-    public record PageImageDto(ImageDto image, @Nullable ImageKind kind, @Nullable String caption) {
+    public record NumberCreditDto(@Nullable Kind kind, int position, CreditDto credit) {
+    }
+
+    public record UnresolvedCreditDto(NumberDto number, @Nullable Kind kind, int position, String name) {
+    }
+
+    public record UnresolvedCreditsDto(long total, List<UnresolvedCreditDto> credits) {
+    }
+
+    public record PageImageDto(ImageDto image, @Nullable Kind kind, @Nullable String caption) {
     }
 
     public record PlayedByDto(PersonDto person, SpexDto spex) {

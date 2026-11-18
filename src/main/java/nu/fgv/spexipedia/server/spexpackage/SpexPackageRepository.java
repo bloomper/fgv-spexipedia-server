@@ -14,18 +14,27 @@
  * limitations under the License.
  */
 
-package nu.fgv.spexipedia.server.content;
+package nu.fgv.spexipedia.server.spexpackage;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
- * What a recording was released on.
- *
  * @author Anders Jacobsson
  * @since 1.0
  */
-public enum Medium {
-    LP,
-    EP,
-    CD,
-    DIGITAL,
-    OTHER
+public interface SpexPackageRepository extends JpaRepository<SpexPackage, Long> {
+
+    Optional<SpexPackage> findByUuid(UUID uuid);
+
+    List<SpexPackage> findAllByOrderByCreatedAtDesc();
+
+    List<SpexPackage> findByAppliedAtBefore(Instant before);
+
+    List<SpexPackage> findByStateIn(Collection<PackageState> states);
 }

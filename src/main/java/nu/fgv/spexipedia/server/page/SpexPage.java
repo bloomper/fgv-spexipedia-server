@@ -67,6 +67,10 @@ public class SpexPage extends AbstractAuditable {
     @Column(name = "introduction")
     private @Nullable String introduction;
 
+    /** A sentence or two, for lists and the head of the page. */
+    @Column(name = "short_description")
+    private @Nullable String shortDescription;
+
     @Column(name = "description")
     private @Nullable String description;
 

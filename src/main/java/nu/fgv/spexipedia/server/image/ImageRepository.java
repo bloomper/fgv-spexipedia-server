@@ -34,6 +34,8 @@ public interface ImageRepository extends JpaRepository<Image, Long> {
 
     Optional<Image> findByUuid(UUID uuid);
 
+    Optional<Image> findFirstBySha256AndTrashedAtIsNull(String sha256);
+
     List<Image> findByUuidIn(Collection<UUID> uuids);
 
     List<Image> findByTrashedAtIsNotNullOrderByTrashedAtDesc();

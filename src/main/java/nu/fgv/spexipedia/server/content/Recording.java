@@ -18,8 +18,6 @@ package nu.fgv.spexipedia.server.content;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -30,6 +28,7 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 import nu.fgv.spexipedia.server.basedata.Spex;
+import nu.fgv.spexipedia.server.kind.Kind;
 import nu.fgv.spexipedia.server.image.Image;
 import nu.fgv.spexipedia.server.util.AbstractAuditable;
 import org.jspecify.annotations.Nullable;
@@ -64,9 +63,10 @@ public class Recording extends AbstractAuditable {
     @Column(name = "title", nullable = false)
     private String title;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "medium", nullable = false)
-    private Medium medium;
+    /** A recording medium kept by admins (spec 4.6). */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "medium_id", nullable = false)
+    private Kind medium;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "spex_id")

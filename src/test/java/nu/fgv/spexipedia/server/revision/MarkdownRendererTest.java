@@ -43,12 +43,22 @@ class MarkdownRendererTest {
     }
 
     @Test
-    void wikiLinksGoToArticlesOrToASearch() {
+    void wikiLinksGoToArticlesOrToANewArticle() {
         final String html = renderer.render("Se [[Spexets traditioner]] och [[Okänd sida|den här]].",
                 title -> title.equals("Spexets traditioner") ? "/articles/spexets-traditioner" : null);
 
         assertThat(html).contains("<a href=\"/articles/spexets-traditioner\">Spexets traditioner</a>")
-                .contains("href=\"/search?q=Ok%C3%A4nd+sida\">den här</a>");
+                .contains("href=\"/articles/new?title=Ok%C3%A4nd+sida\">den här</a>");
+    }
+
+    @Test
+    void headingsGetIdsForATableOfContents() {
+        final String html = renderer.render("# Historia\n\ntext\n\n## Första åren\n\n## Senare", _ -> null);
+
+        assertThat(MarkdownRenderer.headings(html)).extracting(MarkdownRenderer.Heading::level, MarkdownRenderer.Heading::text)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple(1, "Historia"), org.assertj.core.groups.Tuple.tuple(2, "Första åren"),
+                        org.assertj.core.groups.Tuple.tuple(2, "Senare"));
+        assertThat(MarkdownRenderer.headings(html)).allSatisfy(heading -> assertThat(html).contains("id=\"" + heading.anchor() + "\""));
     }
 
     @Test

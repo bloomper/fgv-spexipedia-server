@@ -51,6 +51,10 @@ public class MarkdownRenderer {
 
     private static final Pattern WIKI_LINK = Pattern.compile("\\[\\[([^\\[\\]|\\n]{1,200})(?:\\|([^\\[\\]\\n]{1,200}))?]]");
     private static final Set<String> SCHEMES = Set.of("http", "https", "mailto");
+    private static final Pattern HEADING = Pattern.compile("<h([1-6]) id=\"([^\"]+)\">(.*?)</h\\1>", Pattern.DOTALL);
+
+    /** Where links to missing articles go: the new article page, with the title. */
+    public static final String NEW_ARTICLE = "/articles/new?title=";
 
     private final Parser parser;
     private final HtmlRenderer renderer;
@@ -60,7 +64,10 @@ public class MarkdownRenderer {
                 .set(Parser.EXTENSIONS, List.of(TablesExtension.create(), AutolinkExtension.create()))
                 .set(HtmlRenderer.ESCAPE_HTML, true)
                 .set(HtmlRenderer.SUPPRESS_HTML, false)
-                .set(HtmlRenderer.SOFT_BREAK, "\n");
+                .set(HtmlRenderer.SOFT_BREAK, "\n")
+                // Headings get ids, for the table of contents (spec 4.5)
+                .set(HtmlRenderer.GENERATE_HEADER_ID, true)
+                .set(HtmlRenderer.RENDER_HEADER_ID, true);
 
         this.parser = Parser.builder(options).build();
         this.renderer = HtmlRenderer.builder(options).linkResolverFactory(new SafeLinks()).build();
@@ -81,7 +88,8 @@ public class MarkdownRenderer {
             final String title = matcher.group(1).strip();
             final String text = matcher.group(2) == null ? title : matcher.group(2).strip();
             final String path = articlePath.apply(title);
-            final String target = path != null ? path : "/search?q=" + java.net.URLEncoder.encode(title, java.nio.charset.StandardCharsets.UTF_8);
+            // A link to a missing article opens a new one with the title; the web shows such links in red
+            final String target = path != null ? path : NEW_ARTICLE + java.net.URLEncoder.encode(title, java.nio.charset.StandardCharsets.UTF_8);
 
             matcher.appendReplacement(resolved, Matcher.quoteReplacement("[" + text.replace("]", "\\]") + "](" + target + ")"));
         }
@@ -100,6 +108,19 @@ public class MarkdownRenderer {
             return "";
         }
         return HtmlUtils.htmlUnescape(render(markdown, _ -> null).replaceAll("<[^>]+>", " ")).replaceAll("\\s+", " ").strip();
+    }
+
+    /**
+     * The headings of rendered HTML, for a table of contents.
+     */
+    public static List<Heading> headings(final String html) {
+        return HEADING.matcher(html).results()
+                .map(result -> new Heading(Integer.parseInt(result.group(1)), result.group(2),
+                        HtmlUtils.htmlUnescape(result.group(3).replaceAll("<[^>]+>", "")).strip()))
+                .toList();
+    }
+
+    public record Heading(int level, String anchor, String text) {
     }
 
     /**

@@ -41,6 +41,7 @@ public record SpexipediaProperties(String timeZone,
                                    Security security,
                                    Mcp mcp,
                                    Media media,
+                                   Imports imports,
                                    Apps apps,
                                    Data data) {
 
@@ -72,6 +73,16 @@ public record SpexipediaProperties(String timeZone,
      * @param magick        ImageMagick's command, {@code magick} (7) or {@code convert} (6)
      */
     public record Media(Path root, Path uploads, String baseUrl, DataSize maxUploadSize, String magick) {
+    }
+
+    /**
+     * @param root           files received through the import API ({@code files/<sha256>}) and spex packages
+     *                       ({@code packages/<id>/})
+     * @param keepFiles      how long a received file is kept when no batch uses it
+     * @param keepPackages   how long a spex package is kept after it was applied
+     * @param maxPackageSize the largest spex package (spreadsheet and zip together)
+     */
+    public record Imports(Path root, Duration keepFiles, Duration keepPackages, DataSize maxPackageSize) {
     }
 
     /**

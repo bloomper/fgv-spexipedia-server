@@ -35,10 +35,16 @@ public final class ArticleDtos {
 
     public record ArticleDto(long key, UUID id, String slug, String title, @Nullable String body, Visibility visibility,
                              boolean published, List<Long> categoryKeys, @Nullable Instant trashedAt, Instant createdAt,
-                             @Nullable Instant lastModifiedAt) {
+                             @Nullable Instant lastModifiedAt, @Nullable Long parentKey, int position) {
+    }
+
+    /**
+     * A title that articles link to but no article has, and how many link to it.
+     */
+    public record WantedArticleDto(String title, int links) {
     }
 
     public record ArticleCategoryDto(long key, UUID id, String slug, String name, @Nullable String description,
-                                     int articleCount) {
+                                     int articleCount, List<Long> parentKeys) {
     }
 }

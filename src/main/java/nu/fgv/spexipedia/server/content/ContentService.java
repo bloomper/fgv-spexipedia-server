@@ -31,7 +31,7 @@ import nu.fgv.spexipedia.server.content.ContentRepositories.FigureRepository;
 import nu.fgv.spexipedia.server.content.ContentRepositories.NumberRepository;
 import nu.fgv.spexipedia.server.content.ContentRepositories.SceneRepository;
 import nu.fgv.spexipedia.server.content.ContentRepositories.TrackRepository;
-import nu.fgv.spexipedia.server.content.ListStore.CreditKind;
+import nu.fgv.spexipedia.server.content.ListStore.Credit;
 import nu.fgv.spexipedia.server.content.ListStore.CreditRef;
 import nu.fgv.spexipedia.server.content.ListStore.PlacedImage;
 import nu.fgv.spexipedia.server.content.ListStore.RevivalChange;
@@ -39,8 +39,11 @@ import nu.fgv.spexipedia.server.content.ListStore.RevivalChangeKind;
 import nu.fgv.spexipedia.server.feed.ChangeFeedService;
 import nu.fgv.spexipedia.server.feed.ChangeType;
 import nu.fgv.spexipedia.server.feed.FeedRecords;
-import nu.fgv.spexipedia.server.image.ImageKind;
 import nu.fgv.spexipedia.server.image.ImageService;
+import nu.fgv.spexipedia.server.kind.Kind;
+import nu.fgv.spexipedia.server.kind.KindService;
+import nu.fgv.spexipedia.server.kind.KindType;
+import nu.fgv.spexipedia.server.kind.KindUse;
 import nu.fgv.spexipedia.server.search.IndexEvent;
 import nu.fgv.spexipedia.server.search.SearchKind;
 import nu.fgv.spexipedia.server.user.CallerService;
@@ -58,7 +61,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -95,6 +97,7 @@ public class ContentService {
     private final ListStore lists;
     private final BaseDataService baseData;
     private final ImageService imageService;
+    private final KindService kindService;
     private final ChangeFeedService feed;
     private final CallerService callerService;
     private final AuditService auditService;
@@ -105,7 +108,7 @@ public class ContentService {
                           final SceneRepository sceneRepository, final NumberRepository numberRepository,
                           final TrackRepository trackRepository, final IdAliasRepository aliasRepository,
                           final ListStore lists, final BaseDataService baseData, final ImageService imageService,
-                          final ChangeFeedService feed, final CallerService callerService, final AuditService auditService,
+                          final KindService kindService, final ChangeFeedService feed, final CallerService callerService, final AuditService auditService,
                           final ApplicationEventPublisher events) {
         this.figureRepository = figureRepository;
         this.characterRepository = characterRepository;
@@ -116,6 +119,7 @@ public class ContentService {
         this.lists = lists;
         this.baseData = baseData;
         this.imageService = imageService;
+        this.kindService = kindService;
         this.feed = feed;
         this.callerService = callerService;
         this.auditService = auditService;
@@ -396,12 +400,11 @@ public class ContentService {
         final List<PlacedImage> placed = new ArrayList<>();
 
         for (final ImageRef image : images) {
-            final ImageKind kind = image.kind() == null ? ImageKind.SKETCH : image.kind();
+            final Kind kind = image.kindId() == null
+                    ? kindService.first(KindType.IMAGE, KindUse.CHARACTER).orElseThrow(() -> new BadRequestException("error.field.invalid", "kindId"))
+                    : kindService.require(image.kindId(), KindType.IMAGE, KindUse.CHARACTER, null);
 
-            if (kind != ImageKind.SKETCH && kind != ImageKind.MAKEUP && kind != ImageKind.COSTUME && kind != ImageKind.OTHER) {
-                throw new BadRequestException("error.field.invalid", "kind");
-            }
-            placed.add(new PlacedImage(imageService.requireUsable(image.imageId()).getId(), kind,
+            placed.add(new PlacedImage(imageService.requireUsable(image.imageId()).getId(), kind.getId(),
                     Texts.optional(image.caption(), 1000, "caption")));
         }
         lists.setCharacterImages(character.getId(), placed);
@@ -629,9 +632,8 @@ public class ContentService {
             if ((editor || !number.isRetired()) && (change == null || !change.cut())) {
                 final NumberDto dto = ContentDtos.toDto(number);
 
-                result.add(change == null || change.position() == null ? dto : new NumberDto(dto.key(), dto.id(), dto.spexKey(),
-                        change.act() == null ? dto.act() : change.act(), change.position(), dto.title(), dto.originalTitle(),
-                        dto.originalArtist(), dto.retired()));
+                result.add(change == null || change.position() == null ? dto
+                        : dto.at(change.act() == null ? dto.act() : change.act(), change.position()));
             }
         }
         result.addAll(own);
@@ -657,7 +659,7 @@ public class ContentService {
         number.setUuid(id == null ? Uuids.v7() : id);
         number.setSpex(spex);
         number.setPosition(numberRepository.maxPosition(spex) + 1);
-        applyNumber(number, input);
+        applyNumber(number, input, null);
         numberRepository.save(number);
         applyNumberLists(number, input);
         changed(number);
@@ -671,7 +673,7 @@ public class ContentService {
 
         final SpexNumber number = requireNumber(id);
 
-        applyNumber(number, input);
+        applyNumber(number, input, number.getKind());
         applyNumberLists(number, input);
         changed(number);
         auditService.record("UPDATE", "NUMBER", number.getUuid(), "Ändrade numret " + number.getTitle() + " i " + number.getSpex().label());
@@ -699,28 +701,32 @@ public class ContentService {
         return true;
     }
 
-    private static void applyNumber(final SpexNumber number, final NumberInput input) {
+    private void applyNumber(final SpexNumber number, final NumberInput input, final @Nullable Kind currentKind) {
         if (input.act() < 1 || input.act() > 9) {
             throw new BadRequestException("error.field.invalid", "act");
         }
         number.setAct(input.act());
         number.setTitle(Texts.required(input.title(), 255, "title"));
+        number.setKind(input.kindId() == null ? null : kindService.require(input.kindId(), KindType.NUMBER, null, currentKind));
         number.setOriginalTitle(Texts.optional(input.originalTitle(), 255, "originalTitle"));
         number.setOriginalArtist(Texts.optional(input.originalArtist(), 255, "originalArtist"));
+        number.setFromWork(Texts.optional(input.fromWork(), 255, "fromWork"));
+        number.setFirstLine(Texts.optional(input.firstLine(), 500, "firstLine"));
     }
 
     private void applyNumberLists(final SpexNumber number, final NumberInput input) {
-        final Map<CreditKind, List<CreditRef>> credits = new HashMap<>();
+        if (input.credits() != null) {
+            final List<Credit> credits = new ArrayList<>();
 
-        credits.put(CreditKind.LYRICS, input.lyrics());
-        credits.put(CreditKind.COMPOSER, input.composers());
-        credits.put(CreditKind.ARRANGER, input.arrangers());
-        credits.put(CreditKind.CHOREOGRAPHER, input.choreographers());
-        credits.forEach((kind, refs) -> {
-            if (refs != null) {
-                lists.setCredits(number.getId(), kind, refs.stream().map(ContentService::credit).toList());
+            for (final NumberCreditInput credit : input.credits()) {
+                final Kind kind = kindService.require(credit.kindId(), KindType.CREDIT, null, null);
+
+                credits.add(credit.unresolved()
+                        ? new Credit(number.getId(), kind.getId(), new CreditRef(null, Texts.required(credit.name(), 255, "name")), true)
+                        : new Credit(number.getId(), kind.getId(), credit(new CreditRef(credit.spexareId(), credit.name()))));
             }
-        });
+            lists.setCredits(number.getId(), credits);
+        }
         if (input.characterIds() != null) {
             final Set<Long> allowed = characters(number.getSpex().getId()).stream().map(CharacterDto::key).collect(Collectors.toSet());
             final List<Long> keys = new ArrayList<>();
@@ -786,7 +792,7 @@ public class ContentService {
             number.setUuid(Uuids.v7());
             number.setSpex(spex);
             number.setPosition(position++);
-            applyNumber(number, new NumberInput(Math.clamp(act, 1, 9), title, originalTitle, originalArtist, null, null, null, null, null));
+            applyNumber(number, new NumberInput(Math.clamp(act, 1, 9), title, null, originalTitle, originalArtist, null, null, null, null), null);
             numberRepository.save(number);
             changed(number);
         }
@@ -817,8 +823,45 @@ public class ContentService {
         return numbers(spex.getId());
     }
 
-    public List<ListStore.Credit> credits(final Collection<Long> numberKeys) {
-        return lists.credits(numberKeys);
+    /**
+     * The credits of numbers; unresolved ones only for EDITOR (spec 5.3).
+     */
+    public List<Credit> credits(final Collection<Long> numberKeys) {
+        final boolean editor = editor();
+
+        return lists.credits(numberKeys).stream().filter(credit -> editor || !credit.unresolved()).toList();
+    }
+
+    /**
+     * EDITOR. Credits that an import brought as names nobody has resolved yet, oldest numbers first.
+     */
+    @Transactional(readOnly = true)
+    public List<ListStore.UnresolvedCredit> unresolvedCredits(final int limit) {
+        callerService.current().requireEditor();
+        return lists.unresolvedCredits(Math.clamp(limit, 1, 500));
+    }
+
+    @Transactional(readOnly = true)
+    public long countUnresolvedCredits() {
+        callerService.current().requireEditor();
+        return lists.countUnresolvedCredits();
+    }
+
+    /**
+     * EDITOR. Resolves an unresolved credit: the spexare it means, or the name as someone outside FGV.
+     */
+    @Transactional
+    public NumberDto resolveCredit(final UUID numberId, final UUID kindId, final int position, final CreditRef ref) {
+        callerService.current().requireEditor();
+
+        final SpexNumber number = requireNumber(numberId);
+        final Kind kind = kindService.require(kindId, KindType.CREDIT, null, null);
+
+        if (!lists.resolveCredit(number.getId(), kind.getId(), position, credit(ref))) {
+            throw new ResourceNotFoundException(Credit.class, numberId);
+        }
+        auditService.record("UPDATE", "NUMBER", number.getUuid(), "Löste en kredit på numret " + number.getTitle() + " i " + number.getSpex().label());
+        return ContentDtos.toDto(number);
     }
 
     public Map<Long, List<Long>> numberCharacters(final Collection<Long> numberKeys) {
@@ -837,6 +880,97 @@ public class ContentService {
     FeedRecords.FeedNumber feedRecord(final SpexNumber number) {
         return new FeedRecords.FeedNumber(number.getUuid(), number.getSpex().getUuid(), number.getAct(), number.getPosition(),
                 number.getTitle(), number.getOriginalTitle(), number.getOriginalArtist(), number.isRetired());
+    }
+
+    // Imports (spec 5.11) ----------------------------------------------------------------------------------------------
+
+    /**
+     * EDITOR (an import). Creates or updates a character at a given position, with a figure found or created by name.
+     */
+    @Transactional
+    public CharacterDto importCharacter(final @Nullable UUID existingId, final UUID spexId, final String name,
+                                        final @Nullable String figureName, final @Nullable String description,
+                                        final @Nullable Integer position) {
+        callerService.current().requireEditor();
+
+        final UUID figureId = Texts.clean(figureName) == null ? null : figureRepository.findAllByOrderByNameAsc().stream()
+                .filter(figure -> figure.getName().equalsIgnoreCase(figureName.strip())).findFirst()
+                .map(Figure::getUuid)
+                .orElseGet(() -> createFigure(figureName, null).id());
+        final CharacterDto dto = existingId == null ? createCharacter(spexId, name, figureId, description)
+                : updateCharacter(existingId, name, figureId, description);
+
+        if (position != null && position != dto.position()) {
+            final SpexCharacter character = requireCharacter(dto.id());
+
+            character.setPosition(Math.max(1, position));
+            changed(character);
+            return ContentDtos.toDto(character);
+        }
+        return dto;
+    }
+
+    /**
+     * EDITOR (an import). Creates or updates a scene at a given position.
+     */
+    @Transactional
+    public SceneDto importScene(final @Nullable UUID existingId, final UUID spexId, final SceneInput input,
+                                final @Nullable Integer position) {
+        callerService.current().requireEditor();
+
+        final SceneDto dto = existingId == null ? createScene(spexId, input) : updateScene(existingId, input);
+
+        if (position != null && position != dto.position()) {
+            final Scene scene = requireScene(dto.id());
+
+            scene.setPosition(Math.max(1, position));
+            return ContentDtos.toDto(scene);
+        }
+        return dto;
+    }
+
+    /**
+     * EDITOR (an import). Creates or updates a number at a given position.
+     */
+    @Transactional
+    public NumberDto importNumber(final @Nullable UUID existingId, final UUID spexId, final NumberInput input,
+                                 final @Nullable Integer position) {
+        callerService.current().requireEditor();
+
+        final NumberDto dto = existingId == null ? createNumber(spexId, input) : updateNumber(existingId, input);
+
+        if (position != null && position != dto.position()) {
+            final SpexNumber number = requireNumber(dto.id());
+
+            number.setPosition(Math.max(1, position));
+            changed(number);
+            return ContentDtos.toDto(number);
+        }
+        return dto;
+    }
+
+    /**
+     * The character of a spex (or of its parent, for a revival) with a name, ignoring case.
+     */
+    @Transactional(readOnly = true)
+    public Optional<CharacterDto> characterByName(final UUID spexId, final String name) {
+        return characters(baseData.requireSpex(spexId).getId()).stream()
+                .filter(character -> character.name().equalsIgnoreCase(name.strip())).findFirst();
+    }
+
+    @Transactional(readOnly = true)
+    public @Nullable Long characterVersion(final UUID id) {
+        return characterRepository.findByUuid(id).map(SpexCharacter::getVersion).orElse(null);
+    }
+
+    @Transactional(readOnly = true)
+    public @Nullable Long sceneVersion(final UUID id) {
+        return sceneRepository.findByUuid(id).map(Scene::getVersion).orElse(null);
+    }
+
+    @Transactional(readOnly = true)
+    public @Nullable Long numberVersion(final UUID id) {
+        return numberRepository.findByUuid(id).map(SpexNumber::getVersion).orElse(null);
     }
 
     // Revivals ---------------------------------------------------------------------------------------------------------
@@ -897,16 +1031,31 @@ public class ContentService {
         }
     }
 
-    public record ImageRef(UUID imageId, @Nullable ImageKind kind, @Nullable String caption) {
+    /**
+     * An image in a list; kindId is an image kind of the list's use, or null for the first one.
+     */
+    public record ImageRef(UUID imageId, @Nullable UUID kindId, @Nullable String caption) {
     }
 
     public record SceneInput(int act, String title, @Nullable String place, boolean intervalAfter) {
     }
 
-    public record NumberInput(int act, String title, @Nullable String originalTitle, @Nullable String originalArtist,
-                              @Nullable List<CreditRef> lyrics, @Nullable List<CreditRef> composers,
-                              @Nullable List<CreditRef> arrangers, @Nullable List<CreditRef> choreographers,
-                              @Nullable List<UUID> characterIds) {
+    /**
+     * A number's fields. Null lists are left as they are; credits replace all of the number's credits.
+     */
+    public record NumberInput(int act, String title, @Nullable UUID kindId, @Nullable String originalTitle,
+                              @Nullable String originalArtist, @Nullable String fromWork, @Nullable String firstLine,
+                              @Nullable List<NumberCreditInput> credits, @Nullable List<UUID> characterIds) {
+    }
+
+    /**
+     * A credit of a credit kind: a spexare, someone outside FGV by name, or (imports only) an unresolved name.
+     */
+    public record NumberCreditInput(UUID kindId, @Nullable UUID spexareId, @Nullable String name, boolean unresolved) {
+
+        public NumberCreditInput(final UUID kindId, final @Nullable UUID spexareId, final @Nullable String name) {
+            this(kindId, spexareId, name, false);
+        }
     }
 
     public record Order(UUID id, int act) {

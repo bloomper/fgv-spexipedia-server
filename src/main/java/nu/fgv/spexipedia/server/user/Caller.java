@@ -66,6 +66,19 @@ public record Caller(String subject, String username, @Nullable String displayNa
         return roles.contains(Role.REVIVAL);
     }
 
+    /**
+     * A service account that may use the import API (spec 5.11). It acts as an editor only while an import runs.
+     */
+    public boolean isImport() {
+        return roles.contains(Role.IMPORT);
+    }
+
+    public void requireImport() {
+        if (!isImport()) {
+            throw new AccessDeniedException("IMPORT required");
+        }
+    }
+
     public boolean hasAccess(final App app) {
         return apps.contains(app);
     }
