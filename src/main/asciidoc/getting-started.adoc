@@ -68,8 +68,13 @@ The API answers on ``https://api.spexipedia.fgv.local.nu:8443`` (through Caddy) 
 With ``API_IMPORT_SAMPLE_DATA=true`` the API replaces everything with sample data at every start (refused in the
 ``production`` profile); ``API_SAMPLE_DATA_SIZE`` is ``small`` (about twenty full spex pages) or ``large`` (every spex).
 
-Spexipedia comes first: it is the source of the sample spex, categories and tasks, with fixed ids, which Spexregister
-copies from the change feed and the other applications read. Start the applications in this order:
+The spex, revivals, spex categories, tasks and task categories are FGV's real ones in every environment: the migration
+``V1_5__base_data.sql`` inserts them with fixed ids, and at start every record without a change feed entry gets one
+(``SeededBaseData``). They were compiled from Spexregister's former lists and checked against the archive and the old
+MediaWiki. The sample data builds on them and removes only what it added itself.
+
+Spexipedia comes first: it is the source of the spex, categories and tasks, which Spexregister copies from the change
+feed and the other applications read. Start the applications in this order:
 
 . Spexipedia
 . Spexregister, which copies base data from Spexipedia
@@ -93,6 +98,11 @@ The password is ``s3cr3t-s3cr3t`` locally (fgv-infra-deploy's ``secrets/SAMPLE_U
 Credits refer to six spexare that Spexregister's sample data creates with fixed ids (published and unpublished, with and
 without nicknames); who played which character comes from Spexregister's sample actors. The first spex page shows photos
 from Spexgram's sample data.
+
+As the content migration brings them in, the pages have facts (venue, performances, setting), numbers of every kind with
+credits of every kind (one an imported name nobody has resolved, shown to editors only), and the recordings include a
+record from the song register with only its catalogue number and tracks (``CCD 004``) and a spex book (``Spexbok I``)
+whose tracks are the numbers of four spex.
 
 [[mcp_server]]
 == MCP server

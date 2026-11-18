@@ -38,7 +38,9 @@ import org.springframework.graphql.test.tester.GraphQlTester;
 import org.springframework.graphql.test.tester.HttpGraphQlTester;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -57,6 +59,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import javax.sql.DataSource;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
@@ -118,6 +121,8 @@ public abstract class AbstractIntegrationTest {
     protected int localPort;
     @Autowired
     protected JdbcClient jdbcClient;
+    @Autowired
+    protected DataSource dataSource;
     @Autowired
     private CacheManager cacheManager;
 
@@ -329,6 +334,16 @@ public abstract class AbstractIntegrationTest {
         jdbcClient.sql("UPDATE settings SET welcome_sv = NULL, welcome_en = NULL, public_welcome_sv = NULL, public_welcome_en = NULL, contact_email = NULL").update();
         cacheManager.getCacheNames().forEach(name -> Objects.requireNonNull(cacheManager.getCache(name)).clear());
         WIREMOCK.resetAll();
+    }
+
+    /** The spex, revivals, categories and tasks of V1_5__base_data.sql, which the tests' reset removes. */
+    protected static final long SEEDED_SPEX = 153;
+
+    /**
+     * Inserts the base data of V1_5__base_data.sql again, after the reset emptied the tables.
+     */
+    protected void seedBaseData() {
+        new ResourceDatabasePopulator(new ClassPathResource("db/migration/V1_5__base_data.sql")).execute(dataSource);
     }
 
     protected HttpGraphQlTester graphQl(final @Nullable String user) {
