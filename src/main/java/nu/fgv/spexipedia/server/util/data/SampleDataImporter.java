@@ -624,6 +624,32 @@ public class SampleDataImporter {
             recordingService.setPublished(lp.id(), true);
             recordingService.create(new RecordingService.RecordingInput("CCD 042", "Napoleon – jubileumsutgåva", DefaultKinds.CD, napoleon.id(),
                     "2006", "2006-03", null, "Opublicerad: väntar på omslaget.", null, null, null));
+            imported(all);
+        }
+
+        /**
+         * What the content migration brings from the song register: a record the wiki had no page for, only its catalogue
+         * number and tracks, and a spex book with the songs of several spex, each linked to its number.
+         */
+        private void imported(final List<SpexDto> all) {
+            final List<SpexDto> originals = full(all).stream().filter(spex -> !spex.revival()).limit(4).toList();
+            final RecordingDto record = recordingService.create(new RecordingService.RecordingInput("CCD 004", "Spexlåtar 4",
+                    DefaultKinds.CD, null, "1995", null, null, null, null, null, null));
+            final List<RecordingService.TrackInput> recordTracks = new ArrayList<>();
+
+            originals.forEach(spex -> contentService.numbers(spex.key()).stream().skip(1).limit(2)
+                    .forEach(n -> recordTracks.add(new RecordingService.TrackInput(null, n.id(), null))));
+            recordingService.setTracks(record.id(), recordTracks);
+            recordingService.setPublished(record.id(), true);
+
+            final RecordingDto book = recordingService.create(new RecordingService.RecordingInput("Spexbok I", "Chalmersspex I",
+                    DefaultKinds.SPEX_BOOK, null, "1990", null, null, "Sångtexterna från spexen, i spexets ordning.", null, null, null));
+            final List<RecordingService.TrackInput> songs = new ArrayList<>();
+
+            originals.forEach(spex -> contentService.numbers(spex.key())
+                    .forEach(n -> songs.add(new RecordingService.TrackInput(null, n.id(), null))));
+            recordingService.setTracks(book.id(), songs);
+            recordingService.setPublished(book.id(), true);
         }
 
         // Articles -----------------------------------------------------------------------------------------------------

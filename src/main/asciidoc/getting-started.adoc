@@ -94,6 +94,11 @@ Credits refer to six spexare that Spexregister's sample data creates with fixed 
 without nicknames); who played which character comes from Spexregister's sample actors. The first spex page shows photos
 from Spexgram's sample data.
 
+As the content migration brings them in, the pages have facts (venue, performances, setting), numbers of every kind with
+credits of every kind (one an imported name nobody has resolved, shown to editors only), and the recordings include a
+record from the song register with only its catalogue number and tracks (``CCD 004``) and a spex book (``Spexbok I``)
+whose tracks are the numbers of four spex.
+
 [[mcp_server]]
 == MCP server
 
