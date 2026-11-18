@@ -55,7 +55,8 @@ public class MaintenanceJobs {
     @Autowired
     public MaintenanceJobs(final ImageService imageService, final LinkService linkService, final SearchService searchService,
                            final SyncNotifier syncNotifier, final CallerService callerService,
-                           final ArticleService articleService, final ImportFileStore importFiles) {
+                           final ArticleService articleService, final ImportFileStore importFiles,
+                           final nu.fgv.spexipedia.server.spexpackage.PackageService packages) {
         this(Map.of(
                 MaintenanceJob.IMAGE_VARIANTS, imageService::makeMissingVariants,
                 MaintenanceJob.LINK_CHECK, linkService::check,
@@ -68,6 +69,7 @@ public class MaintenanceJobs {
                 MaintenanceJob.RETENTION, () -> {
                     callerService.cleanUp();
                     articleService.cleanUpEditing();
+                    packages.cleanUp();
                 }
         ));
     }

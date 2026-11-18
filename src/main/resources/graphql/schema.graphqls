@@ -1503,3 +1503,88 @@ enum ImportOutcome {
     KEPT
     FAILED
 }
+
+# Spex packages (spec 5.14) ------------------------------------------------------------------------------------------
+# The template, the spreadsheet and the zip go over REST: GET /api/packages/template.xlsx, POST /api/packages
+# (multipart: spreadsheet, zipFileName, zipSize), then the zip in parts: HEAD /api/packages/{id}/zip answers
+# Upload-Offset, PATCH /api/packages/{id}/zip with Upload-Offset appends a part.
+
+extend type Query {
+    "EDITOR. Every spex package, newest first."
+    spexPackages: [SpexPackage!]!
+    "EDITOR. A spex package."
+    spexPackage(id: ID!): SpexPackage
+}
+
+extend type Mutation {
+    "EDITOR. Starts the preview: dry runs in every application, in the background (poll the package's state)."
+    spexPackagePreview(id: ID!): SpexPackage!
+    "EDITOR. Starts applying the package: Spexipedia first, then the other applications. Safe to do again."
+    spexPackageApply(id: ID!): SpexPackage!
+    "EDITOR. Deletes the package and its files; not while it runs. What it created stays."
+    spexPackageDelete(id: ID!): Void
+}
+
+enum SpexPackageState {
+    UPLOADED
+    PREVIEWING
+    PREVIEWED
+    APPLYING
+    APPLIED
+    FAILED
+}
+
+type SpexPackage {
+    id: ID!
+    state: SpexPackageState!
+    fileName: String!
+    zipFileName: String
+    "The zip's size in bytes, null without a zip; zipReceived how much of it has arrived."
+    zipSize: Float
+    zipReceived: Float!
+    "The spex the package created or added to, once known."
+    spex: Spex
+    "0–100 while a preview or apply runs, and what it does now; why it failed."
+    progress: Int!
+    message: String
+    preview: SpexPackageReport
+    results: SpexPackageReport
+    uploadedByName: String
+    createdAt: Instant!
+    appliedAt: Instant
+}
+
+type SpexPackageReport {
+    "Per application, Spexipedia first."
+    apps: [SpexPackageApp!]!
+    "Files and rows that go nowhere, and why."
+    unmatched: [String!]!
+    warnings: [String!]!
+}
+
+type SpexPackageApp {
+    "SPEXIPEDIA, ARCHIVE, SPEXIFY, SPEXFLIX or SPEXGRAM."
+    app: String!
+    "CHECKED (dry run), APPLIED, DEFERRED (checked when applied: it needs the new spex), UNAVAILABLE or FAILED."
+    status: String!
+    records: Int!
+    files: Int!
+    created: Int!
+    updated: Int!
+    unchanged: Int!
+    kept: Int!
+    failed: Int!
+    message: String
+    "The application's web, for links to what was created."
+    webUrl: String
+    items: [SpexPackageItem!]!
+}
+
+type SpexPackageItem {
+    kind: String!
+    sourceKey: String!
+    id: ID
+    outcome: String!
+    message: String
+    warnings: [String!]!
+}

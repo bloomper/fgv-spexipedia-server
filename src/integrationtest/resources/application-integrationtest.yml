@@ -24,6 +24,11 @@ spexipedia:
   mcp:
     # The unbound client's tokens lack that audience, so they are refused all the same
     authorized-parties: fgv-spexipedia-mcp,fgv-spexipedia-mcp-unbound
+  imports:
+    root: ./build/integrationtest-data/imports
+    # A package's batch that fails is tried again; not for long in tests
+    package-attempts: 2
+    package-retry-interval: 0s
   media:
     root: ./build/integrationtest-data/media
     uploads: ./build/integrationtest-data/uploads
