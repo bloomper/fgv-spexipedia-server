@@ -123,7 +123,7 @@ public class PackageService {
             throw new BadRequestException("error.package.unreadable");
         }
         repository.save(pkg);
-        auditService.record("CREATE", "SPEX_PACKAGE", pkg.getUuid(), "Laddade upp spexpaketet " + fileName);
+        auditService.record("CREATE", "SPEX_PACKAGE", pkg.getUuid(), "Laddade upp importen " + fileName);
         return pkg;
     }
 
@@ -187,7 +187,7 @@ public class PackageService {
         }
         repository.delete(pkg);
         store.delete(id);
-        auditService.record("DELETE", "SPEX_PACKAGE", id, "Tog bort spexpaketet " + pkg.getFileName());
+        auditService.record("DELETE", "SPEX_PACKAGE", id, "Tog bort importen " + pkg.getFileName());
     }
 
     public PackageReport report(final @Nullable String json) {
@@ -233,7 +233,7 @@ public class PackageService {
         pkg.setMessage(null);
         repository.saveAndFlush(pkg);
         auditService.record(apply ? "APPLY" : "PREVIEW", "SPEX_PACKAGE", id, (apply ? "Tillämpade" : "Förhandsgranskade")
-                + " spexpaketet " + pkg.getFileName());
+                + " importen " + pkg.getFileName());
         org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
                 new org.springframework.transaction.support.TransactionSynchronization() {
                     @Override

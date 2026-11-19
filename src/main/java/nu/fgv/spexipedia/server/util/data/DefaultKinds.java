@@ -38,7 +38,6 @@ public final class DefaultKinds {
     public static final UUID LP = id(301);
     public static final UUID EP = id(302);
     public static final UUID CD = id(303);
-    public static final UUID SPEX_BOOK = id(306);
     public static final UUID SKETCH = id(401);
     public static final UUID MAKEUP = id(402);
     public static final UUID COSTUME = id(403);
@@ -49,6 +48,10 @@ public final class DefaultKinds {
     public static final UUID VENUE = id(501);
     public static final UUID PERFORMANCES = id(502);
     public static final UUID SETTING = id(503);
+
+    public static final UUID SPEX_BOOK = id(601);
+    public static final UUID SONGBOOK = id(602);
+    public static final UUID ANNIVERSARY_BOOK = id(603);
 
     private DefaultKinds() {
     }

@@ -37,9 +37,9 @@ import java.util.UUID;
 /**
  * What the viewer is shown from the other applications (sections 5.4 and 5.9 of the spec):
  * <ul>
- *     <li>Photos and short videos from Spexgram: public items to everyone; members' items, through Spexgram's {@code SPEXIPEDIA}
- *     role, to users with access to Spexgram; other logged-in users get a count of what they may not see, and visitors
- *     nothing.</li>
+ *     <li>Photos and short videos from Spexgram show people, so never visitors, even when public in Spexgram. Logged-in
+ *     users see the public items; members' items, through Spexgram's {@code SPEXIPEDIA} role, only users with access to
+ *     Spexgram, and other logged-in users get a count of what they may not see.</li>
  *     <li>Spexgram's public albums of a spex to everyone, its members' albums to users with access.</li>
  *     <li>Spexify's albums and tracks, Spexflix's videos and Spexarkivet's manuscripts and arrangements only to users
  *     with access to that application.</li>
@@ -76,7 +76,8 @@ public class LinkService {
         final boolean spexgram = member.map(caller -> caller.hasAccess(App.SPEXGRAM)).orElse(false);
         final List<UUID> chosen = author ? itemIds : List.of();
 
-        if (itemIds.isEmpty()) {
+        // Visitors see no photos of people, and are not told there are any
+        if (itemIds.isEmpty() || member.isEmpty()) {
             return new PhotoSetDto(List.of(), 0, true, chosen);
         }
 
@@ -91,8 +92,8 @@ public class LinkService {
                 .filter(item -> spexgram || item.isPublic())
                 .map(this::photo)
                 .toList();
-        // Members without access to Spexgram see placeholders for what they may not see; visitors are not told
-        final int hidden = member.isPresent() && !spexgram ? Math.max(0, itemIds.size() - photos.size()) : 0;
+        // Members without access to Spexgram see placeholders for what they may not see
+        final int hidden = spexgram ? 0 : Math.max(0, itemIds.size() - photos.size());
 
         return new PhotoSetDto(photos, hidden, true, chosen);
     }

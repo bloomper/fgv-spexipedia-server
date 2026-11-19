@@ -332,6 +332,7 @@ public class ListStore {
     @Transactional(propagation = Propagation.MANDATORY)
     public void moveNumber(final long from, final long to, final UUID fromUuid, final UUID toUuid) {
         jdbc.sql("UPDATE recording_track SET number_id = :to WHERE number_id = :from").param("to", to).param("from", from).update();
+        jdbc.sql("UPDATE book_song SET number_id = :to WHERE number_id = :from").param("to", to).param("from", from).update();
         jdbc.sql("UPDATE revival_change SET record_id = :to WHERE record_id = :from AND kind = 'NUMBER'")
                 .param("to", toUuid.toString()).param("from", fromUuid.toString()).update();
     }

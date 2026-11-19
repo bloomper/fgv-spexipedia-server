@@ -2,7 +2,7 @@
 
 ## Overview
 
-Spexipedia Server is the backend of Spexipedia, FGV's encyclopedia of Chalmersspexet and the other spex, and the source
+Spexipedia Server is the backend of Spexipedia, FGV's encyclopedia of Chalmersspexet and all its spex, and the source
 of the base data (spex categories, spex, revivals, task categories, tasks, characters and numbers) that FGV's other
 applications copy. It is a Spring Boot application with a GraphQL API, which answers without login too, with what is
 public, a plain HTTP endpoint for image uploads, and an MCP server at `/api/mcp` for AI assistants.

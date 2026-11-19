@@ -33,10 +33,7 @@ public final class ContentDtos {
     private ContentDtos() {
     }
 
-    public record FigureDto(long key, UUID id, String slug, String name, @Nullable String description) {
-    }
-
-    public record CharacterDto(long key, UUID id, long spexKey, String name, @Nullable Long figureKey,
+    public record CharacterDto(long key, UUID id, long spexKey, String name,
                                @Nullable String description, int position, boolean retired) {
     }
 
@@ -66,13 +63,18 @@ public final class ContentDtos {
     public record TrackDto(UUID id, @Nullable String side, int position, @Nullable Long numberKey, String title) {
     }
 
-    public static FigureDto toDto(final Figure figure) {
-        return new FigureDto(figure.getId(), figure.getUuid(), figure.getSlug(), figure.getName(), figure.getDescription());
+    public record BookDto(long key, UUID id, String slug, String title, long kindKey, @Nullable Integer volume,
+                              @Nullable String publishedYear, @Nullable String description, @Nullable Long coverKey,
+                              boolean published) {
+    }
+
+    /** A song of a book; {@code title} is the number's when there is one. */
+    public record BookSongDto(UUID id, long bookKey, int position, @Nullable Long numberKey, String title, boolean textOnly) {
     }
 
     public static CharacterDto toDto(final SpexCharacter character) {
         return new CharacterDto(character.getId(), character.getUuid(), character.getSpex().getId(), character.getName(),
-                character.getFigure() == null ? null : character.getFigure().getId(), character.getDescription(),
+                character.getDescription(),
                 character.getPosition(), character.isRetired());
     }
 
@@ -85,6 +87,18 @@ public final class ContentDtos {
         return new NumberDto(number.getId(), number.getUuid(), number.getSpex().getId(), number.getAct(), number.getPosition(),
                 number.getTitle(), number.getKind() == null ? null : number.getKind().getId(), number.getOriginalTitle(),
                 number.getOriginalArtist(), number.getFromWork(), number.getFirstLine(), number.isRetired());
+    }
+
+    public static BookDto toDto(final Book book) {
+        return new BookDto(book.getId(), book.getUuid(), book.getSlug(), book.getTitle(), book.getKind().getId(), book.getVolume(),
+                book.getPublishedYear(), book.getDescription(), book.getCover() == null ? null : book.getCover().getId(),
+                book.isPublished());
+    }
+
+    public static BookSongDto toDto(final BookSong song) {
+        return new BookSongDto(song.getUuid(), song.getBook().getId(), song.getPosition(),
+                song.getNumber() == null ? null : song.getNumber().getId(),
+                song.getNumber() != null ? song.getNumber().getTitle() : String.valueOf(song.getTitle()), song.isTextOnly());
     }
 
     public static RecordingDto toDto(final Recording recording) {

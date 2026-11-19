@@ -57,12 +57,6 @@ public class TaskCategory extends AbstractAuditable {
     private boolean actorPresent;
 
     /**
-     * Whether its tasks are shown as the board on spex pages.
-     */
-    @Column(name = "board", nullable = false)
-    private boolean board;
-
-    /**
      * Whether its tasks are instruments, which Spexarkivet offers for arrangements' parts.
      */
     @Column(name = "instruments", nullable = false)

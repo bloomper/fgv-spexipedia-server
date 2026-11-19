@@ -62,10 +62,6 @@ public class SpexCharacter extends AbstractAuditable {
     @Column(name = "name", nullable = false)
     private String name;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "figure_id")
-    private @Nullable Figure figure;
-
     @Column(name = "description")
     private @Nullable String description;
 

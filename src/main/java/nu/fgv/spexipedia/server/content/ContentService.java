@@ -23,11 +23,9 @@ import nu.fgv.spexipedia.server.basedata.IdAlias;
 import nu.fgv.spexipedia.server.basedata.IdAliasRepository;
 import nu.fgv.spexipedia.server.basedata.Spex;
 import nu.fgv.spexipedia.server.content.ContentDtos.CharacterDto;
-import nu.fgv.spexipedia.server.content.ContentDtos.FigureDto;
 import nu.fgv.spexipedia.server.content.ContentDtos.NumberDto;
 import nu.fgv.spexipedia.server.content.ContentDtos.SceneDto;
 import nu.fgv.spexipedia.server.content.ContentRepositories.CharacterRepository;
-import nu.fgv.spexipedia.server.content.ContentRepositories.FigureRepository;
 import nu.fgv.spexipedia.server.content.ContentRepositories.NumberRepository;
 import nu.fgv.spexipedia.server.content.ContentRepositories.SceneRepository;
 import nu.fgv.spexipedia.server.content.ContentRepositories.TrackRepository;
@@ -74,7 +72,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
- * Figures, characters, scenes and numbers, and what a revival changes of its parent's. EDITOR changes them; AUTHOR
+ * Characters, scenes and numbers, and what a revival changes of its parent's. EDITOR changes them; AUTHOR
  * changes characters' images. Characters and numbers are base data: their changes go to the change feed.
  *
  * @author Anders Jacobsson
@@ -88,11 +86,11 @@ public class ContentService {
     private static final Pattern DASH = Pattern.compile("\\s+[–—-]\\s+|\\t");
     private static final Pattern ORIGINAL = Pattern.compile("^(.*?)\\s*\\((.+)\\)\\s*$");
 
-    private final FigureRepository figureRepository;
     private final CharacterRepository characterRepository;
     private final SceneRepository sceneRepository;
     private final NumberRepository numberRepository;
     private final TrackRepository trackRepository;
+    private final ContentRepositories.BookSongRepository bookSongRepository;
     private final IdAliasRepository aliasRepository;
     private final ListStore lists;
     private final BaseDataService baseData;
@@ -104,17 +102,18 @@ public class ContentService {
     private final ApplicationEventPublisher events;
 
     @SuppressWarnings("java:S107")
-    public ContentService(final FigureRepository figureRepository, final CharacterRepository characterRepository,
+    public ContentService(final CharacterRepository characterRepository,
                           final SceneRepository sceneRepository, final NumberRepository numberRepository,
-                          final TrackRepository trackRepository, final IdAliasRepository aliasRepository,
+                          final TrackRepository trackRepository, final ContentRepositories.BookSongRepository bookSongRepository,
+                          final IdAliasRepository aliasRepository,
                           final ListStore lists, final BaseDataService baseData, final ImageService imageService,
                           final KindService kindService, final ChangeFeedService feed, final CallerService callerService, final AuditService auditService,
                           final ApplicationEventPublisher events) {
-        this.figureRepository = figureRepository;
         this.characterRepository = characterRepository;
         this.sceneRepository = sceneRepository;
         this.numberRepository = numberRepository;
         this.trackRepository = trackRepository;
+        this.bookSongRepository = bookSongRepository;
         this.aliasRepository = aliasRepository;
         this.lists = lists;
         this.baseData = baseData;
@@ -132,81 +131,6 @@ public class ContentService {
 
     private boolean editor() {
         return callerService.currentIfAny().map(caller -> caller.isEditor()).orElse(false);
-    }
-
-    // Figures ----------------------------------------------------------------------------------------------------------
-
-    @Transactional(readOnly = true)
-    public List<FigureDto> figures() {
-        return figureRepository.findAllByOrderByNameAsc().stream().map(ContentDtos::toDto).toList();
-    }
-
-    @Transactional(readOnly = true)
-    public Optional<FigureDto> figure(final String idOrSlug) {
-        return Ids.parse(idOrSlug).flatMap(figureRepository::findByUuid).or(() -> figureRepository.findBySlug(idOrSlug))
-                .map(ContentDtos::toDto);
-    }
-
-    @Transactional(readOnly = true)
-    public Map<Long, FigureDto> figuresByKeys(final Collection<Long> keys) {
-        return figureRepository.findAllById(keys).stream().map(ContentDtos::toDto).collect(Collectors.toMap(FigureDto::key, Function.identity()));
-    }
-
-    @Transactional
-    public FigureDto createFigure(final String name, final @Nullable String description) {
-        callerService.current().requireEditor();
-
-        final Figure figure = new Figure();
-
-        figure.setUuid(Uuids.v7());
-        figure.setName(Texts.required(name, 255, "name"));
-        figure.setDescription(Texts.optional(description, 50_000, "description"));
-        figure.setSlug(Slugs.unique(figure.getName(), "figur", figureRepository::existsBySlug));
-        figureRepository.save(figure);
-        events.publishEvent(new IndexEvent(SearchKind.FIGURE, figure.getUuid()));
-        auditService.record("CREATE", "FIGURE", figure.getUuid(), "Skapade gestalten " + figure.getName());
-        return ContentDtos.toDto(figure);
-    }
-
-    @Transactional
-    public FigureDto updateFigure(final UUID id, final String name, final @Nullable String description) {
-        callerService.current().requireEditor();
-
-        final Figure figure = requireFigure(id);
-
-        figure.setName(Texts.required(name, 255, "name"));
-        figure.setDescription(Texts.optional(description, 50_000, "description"));
-        events.publishEvent(new IndexEvent(SearchKind.FIGURE, figure.getUuid()));
-        auditService.record("UPDATE", "FIGURE", id, "Ändrade gestalten " + figure.getName());
-        return ContentDtos.toDto(figure);
-    }
-
-    @Transactional
-    public boolean deleteFigure(final UUID id) {
-        callerService.current().requireEditor();
-
-        final Figure figure = requireFigure(id);
-
-        if (characterRepository.countByFigure(figure) > 0) {
-            throw new BadRequestException("error.figure.inUse");
-        }
-        figureRepository.delete(figure);
-        events.publishEvent(new IndexEvent(SearchKind.FIGURE, id));
-        auditService.record("DELETE", "FIGURE", id, "Tog bort gestalten " + figure.getName());
-        return true;
-    }
-
-    private Figure requireFigure(final UUID id) {
-        return figureRepository.findByUuid(id).orElseThrow(() -> new ResourceNotFoundException(Figure.class, id));
-    }
-
-    @Transactional(readOnly = true)
-    public List<CharacterDto> charactersOfFigure(final long figureKey) {
-        return figureRepository.findById(figureKey).map(figure -> characterRepository.findByFigure(figure).stream()
-                .filter(character -> !character.isRetired())
-                .sorted(Comparator.comparing((SpexCharacter character) -> character.getSpex().getYear()))
-                .map(ContentDtos::toDto)
-                .toList()).orElse(List.of());
     }
 
     // Characters -------------------------------------------------------------------------------------------------------
@@ -262,7 +186,7 @@ public class ContentService {
                 final CharacterDto dto = ContentDtos.toDto(character);
 
                 result.add(change == null || change.position() == null ? dto : new CharacterDto(dto.key(), dto.id(), dto.spexKey(),
-                        dto.name(), dto.figureKey(), dto.description(), change.position(), dto.retired()));
+                        dto.name(), dto.description(), change.position(), dto.retired()));
             }
         }
         own.stream().filter(c -> editor || !c.isRetired()).map(ContentDtos::toDto).forEach(result::add);
@@ -271,17 +195,16 @@ public class ContentService {
     }
 
     @Transactional
-    public CharacterDto createCharacter(final UUID spexId, final String name, final @Nullable UUID figureId,
-                                        final @Nullable String description) {
-        return createCharacter(spexId, name, figureId, description, null);
+    public CharacterDto createCharacter(final UUID spexId, final String name, final @Nullable String description) {
+        return createCharacter(spexId, name, description, null);
     }
 
     /**
      * EDITOR. A character with a given id, as the sample data and the migration make them.
      */
     @Transactional
-    public CharacterDto createCharacter(final UUID spexId, final String name, final @Nullable UUID figureId,
-                                        final @Nullable String description, final @Nullable UUID id) {
+    public CharacterDto createCharacter(final UUID spexId, final String name, final @Nullable String description,
+                                        final @Nullable UUID id) {
         callerService.current().requireEditor();
 
         final Spex spex = baseData.requireSpex(spexId);
@@ -290,10 +213,10 @@ public class ContentService {
         character.setUuid(id == null ? Uuids.v7() : id);
         character.setSpex(spex);
         character.setPosition(nextCharacterPosition(spex));
-        applyCharacter(character, name, figureId, description);
+        applyCharacter(character, name, description);
         characterRepository.save(character);
         changed(character);
-        auditService.record("CREATE", "CHARACTER", character.getUuid(), "Skapade karaktären " + character.getName() + " i " + spex.label());
+        auditService.record("CREATE", "CHARACTER", character.getUuid(), "Skapade rollen " + character.getName() + " i " + spex.label());
         return ContentDtos.toDto(character);
     }
 
@@ -304,22 +227,19 @@ public class ContentService {
     }
 
     @Transactional
-    public CharacterDto updateCharacter(final UUID id, final String name, final @Nullable UUID figureId,
-                                        final @Nullable String description) {
+    public CharacterDto updateCharacter(final UUID id, final String name, final @Nullable String description) {
         callerService.current().requireEditor();
 
         final SpexCharacter character = requireCharacter(id);
 
-        applyCharacter(character, name, figureId, description);
+        applyCharacter(character, name, description);
         changed(character);
-        auditService.record("UPDATE", "CHARACTER", character.getUuid(), "Ändrade karaktären " + character.getName() + " i " + character.getSpex().label());
+        auditService.record("UPDATE", "CHARACTER", character.getUuid(), "Ändrade rollen " + character.getName() + " i " + character.getSpex().label());
         return ContentDtos.toDto(character);
     }
 
-    private void applyCharacter(final SpexCharacter character, final String name, final @Nullable UUID figureId,
-                                final @Nullable String description) {
+    private void applyCharacter(final SpexCharacter character, final String name, final @Nullable String description) {
         character.setName(Texts.required(name, 255, "name"));
-        character.setFigure(figureId == null ? null : requireFigure(figureId));
         character.setDescription(Texts.optional(description, 50_000, "description"));
     }
 
@@ -337,7 +257,7 @@ public class ContentService {
         feed.record(BaseDataKind.CHARACTER, character.getUuid(), ChangeType.RETIRE, null, feedRecord(character));
         characterRepository.delete(character);
         events.publishEvent(new IndexEvent(SearchKind.CHARACTER, character.getUuid()));
-        auditService.record("DELETE", "CHARACTER", id, "Tog bort karaktären " + character.getName() + " i " + character.getSpex().label());
+        auditService.record("DELETE", "CHARACTER", id, "Tog bort rollen " + character.getName() + " i " + character.getSpex().label());
         return true;
     }
 
@@ -358,11 +278,11 @@ public class ContentService {
             character.setUuid(Uuids.v7());
             character.setSpex(spex);
             character.setPosition(position++);
-            applyCharacter(character, parts[0], null, parts.length > 1 ? parts[1] : null);
+            applyCharacter(character, parts[0], parts.length > 1 ? parts[1] : null);
             characterRepository.save(character);
             changed(character);
         }
-        auditService.record("CREATE", "CHARACTER", spex.getUuid(), "Klistrade in karaktärer i " + spex.label());
+        auditService.record("CREATE", "CHARACTER", spex.getUuid(), "Klistrade in roller i " + spex.label());
         return characters(spex.getId());
     }
 
@@ -385,7 +305,7 @@ public class ContentService {
                 changed(character);
             }
         }
-        auditService.record("UPDATE", "CHARACTER", spex.getUuid(), "Ändrade ordningen på karaktärerna i " + spex.label());
+        auditService.record("UPDATE", "CHARACTER", spex.getUuid(), "Ändrade ordningen på rollerna i " + spex.label());
         return characters(spex.getId());
     }
 
@@ -408,7 +328,7 @@ public class ContentService {
                     Texts.optional(image.caption(), 1000, "caption")));
         }
         lists.setCharacterImages(character.getId(), placed);
-        auditService.record("UPDATE", "CHARACTER", id, "Ändrade bilderna på karaktären " + character.getName() + " i " + character.getSpex().label());
+        auditService.record("UPDATE", "CHARACTER", id, "Ändrade bilderna på rollen " + character.getName() + " i " + character.getSpex().label());
         return ContentDtos.toDto(character);
     }
 
@@ -690,7 +610,7 @@ public class ContentService {
 
         final SpexNumber number = requireNumber(id);
 
-        if (trackRepository.countByNumber(number) > 0) {
+        if (trackRepository.countByNumber(number) > 0 || bookSongRepository.countByNumber(number) > 0) {
             throw new BadRequestException("error.number.inUse");
         }
         number.setRetired(true);
@@ -885,20 +805,15 @@ public class ContentService {
     // Imports (spec 5.11) ----------------------------------------------------------------------------------------------
 
     /**
-     * EDITOR (an import). Creates or updates a character at a given position, with a figure found or created by name.
+     * EDITOR (an import). Creates or updates a character at a given position.
      */
     @Transactional
     public CharacterDto importCharacter(final @Nullable UUID existingId, final UUID spexId, final String name,
-                                        final @Nullable String figureName, final @Nullable String description,
-                                        final @Nullable Integer position) {
+                                        final @Nullable String description, final @Nullable Integer position) {
         callerService.current().requireEditor();
 
-        final UUID figureId = Texts.clean(figureName) == null ? null : figureRepository.findAllByOrderByNameAsc().stream()
-                .filter(figure -> figure.getName().equalsIgnoreCase(figureName.strip())).findFirst()
-                .map(Figure::getUuid)
-                .orElseGet(() -> createFigure(figureName, null).id());
-        final CharacterDto dto = existingId == null ? createCharacter(spexId, name, figureId, description)
-                : updateCharacter(existingId, name, figureId, description);
+        final CharacterDto dto = existingId == null ? createCharacter(spexId, name, description)
+                : updateCharacter(existingId, name, description);
 
         if (position != null && position != dto.position()) {
             final SpexCharacter character = requireCharacter(dto.id());

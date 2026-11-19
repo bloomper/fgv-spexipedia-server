@@ -63,7 +63,7 @@ spring:
           prompt: false
           completion: false
         instructions: >-
-          Spexipedia is FGV's encyclopedia of Chalmersspexet and the other spex, and the source of the base data
+          Spexipedia is FGV's encyclopedia of Chalmersspexet and all its spex, and the source of the base data
           that FGV's other applications copy: spex categories (the ensembles), spex and their revivals, task
           categories and tasks (what people do in a spex, e.g. director or musician). Each spex has a page with
           texts in Markdown, characters, scenes, numbers (songs) and recordings; articles cover everything else.

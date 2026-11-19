@@ -146,10 +146,10 @@ public class RecordingService {
 
         recording.setUuid(Uuids.v7());
         apply(recording, input);
-        recording.setSlug(Slugs.unique(recording.getCatalogueNumber(), "skiva", repository::existsBySlug));
+        recording.setSlug(Slugs.unique(recording.getCatalogueNumber(), "inspelning", repository::existsBySlug));
         repository.save(recording);
         events.publishEvent(new IndexEvent(SearchKind.RECORDING, recording.getUuid()));
-        auditService.record("CREATE", "RECORDING", recording.getUuid(), "Skapade skivan " + recording.getCatalogueNumber() + " " + recording.getTitle());
+        auditService.record("CREATE", "RECORDING", recording.getUuid(), "Skapade inspelningen " + recording.getCatalogueNumber() + " " + recording.getTitle());
         return ContentDtos.toDto(recording);
     }
 
@@ -161,7 +161,7 @@ public class RecordingService {
 
         apply(recording, input);
         events.publishEvent(new IndexEvent(SearchKind.RECORDING, recording.getUuid()));
-        auditService.record("UPDATE", "RECORDING", id, "Ändrade skivan " + recording.getCatalogueNumber() + " " + recording.getTitle());
+        auditService.record("UPDATE", "RECORDING", id, "Ändrade inspelningen " + recording.getCatalogueNumber() + " " + recording.getTitle());
         return ContentDtos.toDto(recording);
     }
 
@@ -174,7 +174,7 @@ public class RecordingService {
         recording.setPublished(published);
         events.publishEvent(new IndexEvent(SearchKind.RECORDING, recording.getUuid()));
         auditService.record(published ? "PUBLISH" : "UNPUBLISH", "RECORDING", id,
-                (published ? "Publicerade skivan " : "Avpublicerade skivan ") + recording.getCatalogueNumber());
+                (published ? "Publicerade inspelningen " : "Avpublicerade inspelningen ") + recording.getCatalogueNumber());
         return ContentDtos.toDto(recording);
     }
 
@@ -186,7 +186,7 @@ public class RecordingService {
 
         repository.delete(recording);
         events.publishEvent(new IndexEvent(SearchKind.RECORDING, id));
-        auditService.record("DELETE", "RECORDING", id, "Tog bort skivan " + recording.getCatalogueNumber() + " " + recording.getTitle());
+        auditService.record("DELETE", "RECORDING", id, "Tog bort inspelningen " + recording.getCatalogueNumber() + " " + recording.getTitle());
         return true;
     }
 
@@ -216,7 +216,7 @@ public class RecordingService {
         final Recording recording = require(id);
 
         replaceTracks(recording, tracks);
-        auditService.record("UPDATE", "RECORDING", id, "Ändrade spåren på skivan " + recording.getCatalogueNumber());
+        auditService.record("UPDATE", "RECORDING", id, "Ändrade spåren på inspelningen " + recording.getCatalogueNumber());
         return ContentDtos.toDto(recording);
     }
 
@@ -283,7 +283,7 @@ public class RecordingService {
             throw new BadRequestException("error.tooMany", 200);
         }
         replaceTracks(recording, tracks);
-        auditService.record("UPDATE", "RECORDING", id, "Klistrade in spår på skivan " + recording.getCatalogueNumber());
+        auditService.record("UPDATE", "RECORDING", id, "Klistrade in spår på inspelningen " + recording.getCatalogueNumber());
         return ContentDtos.toDto(recording);
     }
 

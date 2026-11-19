@@ -46,6 +46,7 @@ public final class ImportRecords {
                         @Nullable List<ImportScene> scenes,
                         @Nullable List<ImportNumber> numbers,
                         @Nullable List<ImportRecording> recordings,
+                        @Nullable List<ImportBook> books,
                         @Nullable List<ImportArticleCategory> articleCategories,
                         @Nullable List<ImportArticle> articles,
                         @Nullable List<ImportRedirect> redirects) {
@@ -64,7 +65,7 @@ public final class ImportRecords {
      * A spex page's texts, facts and images. Left-out fields are left as they are.
      */
     public record ImportPage(String sourceKey, @Nullable UUID spexId, @Nullable String spexSourceKey,
-                             @Nullable String generation, @Nullable String premiere, @Nullable String introduction,
+                             @Nullable String premiere, @Nullable String introduction,
                              @Nullable String shortDescription, @Nullable String description, @Nullable String synopsis,
                              @Nullable String vestDescription, @Nullable FileRef poster, @Nullable FileRef rebus,
                              @Nullable FileRef rebusSolution, @Nullable List<ImportFact> facts,
@@ -82,7 +83,7 @@ public final class ImportRecords {
     }
 
     public record ImportCharacter(String sourceKey, @Nullable UUID spexId, @Nullable String spexSourceKey, String name,
-                                  @Nullable String description, @Nullable String figure, @Nullable Integer position,
+                                  @Nullable String description, @Nullable Integer position,
                                   @Nullable List<ImportCharacterImage> images) {
     }
 
@@ -122,6 +123,20 @@ public final class ImportRecords {
      */
     public record ImportTrack(@Nullable String side, @Nullable String numberSourceKey, @Nullable UUID numberId,
                               @Nullable String title) {
+    }
+
+    /**
+     * A book; its songs replace the old ones when given.
+     */
+    public record ImportBook(String sourceKey, String title, @Nullable String kind, @Nullable Integer volume, @Nullable String publishedYear,
+                                 @Nullable String description, @Nullable FileRef cover, @Nullable List<ImportBookSong> songs) {
+    }
+
+    /**
+     * A song of a book: a number by id or source key, or a free title.
+     */
+    public record ImportBookSong(@Nullable String numberSourceKey, @Nullable UUID numberId, @Nullable String title,
+                                     @Nullable Boolean textOnly) {
     }
 
     public record ImportArticleCategory(String sourceKey, String name, @Nullable String description,

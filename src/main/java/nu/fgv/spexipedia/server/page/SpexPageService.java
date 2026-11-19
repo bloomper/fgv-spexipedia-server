@@ -117,7 +117,7 @@ public class SpexPageService {
         final CreditRef wornBy = page.getVestWornBySpexare() == null && page.getVestWornByName() == null ? null
                 : new CreditRef(page.getVestWornBySpexare(), page.getVestWornByName());
 
-        return new SpexPageDto(page.getSpex().getId(), page.getSpex().getUuid(), page.getGeneration(),
+        return new SpexPageDto(page.getSpex().getId(), page.getSpex().getUuid(),
                 page.getPremiere() == null ? null : page.getPremiere().toString(), page.getIntroduction(), page.getShortDescription(),
                 page.getDescription(),
                 page.getSynopsis(), page.getRebus() == null ? null : page.getRebus().getId(),
@@ -218,7 +218,6 @@ public class SpexPageService {
             }
             revisionService.record(RevisionTarget.SPEX_PAGE, spex.getUuid(), field, spex.label(), value, null);
         }
-        page.setGeneration(Texts.optional(input.generation(), 255, "generation"));
         page.setPremiere(date(input.premiere()));
         page.setIntroduction(texts.get(INTRODUCTION));
         page.setShortDescription(Texts.optional(input.shortDescription(), 1000, "shortDescription"));
@@ -392,7 +391,7 @@ public class SpexPageService {
         return revisionService.history(RevisionTarget.SPEX_PAGE, spexId);
     }
 
-    public record PageInput(@Nullable String generation, @Nullable String premiere, @Nullable String introduction,
+    public record PageInput(@Nullable String premiere, @Nullable String introduction,
                             @Nullable String shortDescription, @Nullable String description, @Nullable String synopsis, @Nullable String vestDescription,
                             @Nullable CreditRef vestWornBy, @Nullable Map<String, UUID> baseRevisionIds) {
     }

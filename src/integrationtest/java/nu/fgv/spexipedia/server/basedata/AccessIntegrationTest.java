@@ -73,6 +73,37 @@ class AccessIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void aCategoryHasOneOriginalAYearAndRevivalsComeAfterTheirOriginal() {
+        final String category = createCategory("Chalmersspexet");
+        final String original = createSpex("1984", "Lasse-Maja", category);
+        final String other = createSpex("1985", "Bojan", category);
+        final String revival = "mutation($p: ID!, $y: String!) { spexRevivalCreate(parentId: $p, year: $y) { id } }";
+
+        expectError(graphQl(EDITOR).document("mutation($c: ID) { spexCreate(input: {year: \"1984\", title: \"X\", categoryId: $c}) { id } }")
+                .variable("c", category).execute(), "BAD_REQUEST");
+        expectError(graphQl(EDITOR).document("mutation($id: ID!, $c: ID) { spexUpdate(id: $id, input: {year: \"1984\", title: \"Bojan\", categoryId: $c}) { id } }")
+                .variable("id", other).variable("c", category).execute(), "BAD_REQUEST");
+        // Another category may have a spex that year, and a revival shares its year with an original
+        createSpex("1984", "X", createCategory("Jubileumsspex"));
+        graphQl(EDITOR).document(revival).variable("p", original).variable("y", "1985").execute()
+                .path("spexRevivalCreate.id").hasValue();
+        expectError(graphQl(EDITOR).document(revival).variable("p", original).variable("y", "1985").execute(), "BAD_REQUEST");
+        expectError(graphQl(EDITOR).document(revival).variable("p", original).variable("y", "1984").execute(), "BAD_REQUEST");
+        // The original stays before its revivals
+        expectError(graphQl(EDITOR).document("mutation($id: ID!, $c: ID) { spexUpdate(id: $id, input: {year: \"1986\", title: \"Lasse-Maja\", categoryId: $c}) { id } }")
+                .variable("id", original).variable("c", category).execute(), "BAD_REQUEST");
+        graphQl(EDITOR).document("mutation($id: ID!, $c: ID) { spexUpdate(id: $id, input: {year: \"1983\", title: \"Lasse-Maja\", categoryId: $c}) { year } }")
+                .variable("id", original).variable("c", category).execute()
+                .path("spexUpdate.year").entity(String.class).isEqualTo("1983");
+        // A retired spex takes no year, until it is brought back
+        final String retire = "mutation($id: ID!, $r: Boolean!) { baseDataRetire(kind: SPEX, id: $id, retired: $r) }";
+
+        graphQl(ADMIN).document(retire).variable("id", other).variable("r", true).execute();
+        createSpex("1985", "Y", category);
+        expectError(graphQl(ADMIN).document(retire).variable("id", other).variable("r", false).execute(), "BAD_REQUEST");
+    }
+
+    @Test
     void aRetiredRecordIsReadableButNotListedAndAMergedIdStillResolves() {
         final String category = createCategory("Chalmersspexet");
         final String original = createSpex("1984", "Lasse-Maja", category);

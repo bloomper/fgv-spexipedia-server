@@ -112,7 +112,7 @@ class McpIntegrationTest extends AbstractIntegrationTest {
 
         assertThat(names).contains("list_spex", "get_spex", "list_spex_categories", "get_spex_category", "list_tasks", "get_task",
                         "list_task_categories", "get_task_category", "search", "search_spex", "list_spex_years", "get_character",
-                        "list_numbers", "get_figure", "get_recording", "list_articles", "get_article_category", "list_recent_changes")
+                        "list_numbers", "get_recording", "list_articles", "get_article_category", "list_recent_changes")
                 .noneMatch(name -> name.contains("publish") || name.contains("merge") || name.contains("retire") || name.contains("trash")
                         || name.contains("delete") || name.contains("redirect") || name.contains("setting") || name.contains("image")
                         || name.contains("hide") || name.contains("consumer") || name.contains("maintenance") || name.contains("restore"));
@@ -236,10 +236,10 @@ class McpIntegrationTest extends AbstractIntegrationTest {
     @Test
     void tasksAndTaskCategories() {
         final String orchestra = graphQl(EDITOR).document("""
-                        mutation { c: taskCategoryCreate(input: {name: "Orkester", actorPresent: false, board: false, instruments: true}) { id } }""")
+                        mutation { c: taskCategoryCreate(input: {name: "Orkester", actorPresent: false, instruments: true}) { id } }""")
                 .execute().path("c.id").entity(String.class).get();
         final String actors = graphQl(EDITOR).document("""
-                        mutation { c: taskCategoryCreate(input: {name: "Skådespelare", actorPresent: true, board: false}) { id } }""")
+                        mutation { c: taskCategoryCreate(input: {name: "Skådespelare", actorPresent: true}) { id } }""")
                 .execute().path("c.id").entity(String.class).get();
         final String violin = createTask("Fiol", orchestra);
         final String flute = createTask("Flöjt", orchestra);

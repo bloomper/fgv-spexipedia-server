@@ -56,10 +56,10 @@ public final class BaseDataDtos {
         }
     }
 
-    public record TaskCategoryDto(long key, UUID id, String name, boolean actorPresent, boolean board, boolean instruments, boolean retired) {
+    public record TaskCategoryDto(long key, UUID id, String name, boolean actorPresent, boolean instruments, boolean retired) {
     }
 
-    public record TaskDto(long key, UUID id, String name, long categoryKey, boolean retired) {
+    public record TaskDto(long key, UUID id, String name, long categoryKey, boolean board, boolean retired) {
     }
 
     public static SpexCategoryDto toDto(final SpexCategory category) {
@@ -79,10 +79,10 @@ public final class BaseDataDtos {
 
     public static TaskCategoryDto toDto(final TaskCategory category) {
         return new TaskCategoryDto(category.getId(), category.getUuid(), category.getName(), category.isActorPresent(),
-                category.isBoard(), category.isInstruments(), category.isRetired());
+                category.isInstruments(), category.isRetired());
     }
 
     public static TaskDto toDto(final Task task) {
-        return new TaskDto(task.getId(), task.getUuid(), task.getName(), task.getCategory().getId(), task.isRetired());
+        return new TaskDto(task.getId(), task.getUuid(), task.getName(), task.getCategory().getId(), task.isBoard(), task.isRetired());
     }
 }

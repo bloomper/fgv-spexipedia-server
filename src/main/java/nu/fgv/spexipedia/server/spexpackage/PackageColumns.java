@@ -45,7 +45,6 @@ public final class PackageColumns {
             "year", List.of("År", "Year"),
             "category", List.of("Kategori", "Category"),
             "parent", List.of("Nyuppsättning av", "Revival of", "Original"),
-            "generation", List.of("Spexgeneration", "Generation"),
             "introduction", List.of("Introduktion", "Introduction"),
             "shortDescription", List.of("Kort beskrivning", "Short description", "Spexbeskrivning - kort"),
             "description", List.of("Beskrivning", "Description", "Spexbeskrivning"),
@@ -54,7 +53,6 @@ public final class PackageColumns {
 
     public static final Map<String, List<String>> CHARACTER_COLUMNS = ordered(
             "name", List.of("Namn", "Name", "Roll", "Karaktär"),
-            "figure", List.of("Figur", "Figure"),
             "description", List.of("Beskrivning", "Description"));
 
     public static final Map<String, List<String>> SCENE_COLUMNS = ordered(

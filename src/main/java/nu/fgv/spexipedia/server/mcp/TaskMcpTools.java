@@ -75,7 +75,7 @@ public class TaskMcpTools {
     }
 
     @McpTool(name = "list_task_categories",
-            description = "List task categories by name: whether their tasks have a character and a vocal part (actorPresent), are shown as the board on spex pages (board), or are instruments (instruments).",
+            description = "List task categories by name: whether their tasks have a character and a vocal part (actorPresent) or are instruments (instruments).",
             annotations = @McpAnnotations(readOnlyHint = true, destructiveHint = false, openWorldHint = false))
     public McpToolSupport.ListResult<McpTaskCategory> listTaskCategories(
             @McpToolParam(required = false, description = "Also retired categories, defaults to false") final @Nullable Boolean includeRetired) {
@@ -109,12 +109,12 @@ public class TaskMcpTools {
                     final TaskCategoryDto category = categories.get(task.categoryKey());
 
                     return new McpTask(task.id(), task.name(), category == null ? null : new McpTaskCategoryRef(category.id(), category.name()),
-                            task.retired());
+                            task.board(), task.retired());
                 })
                 .toList();
     }
 
-    public record McpTask(UUID id, String name, @Nullable McpTaskCategoryRef category, boolean retired) {
+    public record McpTask(UUID id, String name, @Nullable McpTaskCategoryRef category, boolean board, boolean retired) {
     }
 
     public record McpTaskRef(UUID id, String name) {
@@ -123,11 +123,11 @@ public class TaskMcpTools {
     public record McpTaskCategoryRef(UUID id, String name) {
     }
 
-    public record McpTaskCategory(UUID id, String name, boolean actorPresent, boolean board, boolean instruments,
+    public record McpTaskCategory(UUID id, String name, boolean actorPresent, boolean instruments,
                                   boolean retired) {
 
         static McpTaskCategory of(final TaskCategoryDto category) {
-            return new McpTaskCategory(category.id(), category.name(), category.actorPresent(), category.board(), category.instruments(),
+            return new McpTaskCategory(category.id(), category.name(), category.actorPresent(), category.instruments(),
                     category.retired());
         }
     }

@@ -101,8 +101,9 @@ from Spexgram's sample data.
 
 As the content migration brings them in, the pages have facts (venue, performances, setting), numbers of every kind with
 credits of every kind (one an imported name nobody has resolved, shown to editors only), and the recordings include a
-record from the song register with only its catalogue number and tracks (``CCD 004``) and a spex book (``Spexbok I``)
-whose tracks are the numbers of four spex.
+record from the song register with only its catalogue number and tracks (``CCD 004``). There is a book
+(``Chalmersspex I``, a printed book, not a recording) whose songs are the numbers of four spex, some with only the words,
+and an unpublished one (``Chalmersspex II``).
 
 [[mcp_server]]
 == MCP server
@@ -121,7 +122,7 @@ what the GraphQL API would show them. The tools, and the role a write needs as i
 |``list_spex``, ``search_spex``, ``list_spex_years``, ``get_spex`` (the whole page; people from Spexregister with
 ``includePeople``), ``list_spex_categories``, ``get_spex_category``, ``list_tasks``, ``get_task``,
 ``list_task_categories``, ``get_task_category``, ``list_characters``, ``get_character``, ``list_numbers``,
-``get_number``, ``list_figures``, ``get_figure``, ``list_recordings``, ``get_recording``, ``search``, ``list_articles``,
+``get_number``, ``list_recordings``, ``get_recording``, ``search``, ``list_articles``,
 ``get_article``, ``list_article_categories``, ``get_article_category``
 |Anyone signed in; unpublished pages, retired characters and numbers and unpublished recordings as in GraphQL
 |``list_recent_changes`` |USER

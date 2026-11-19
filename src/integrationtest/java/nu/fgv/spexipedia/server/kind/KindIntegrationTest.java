@@ -18,6 +18,7 @@ package nu.fgv.spexipedia.server.kind;
 
 import nu.fgv.spexipedia.server.AbstractIntegrationTest;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpHeaders;
 
 import java.util.List;
 
@@ -37,6 +38,16 @@ class KindIntegrationTest extends AbstractIntegrationTest {
         expectError(graphQl(EDITOR).document(SAVE).variable("type", "NUMBER").variable("n", "Polka").execute(), "FORBIDDEN");
         graphQl(ADMIN).document(SAVE).variable("type", "NUMBER").variable("n", "Polka").execute()
                 .path("kindSave.nameSv").entity(String.class).isEqualTo("Polka");
+    }
+
+    @Test
+    void kindsAreNamedInTheRequestsLanguage() {
+        final String query = "{ kinds(type: IMAGE, use: SCENOGRAPHY) { name } }";
+
+        graphQl(null).mutate().header(HttpHeaders.ACCEPT_LANGUAGE, "sv").build().document(query).execute()
+                .path("kinds[*].name").entityList(String.class).containsExactly("Fond", "Scen", "Rekvisita");
+        graphQl(null).document(query).execute()
+                .path("kinds[*].name").entityList(String.class).containsExactly("Backdrop", "Stage", "Props");
     }
 
     @Test

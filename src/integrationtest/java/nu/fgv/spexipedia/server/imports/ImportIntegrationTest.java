@@ -56,7 +56,7 @@ class ImportIntegrationTest extends AbstractIntegrationTest {
         expectError(graphQl(ADMIN).document(BATCH).variable("input", Map.of()).variable("dryRun", false).execute(), "FORBIDDEN");
         expectError(graphQl(null).document(BATCH).variable("input", Map.of()).variable("dryRun", false).execute(), "UNAUTHORIZED");
         // The migration's account is no editor outside an import
-        expectError(graphQlWithToken(serviceToken(MIGRATION)).document("mutation { figureCreate(input: {name: \"Bellman\"}) { id } }").execute(), "FORBIDDEN");
+        expectError(graphQlWithToken(serviceToken(MIGRATION)).document("mutation { bookCreate(input: {title: \"Chalmersspex I\"}) { id } }").execute(), "FORBIDDEN");
     }
 
     @Test

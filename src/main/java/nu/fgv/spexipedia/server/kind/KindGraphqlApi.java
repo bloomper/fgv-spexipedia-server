@@ -20,7 +20,6 @@ import nu.fgv.spexipedia.server.kind.KindService.KindInput;
 import nu.fgv.spexipedia.server.util.Ids;
 import nu.fgv.spexipedia.server.util.Locales;
 import org.jspecify.annotations.Nullable;
-import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
@@ -28,6 +27,7 @@ import org.springframework.graphql.data.method.annotation.SchemaMapping;
 import org.springframework.stereotype.Controller;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -79,8 +79,10 @@ public class KindGraphqlApi {
     }
 
     @SchemaMapping(typeName = "Kind", field = "name")
-    public String name(final Kind kind) {
-        return kind.name(Locales.supported(LocaleContextHolder.getLocale()));
+    public String name(final Kind kind, final @Nullable Locale locale) {
+        // The request's locale (Accept-Language) from the GraphQL context: LocaleContextHolder is a thread-local that
+        // is not set on the thread the field is resolved on
+        return kind.name(Locales.supported(locale));
     }
 
     @SchemaMapping(typeName = "Kind", field = "aliases")

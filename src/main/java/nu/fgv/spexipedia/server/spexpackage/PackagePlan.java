@@ -233,12 +233,12 @@ public final class PackagePlan {
 
             final Map<String, String> fields = content.spex();
             final ImportRecords.ImportPage pageRecord = new ImportRecords.ImportPage(key + ":page", null, key,
-                    fields.get("generation"), fields.get("premiere"), fields.get("introduction"), fields.get("shortDescription"),
+                    fields.get("premiere"), fields.get("introduction"), fields.get("shortDescription"),
                     fields.get("description"), fields.get("synopsis"), null, page.poster, page.rebus, page.rebusSolution,
                     content.facts().entrySet().stream().map(f -> new ImportRecords.ImportFact(f.getKey(), f.getValue())).toList(),
                     page.images);
             final ImportRecords.Batch batch = new ImportRecords.Batch(false, List.of(spexRecord), List.of(pageRecord),
-                    page.characters(characters), scenes, numbers, null, null, null, null);
+                    page.characters(characters), scenes, numbers, null, null, null, null, null);
 
             return new PackagePlan(spexKey, existing.map(SpexDto::id).orElse(null), parent == null ? null : parent.id(), batch,
                     spexipediaFiles, others, unmatched, warnings);
@@ -265,7 +265,7 @@ public final class PackagePlan {
                 final CharacterRow row = content.characters().get(i);
 
                 characters.add(new ImportRecords.ImportCharacter(key + ":character:" + KindService.normalize(row.name()).replace(' ', '-'),
-                        null, key, row.name(), row.description(), row.figure(), i + 1, null));
+                        null, key, row.name(), row.description(), i + 1, null));
             }
             return characters;
         }
@@ -336,7 +336,7 @@ public final class PackagePlan {
 
             List<ImportRecords.ImportCharacter> characters(final List<ImportRecords.ImportCharacter> characters) {
                 return characters.stream().map(c -> new ImportRecords.ImportCharacter(c.sourceKey(), c.spexId(), c.spexSourceKey(),
-                        c.name(), c.description(), c.figure(), c.position(), characterImages.get(c.sourceKey()))).toList();
+                        c.name(), c.description(), c.position(), characterImages.get(c.sourceKey()))).toList();
             }
         }
 

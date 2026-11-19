@@ -33,6 +33,4 @@ public interface TaskCategoryRepository extends JpaRepository<TaskCategory, Long
     Optional<TaskCategory> findByUuid(UUID uuid);
 
     List<TaskCategory> findAllByOrderByNameAsc();
-
-    List<TaskCategory> findByBoardTrue();
 }

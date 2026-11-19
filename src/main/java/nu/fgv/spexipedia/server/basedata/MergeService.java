@@ -57,7 +57,7 @@ public class MergeService {
             BaseDataKind.TASK_CATEGORY, List.of("task.category_id"),
             BaseDataKind.TASK, List.of(),
             BaseDataKind.CHARACTER, List.of("spex_page_photo.character_id"),
-            BaseDataKind.NUMBER, List.of("recording_track.number_id")
+            BaseDataKind.NUMBER, List.of("recording_track.number_id", "book_song.number_id")
     );
 
     private final JdbcClient jdbc;
@@ -116,11 +116,14 @@ public class MergeService {
         final long key = key(kind, id);
         final UUID uuid = uuid(kind, key);
 
+        if (kind == BaseDataKind.SPEX && !retired) {
+            baseData.requireFreeYearToUnretire(uuid);
+        }
         jdbc.sql("UPDATE " + table(kind) + " SET retired = :retired WHERE id = :id").param("retired", retired).param("id", key).update();
         feed.record(kind, uuid, retired ? ChangeType.RETIRE : ChangeType.UPSERT, null, snapshot(kind, key));
         index(kind, uuid);
         auditService.record(retired ? "RETIRE" : "UNRETIRE", kind.name(), uuid,
-                (retired ? "Pensionerade " : "Återinförde ") + label(kind, key));
+                (retired ? "Deaktiverade " : "Aktiverade ") + label(kind, key));
         return true;
     }
 
@@ -215,7 +218,7 @@ public class MergeService {
             case CHARACTER, NUMBER, SPEX_CATEGORY, TASK_CATEGORY -> "%s %s".formatted(kind.name().toLowerCase(java.util.Locale.ROOT).replace('_', ' '),
                     jdbc.sql("SELECT %s FROM %s WHERE id = :id".formatted(kind == BaseDataKind.NUMBER ? "title" : "name", table(kind)))
                             .param("id", key).query(String.class).single());
-            case TASK -> "post " + jdbc.sql("SELECT name FROM task WHERE id = :id").param("id", key).query(String.class).single();
+            case TASK -> "funktion " + jdbc.sql("SELECT name FROM task WHERE id = :id").param("id", key).query(String.class).single();
         };
     }
 

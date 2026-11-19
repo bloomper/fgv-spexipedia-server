@@ -30,10 +30,12 @@ import nu.fgv.spexipedia.server.image.ImageService;
 import nu.fgv.spexipedia.server.links.LinkDtos.PhotoSetDto;
 import nu.fgv.spexipedia.server.links.LinkDtos.SpexgramAlbumDto;
 import nu.fgv.spexipedia.server.links.LinkService;
+import nu.fgv.spexipedia.server.page.SpexCompletenessService.CompletenessDto;
 import nu.fgv.spexipedia.server.revision.RevisionDto;
 import nu.fgv.spexipedia.server.util.Ids;
 import org.jspecify.annotations.Nullable;
 import org.springframework.graphql.data.method.annotation.Argument;
+import org.springframework.graphql.data.method.annotation.BatchMapping;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.graphql.data.method.annotation.SchemaMapping;
@@ -61,10 +63,13 @@ public class PageGraphqlApi {
     private final LinkService linkService;
     private final ContentGraphqlApi contentApi;
     private final KindService kindService;
+    private final SpexCompletenessService completenessService;
 
     public PageGraphqlApi(final SpexPageService service, final BaseDataService baseData, final ImageService imageService,
-                          final LinkService linkService, final ContentGraphqlApi contentApi, final KindService kindService) {
+                          final LinkService linkService, final ContentGraphqlApi contentApi, final KindService kindService,
+                          final SpexCompletenessService completenessService) {
         this.kindService = kindService;
+        this.completenessService = completenessService;
         this.service = service;
         this.baseData = baseData;
         this.imageService = imageService;
@@ -89,12 +94,30 @@ public class PageGraphqlApi {
         if (parent == null) {
             return own;
         }
-        return new SpexPageDto(own.spexKey(), own.spexId(), either(own.generation(), parent.generation()), own.premiere(),
+        return new SpexPageDto(own.spexKey(), own.spexId(), own.premiere(),
                 either(own.introduction(), parent.introduction()), either(own.shortDescription(), parent.shortDescription()),
                 either(own.description(), parent.description()),
                 either(own.synopsis(), parent.synopsis()), either(own.rebusKey(), parent.rebusKey()),
                 either(own.rebusSolutionKey(), parent.rebusSolutionKey()), either(own.vestDescription(), parent.vestDescription()),
                 either(own.vestWornBy(), parent.vestWornBy()), own.published(), own.lastModifiedAt());
+    }
+
+    /**
+     * AUTHOR (null for others): how much of each page is filled in, for many spex at once.
+     */
+    @BatchMapping(typeName = "Spex")
+    public Map<SpexDto, @Nullable CompletenessDto> completeness(final List<SpexDto> spex) {
+        final Map<SpexDto, @Nullable CompletenessDto> result = new HashMap<>();
+
+        if (!service.isAuthor()) {
+            spex.forEach(s -> result.put(s, null));
+            return result;
+        }
+
+        final Map<Long, CompletenessDto> completeness = completenessService.of(spex.stream().map(SpexDto::key).collect(Collectors.toSet()));
+
+        spex.forEach(s -> result.put(s, completeness.get(s.key())));
+        return result;
     }
 
     @QueryMapping
@@ -116,7 +139,7 @@ public class PageGraphqlApi {
                 baseIds.put(field.toUpperCase(java.util.Locale.ROOT), Ids.optional(base.get(field)));
             }
         }
-        return service.update(Ids.require(spexId), new SpexPageService.PageInput((String) input.get("generation"),
+        return service.update(Ids.require(spexId), new SpexPageService.PageInput(
                 (String) input.get("premiere"), (String) input.get("introduction"), (String) input.get("shortDescription"),
                 (String) input.get("description"),
                 (String) input.get("synopsis"), (String) input.get("vestDescription"),

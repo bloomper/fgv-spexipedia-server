@@ -56,7 +56,8 @@ public class KindService {
             KindType.CREDIT, List.<String[]>of(new String[]{"number_credit", "kind_id"}),
             KindType.MEDIUM, List.<String[]>of(new String[]{"recording", "medium_id"}),
             KindType.IMAGE, List.of(new String[]{"character_image", "kind_id"}, new String[]{"spex_page_image", "kind_id"}),
-            KindType.FACT, List.<String[]>of(new String[]{"spex_fact", "kind_id"}));
+            KindType.FACT, List.<String[]>of(new String[]{"spex_fact", "kind_id"}),
+            KindType.BOOK, List.<String[]>of(new String[]{"book", "kind_id"}));
 
     private final KindRepository repository;
     private final JdbcClient jdbc;
@@ -267,7 +268,7 @@ public class KindService {
             throw new BadRequestException("error.kind.last");
         }
         kind.setRetired(retired);
-        auditService.record("UPDATE", "KIND", id, (retired ? "Tog ur bruk " : "Tog i bruk ") + "sorten " + kind.getNameSv());
+        auditService.record("UPDATE", "KIND", id, (retired ? "Deaktiverade " : "Aktiverade ") + "sorten " + kind.getNameSv());
         return kind;
     }
 

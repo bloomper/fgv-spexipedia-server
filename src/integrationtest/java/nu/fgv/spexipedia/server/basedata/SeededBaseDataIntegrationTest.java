@@ -54,8 +54,8 @@ class SeededBaseDataIntegrationTest extends AbstractIntegrationTest {
         assertThat(revivalYears("Snorre", "1995")).isEqualTo("2022");
         assertThat(revivalYears("Krösus", "1992")).isEqualTo("2024");
         assertThat(jdbcClient.sql("SELECT slug FROM spex WHERE title = 'Gustaf E:son Vasa'").query(String.class).single()).isEqualTo("1955-gustaf-e-son-vasa");
-        assertThat(jdbcClient.sql("SELECT COUNT(*) FROM task t JOIN task_category c ON c.id = t.category_id WHERE c.board = 1 AND t.name IN ('Ordförande', 'Skivocent', 'Festfixare', 'Vice Directeur')")
-                .query(Long.class).single()).isEqualTo(4);
+        assertThat(jdbcClient.sql("SELECT name FROM task WHERE board = 1 ORDER BY name").query(String.class).list())
+                .containsExactly("Casseur", "Directeur", "Ordförande", "Sekreterare", "Vice Directeur");
     }
 
     private String revivalYears(final String title, final String year) {
