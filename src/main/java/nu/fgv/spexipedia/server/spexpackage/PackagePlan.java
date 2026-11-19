@@ -238,7 +238,7 @@ public final class PackagePlan {
                     content.facts().entrySet().stream().map(f -> new ImportRecords.ImportFact(f.getKey(), f.getValue())).toList(),
                     page.images);
             final ImportRecords.Batch batch = new ImportRecords.Batch(false, List.of(spexRecord), List.of(pageRecord),
-                    page.characters(characters), scenes, numbers, null, null, null, null, null);
+                    page.characters(characters), scenes, numbers, null, null, null);
 
             return new PackagePlan(spexKey, existing.map(SpexDto::id).orElse(null), parent == null ? null : parent.id(), batch,
                     spexipediaFiles, others, unmatched, warnings);

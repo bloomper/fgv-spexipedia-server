@@ -43,6 +43,8 @@ import java.util.UUID;
  *     <li>Spexgram's public albums of a spex to everyone, its members' albums to users with access.</li>
  *     <li>Spexify's albums and tracks, Spexflix's videos and Spexarkivet's manuscripts and arrangements only to users
  *     with access to that application.</li>
+ *     <li>The records (Spexify's discography) and the books a number is in (Spexarkivet's books) to everyone, as
+ *     Spexipedia's own recordings and books were; their links into those applications only to users with access.</li>
  * </ul>
  *
  * @author Anders Jacobsson
@@ -169,14 +171,44 @@ public class LinkService {
     }
 
     /**
-     * The link to a recording's album in Spexify, for users with access.
+     * The records of a spex and its revivals: Spexify's discography (spec 4.4), for everyone, oldest first. Links into
+     * Spexify only for users with access there. Empty when Spexify is unavailable.
+     *
+     * @param productions the spex and its revivals
      */
-    public List<AppLinkDto> recordingLinks(final @Nullable UUID spexifyAlbumId, final String title) {
-        if (spexifyAlbumId == null || !access(App.SPEXIFY)) {
-            return List.of();
-        }
-        return link(App.SPEXIFY, "/albums/" + spexifyAlbumId).map(url -> List.of(new AppLinkDto(AppLinkKind.SPEXIFY_ALBUM, title, url)))
-                .orElse(List.of());
+    public List<LinkDtos.RecordDto> records(final List<UUID> productions) {
+        final boolean spexify = access(App.SPEXIFY);
+
+        return client.spexifyDiscography(productions).orElse(List.of()).stream()
+                .sorted(java.util.Comparator.comparing((AppsClient.DiscographyAlbum album) -> album.year() == null ? Integer.MAX_VALUE : album.year())
+                        .thenComparing(album -> String.valueOf(album.catalogueNumber())))
+                .map(album -> new LinkDtos.RecordDto(album.id(), album.title(), album.year(), album.kindNameSv(), album.kindNameEn(),
+                        album.mediumNameSv(), album.mediumNameEn(), album.catalogueNumber(), album.released(), album.recorded(),
+                        album.conductor(), album.spexId(), album.coverUrl(), album.backCoverUrl(),
+                        spexify ? link(App.SPEXIFY, "/albums/" + album.id()).orElse(null) : null,
+                        nonNull(album.tracks()).stream()
+                                .map(track -> new LinkDtos.RecordTrackDto(track.id(), track.side(), track.discNumber(), track.trackNumber(),
+                                        track.title(), track.numberId(), track.hasAudio(), spexify && track.hasAudio()
+                                        ? link(App.SPEXIFY, "/albums/" + album.id() + "?track=" + track.id()).orElse(null) : null))
+                                .toList()))
+                .toList();
+    }
+
+    /**
+     * The books a number is in: Spexarkivet's books (spec 4.4), for everyone. Links into Spexarkivet only for users with
+     * access there. Empty when the archive is unavailable.
+     *
+     * @param numberIds every number of the page, asked for at once and cached
+     */
+    public List<LinkDtos.NumberBookDto> numberBooks(final UUID numberId, final List<UUID> numberIds) {
+        final boolean archive = access(App.ARCHIVE);
+
+        return client.archiveLinks(List.of(), numberIds).map(links -> nonNull(links.books())).orElse(List.of()).stream()
+                .flatMap(book -> nonNull(book.songs()).stream().filter(song -> numberId.equals(song.numberId()))
+                        .map(song -> new LinkDtos.NumberBookDto(book.id(), book.title(), book.volume(), book.publishedYear(),
+                                book.kindNameSv(), book.kindNameEn(), song.position(), song.textOnly(),
+                                archive ? link(App.ARCHIVE, "/manuscripts/" + book.id()).orElse(null) : null)))
+                .toList();
     }
 
     private Optional<String> link(final App app, final String path) {

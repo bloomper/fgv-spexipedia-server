@@ -54,24 +54,6 @@ public final class ContentDtos {
         }
     }
 
-    public record RecordingDto(long key, UUID id, String slug, String catalogueNumber, String title, long mediumKey,
-                               @Nullable Long spexKey, @Nullable String released, @Nullable String recorded,
-                               @Nullable CreditRef conductor, @Nullable String description, @Nullable Long frontKey,
-                               @Nullable Long backKey, @Nullable UUID spexifyAlbumId, boolean published) {
-    }
-
-    public record TrackDto(UUID id, @Nullable String side, int position, @Nullable Long numberKey, String title) {
-    }
-
-    public record BookDto(long key, UUID id, String slug, String title, long kindKey, @Nullable Integer volume,
-                              @Nullable String publishedYear, @Nullable String description, @Nullable Long coverKey,
-                              boolean published) {
-    }
-
-    /** A song of a book; {@code title} is the number's when there is one. */
-    public record BookSongDto(UUID id, long bookKey, int position, @Nullable Long numberKey, String title, boolean textOnly) {
-    }
-
     public static CharacterDto toDto(final SpexCharacter character) {
         return new CharacterDto(character.getId(), character.getUuid(), character.getSpex().getId(), character.getName(),
                 character.getDescription(),
@@ -87,29 +69,5 @@ public final class ContentDtos {
         return new NumberDto(number.getId(), number.getUuid(), number.getSpex().getId(), number.getAct(), number.getPosition(),
                 number.getTitle(), number.getKind() == null ? null : number.getKind().getId(), number.getOriginalTitle(),
                 number.getOriginalArtist(), number.getFromWork(), number.getFirstLine(), number.isRetired());
-    }
-
-    public static BookDto toDto(final Book book) {
-        return new BookDto(book.getId(), book.getUuid(), book.getSlug(), book.getTitle(), book.getKind().getId(), book.getVolume(),
-                book.getPublishedYear(), book.getDescription(), book.getCover() == null ? null : book.getCover().getId(),
-                book.isPublished());
-    }
-
-    public static BookSongDto toDto(final BookSong song) {
-        return new BookSongDto(song.getUuid(), song.getBook().getId(), song.getPosition(),
-                song.getNumber() == null ? null : song.getNumber().getId(),
-                song.getNumber() != null ? song.getNumber().getTitle() : String.valueOf(song.getTitle()), song.isTextOnly());
-    }
-
-    public static RecordingDto toDto(final Recording recording) {
-        final CreditRef conductor = recording.getConductorSpexareId() == null && recording.getConductorName() == null ? null
-                : new CreditRef(recording.getConductorSpexareId(), recording.getConductorName());
-
-        return new RecordingDto(recording.getId(), recording.getUuid(), recording.getSlug(), recording.getCatalogueNumber(),
-                recording.getTitle(), recording.getMedium().getId(), recording.getSpex() == null ? null : recording.getSpex().getId(),
-                recording.getReleased(), recording.getRecorded(), conductor, recording.getDescription(),
-                recording.getFront() == null ? null : recording.getFront().getId(),
-                recording.getBack() == null ? null : recording.getBack().getId(), recording.getSpexifyAlbumId(),
-                recording.isPublished());
     }
 }

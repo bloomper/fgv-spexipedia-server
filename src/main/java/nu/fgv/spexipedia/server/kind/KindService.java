@@ -54,10 +54,8 @@ public class KindService {
     private static final Map<KindType, List<String[]>> REFERENCES = Map.of(
             KindType.NUMBER, List.<String[]>of(new String[]{"spex_number", "kind_id"}),
             KindType.CREDIT, List.<String[]>of(new String[]{"number_credit", "kind_id"}),
-            KindType.MEDIUM, List.<String[]>of(new String[]{"recording", "medium_id"}),
             KindType.IMAGE, List.of(new String[]{"character_image", "kind_id"}, new String[]{"spex_page_image", "kind_id"}),
-            KindType.FACT, List.<String[]>of(new String[]{"spex_fact", "kind_id"}),
-            KindType.BOOK, List.<String[]>of(new String[]{"book", "kind_id"}));
+            KindType.FACT, List.<String[]>of(new String[]{"spex_fact", "kind_id"}));
 
     private final KindRepository repository;
     private final JdbcClient jdbc;

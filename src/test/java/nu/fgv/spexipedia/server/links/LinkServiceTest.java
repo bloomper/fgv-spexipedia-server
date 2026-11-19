@@ -38,7 +38,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Section 5.4 of the spec: who sees which photos from Spexgram.
+ * Sections 5.4 and 4.4 of the spec: who sees which photos from Spexgram, and the records and books from Spexify and
+ * Spexarkivet.
  */
 class LinkServiceTest {
 
@@ -100,5 +101,63 @@ class LinkServiceTest {
         when(client.spexgramItems(any(), anyBoolean())).thenReturn(Optional.empty());
 
         assertThat(service.photos(List.of(PUBLIC)).available()).isFalse();
+    }
+
+    private static AppsClient.DiscographyAlbum album(final UUID id, final Integer year, final UUID numberId) {
+        return new AppsClient.DiscographyAlbum(id, "Lasse-Maja", year, "Studio", "Studio", "EP", "EP", "CEP 019", "1984-12",
+                null, "Dirigenten", null, "https://spexify.example/media/cover", null, List.of(
+                new AppsClient.DiscographyTrack(UUID.randomUUID(), "A", 1, 1, "Ouvertyr", numberId, true),
+                new AppsClient.DiscographyTrack(UUID.randomUUID(), "B", 1, 2, "Finalen", null, false)));
+    }
+
+    @Test
+    void everyoneSeesTheRecordsAndOnlyUsersOfSpexifyTheirLinks() {
+        final UUID older = UUID.randomUUID();
+        final UUID newer = UUID.randomUUID();
+        final UUID number = UUID.randomUUID();
+
+        when(client.web(App.SPEXIFY)).thenReturn(Optional.of("https://spexify.example"));
+        when(client.spexifyDiscography(any())).thenReturn(Optional.of(List.of(album(newer, 1990, number), album(older, 1984, number))));
+        when(callerService.currentIfAny()).thenReturn(Optional.empty());
+
+        final List<LinkDtos.RecordDto> visitor = service.records(List.of(UUID.randomUUID()));
+
+        assertThat(visitor).extracting(LinkDtos.RecordDto::id).containsExactly(older, newer);
+        assertThat(visitor.getFirst().url()).isNull();
+        assertThat(visitor.getFirst().tracks()).extracting(LinkDtos.RecordTrackDto::url).containsOnlyNulls();
+
+        when(callerService.currentIfAny()).thenReturn(Optional.of(TestCallers.memberWithApps()));
+
+        final LinkDtos.RecordDto record = service.records(List.of(UUID.randomUUID())).getFirst();
+
+        assertThat(record.url()).isEqualTo("https://spexify.example/albums/" + older);
+        // A track without audio has nothing to play
+        assertThat(record.tracks().get(0).url()).startsWith("https://spexify.example/albums/" + older + "?track=");
+        assertThat(record.tracks().get(1).url()).isNull();
+        assertThat(record.tracks().get(0).numberId()).isEqualTo(number);
+    }
+
+    @Test
+    void aNumberShowsTheBooksItIsIn() {
+        final UUID number = UUID.randomUUID();
+        final UUID other = UUID.randomUUID();
+        final UUID book = UUID.randomUUID();
+
+        when(client.web(App.ARCHIVE)).thenReturn(Optional.of("https://arkiv.example"));
+        when(client.archiveLinks(any(), any())).thenReturn(Optional.of(new AppsClient.ArchiveLinks(List.of(), List.of(), List.of(
+                new AppsClient.ArchiveBook(book, "Chalmersspex I", 1, "1975", "Spexbok", "Spex book", null, List.of(
+                        new AppsClient.ArchiveBookSong(3, number, true), new AppsClient.ArchiveBookSong(4, other, false)))))));
+        when(callerService.currentIfAny()).thenReturn(Optional.empty());
+
+        assertThat(service.numberBooks(number, List.of(number, other))).singleElement().satisfies(found -> {
+            assertThat(found.title()).isEqualTo("Chalmersspex I");
+            assertThat(found.position()).isEqualTo(3);
+            assertThat(found.textOnly()).isTrue();
+            assertThat(found.url()).isNull();
+        });
+
+        when(callerService.currentIfAny()).thenReturn(Optional.of(new nu.fgv.spexipedia.server.user.Caller("s-archive", "a@spexipedia.test",
+                "A", java.util.Set.of(nu.fgv.spexipedia.server.user.Role.USER), java.util.Set.of(App.ARCHIVE))));
+        assertThat(service.numberBooks(number, List.of(number)).getFirst().url()).isEqualTo("https://arkiv.example/manuscripts/" + book);
     }
 }

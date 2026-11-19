@@ -18,15 +18,13 @@ package nu.fgv.spexipedia.server.article;
 
 import nu.fgv.spexipedia.server.basedata.BaseDataDtos.SpexCategoryDto;
 import nu.fgv.spexipedia.server.content.ContentDtos.CharacterDto;
-import nu.fgv.spexipedia.server.content.ContentDtos.RecordingDto;
-import nu.fgv.spexipedia.server.content.ContentDtos.BookDto;
 import nu.fgv.spexipedia.server.page.SpexPageDto;
 import org.jspecify.annotations.Nullable;
 import org.springframework.graphql.data.method.annotation.SchemaMapping;
 import org.springframework.stereotype.Controller;
 
 /**
- * The Markdown texts of spex pages, characters, recordings, books and categories as HTML, rendered as articles are:
+ * The Markdown texts of spex pages, characters and categories as HTML, rendered as articles are:
  * HTML escaped, links made safe and {@code [[Title]]} resolved for the viewer. The web shows these, never the Markdown.
  *
  * @author Anders Jacobsson
@@ -63,16 +61,6 @@ public class MarkdownGraphqlApi {
     @SchemaMapping(typeName = "Character")
     public @Nullable String descriptionHtml(final CharacterDto character) {
         return html(character.description());
-    }
-
-    @SchemaMapping(typeName = "Recording")
-    public @Nullable String descriptionHtml(final RecordingDto recording) {
-        return html(recording.description());
-    }
-
-    @SchemaMapping(typeName = "Book")
-    public @Nullable String descriptionHtml(final BookDto book) {
-        return html(book.description());
     }
 
     @SchemaMapping(typeName = "SpexCategory")

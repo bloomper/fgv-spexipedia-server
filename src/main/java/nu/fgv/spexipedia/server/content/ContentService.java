@@ -28,7 +28,6 @@ import nu.fgv.spexipedia.server.content.ContentDtos.SceneDto;
 import nu.fgv.spexipedia.server.content.ContentRepositories.CharacterRepository;
 import nu.fgv.spexipedia.server.content.ContentRepositories.NumberRepository;
 import nu.fgv.spexipedia.server.content.ContentRepositories.SceneRepository;
-import nu.fgv.spexipedia.server.content.ContentRepositories.TrackRepository;
 import nu.fgv.spexipedia.server.content.ListStore.Credit;
 import nu.fgv.spexipedia.server.content.ListStore.CreditRef;
 import nu.fgv.spexipedia.server.content.ListStore.PlacedImage;
@@ -89,8 +88,6 @@ public class ContentService {
     private final CharacterRepository characterRepository;
     private final SceneRepository sceneRepository;
     private final NumberRepository numberRepository;
-    private final TrackRepository trackRepository;
-    private final ContentRepositories.BookSongRepository bookSongRepository;
     private final IdAliasRepository aliasRepository;
     private final ListStore lists;
     private final BaseDataService baseData;
@@ -104,7 +101,6 @@ public class ContentService {
     @SuppressWarnings("java:S107")
     public ContentService(final CharacterRepository characterRepository,
                           final SceneRepository sceneRepository, final NumberRepository numberRepository,
-                          final TrackRepository trackRepository, final ContentRepositories.BookSongRepository bookSongRepository,
                           final IdAliasRepository aliasRepository,
                           final ListStore lists, final BaseDataService baseData, final ImageService imageService,
                           final KindService kindService, final ChangeFeedService feed, final CallerService callerService, final AuditService auditService,
@@ -112,8 +108,6 @@ public class ContentService {
         this.characterRepository = characterRepository;
         this.sceneRepository = sceneRepository;
         this.numberRepository = numberRepository;
-        this.trackRepository = trackRepository;
-        this.bookSongRepository = bookSongRepository;
         this.aliasRepository = aliasRepository;
         this.lists = lists;
         this.baseData = baseData;
@@ -601,8 +595,8 @@ public class ContentService {
     }
 
     /**
-     * Deletes a number no track refers to. Other applications may have copied it, so the feed tells them it is retired;
-     * they keep their copy.
+     * Deletes a number. Other applications refer to it (Spexify's tracks, Spexarkivet's arrangements and books), so the
+     * feed tells them it is retired; they keep their copy.
      */
     @Transactional
     public boolean deleteNumber(final UUID id) {
@@ -610,9 +604,6 @@ public class ContentService {
 
         final SpexNumber number = requireNumber(id);
 
-        if (trackRepository.countByNumber(number) > 0 || bookSongRepository.countByNumber(number) > 0) {
-            throw new BadRequestException("error.number.inUse");
-        }
         number.setRetired(true);
         feed.record(BaseDataKind.NUMBER, number.getUuid(), ChangeType.RETIRE, null, feedRecord(number));
         numberRepository.delete(number);

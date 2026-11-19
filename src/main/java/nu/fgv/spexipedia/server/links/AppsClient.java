@@ -62,12 +62,20 @@ public class AppsClient {
                     albums { id title spexId } tracks { id title numberId albumId }
                 }
             }""";
+    private static final String SPEXIFY_DISCOGRAPHY = """
+            query Discography($spexIds: [ID!]!) {
+                spexipediaDiscography(spexIds: $spexIds) {
+                    id title year kindNameSv kindNameEn mediumNameSv mediumNameEn catalogueNumber released recorded conductor
+                    spexId coverUrl backCoverUrl tracks { id side discNumber trackNumber title numberId hasAudio }
+                }
+            }""";
     private static final String SPEXFLIX_VIDEOS = """
             query Videos($spexIds: [ID!]!) { spexipediaVideos(spexIds: $spexIds) { id title spexId } }""";
     private static final String ARCHIVE_LINKS = """
             query Links($spexIds: [ID!]!, $numberIds: [ID!]!) {
                 spexipediaLinks(spexIds: $spexIds, numberIds: $numberIds) {
                     manuscripts { id title spexId } arrangements { id title numberId }
+                    books { id title volume publishedYear kindNameSv kindNameEn spexId songs { position numberId textOnly } }
                 }
             }""";
 
@@ -134,6 +142,15 @@ public class AppsClient {
     public Optional<SpexifyLinks> spexifyLinks(final List<UUID> spexIds, final List<UUID> numberIds) {
         return callOne(service.get(App.SPEXIFY), App.SPEXIFY, SPEXIFY_LINKS, "spexipediaLinks", SpexifyLinks.class,
                 Map.of("spexIds", strings(spexIds), "numberIds", strings(numberIds)));
+    }
+
+    /**
+     * The discography of the spex (Spexify's albums, spec 4.4), as Spexify answers Spexipedia's service account.
+     */
+    @Cacheable(cacheNames = CacheConfig.LINKS, key = "'discography:' + #spexIds.toString()")
+    public Optional<List<DiscographyAlbum>> spexifyDiscography(final List<UUID> spexIds) {
+        return call(service.get(App.SPEXIFY), App.SPEXIFY, SPEXIFY_DISCOGRAPHY, "spexipediaDiscography", DiscographyAlbum.class,
+                Map.of("spexIds", strings(spexIds)));
     }
 
     @Cacheable(cacheNames = CacheConfig.LINKS, key = "'spexflix:' + #spexIds.toString()")
@@ -218,6 +235,25 @@ public class AppsClient {
     public record ArchiveArrangement(UUID id, String title, @Nullable UUID numberId) {
     }
 
-    public record ArchiveLinks(@Nullable List<Titled> manuscripts, @Nullable List<ArchiveArrangement> arrangements) {
+    public record ArchiveBookSong(int position, UUID numberId, boolean textOnly) {
+    }
+
+    public record ArchiveBook(UUID id, String title, @Nullable Integer volume, @Nullable String publishedYear,
+                              String kindNameSv, String kindNameEn, @Nullable UUID spexId, @Nullable List<ArchiveBookSong> songs) {
+    }
+
+    public record ArchiveLinks(@Nullable List<Titled> manuscripts, @Nullable List<ArchiveArrangement> arrangements,
+                               @Nullable List<ArchiveBook> books) {
+    }
+
+    public record DiscographyTrack(UUID id, @Nullable String side, int discNumber, int trackNumber, String title,
+                                   @Nullable UUID numberId, boolean hasAudio) {
+    }
+
+    public record DiscographyAlbum(UUID id, String title, @Nullable Integer year, String kindNameSv, String kindNameEn,
+                                   @Nullable String mediumNameSv, @Nullable String mediumNameEn, @Nullable String catalogueNumber,
+                                   @Nullable String released, @Nullable String recorded, @Nullable String conductor,
+                                   @Nullable UUID spexId, @Nullable String coverUrl, @Nullable String backCoverUrl,
+                                   @Nullable List<DiscographyTrack> tracks) {
     }
 }

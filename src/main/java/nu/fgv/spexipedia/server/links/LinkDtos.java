@@ -46,6 +46,33 @@ public final class LinkDtos {
     }
 
     /**
+     * A record of the spex: an album of Spexify's discography (spec 4.4), shown to everyone; {@code url} leads to it in
+     * Spexify for users with access there.
+     */
+    public record RecordDto(UUID id, String title, @Nullable Integer year, String kindNameSv, String kindNameEn,
+                            @Nullable String mediumNameSv, @Nullable String mediumNameEn, @Nullable String catalogueNumber,
+                            @Nullable String released, @Nullable String recorded, @Nullable String conductor,
+                            @Nullable UUID spexId, @Nullable String coverUrl, @Nullable String backCoverUrl,
+                            @Nullable String url, List<RecordTrackDto> tracks) {
+    }
+
+    /**
+     * A track of a record: {@code numberId} is the number it is a recording of; {@code url} plays it in Spexify for users
+     * with access, when it has audio.
+     */
+    public record RecordTrackDto(UUID id, @Nullable String side, int discNumber, int position, String title,
+                                 @Nullable UUID numberId, boolean hasAudio, @Nullable String url) {
+    }
+
+    /**
+     * A book a number is in: a book of Spexarkivet (spec 4.4), shown to everyone; {@code url} leads to it in Spexarkivet
+     * for users with access there.
+     */
+    public record NumberBookDto(UUID id, String title, @Nullable Integer volume, @Nullable String publishedYear,
+                                String kindNameSv, String kindNameEn, int position, boolean textOnly, @Nullable String url) {
+    }
+
+    /**
      * A photo or short video in Spexgram.
      *
      * @param video    whether it is a video; then {@code videoUrl} plays it and {@code previewUrl} is its poster frame

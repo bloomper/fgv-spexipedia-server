@@ -35,7 +35,7 @@ import java.util.Locale;
 import java.util.UUID;
 
 /**
- * A kind kept by admins: a number kind, a credit kind, a recording medium, an image kind or a fact kind (spec 4.6).
+ * A kind kept by admins: a number kind, a credit kind, an image kind or a fact kind (spec 4.6).
  * The import recognises it by its names and aliases.
  *
  * @author Anders Jacobsson

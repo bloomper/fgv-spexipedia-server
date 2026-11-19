@@ -39,14 +39,8 @@ class SampleDataImporterIntegrationTest extends AbstractIntegrationTest {
         assertThat(jdbcClient.sql("SELECT COUNT(*) FROM spex WHERE created_by = 'system'").query(Long.class).single()).isEqualTo(SEEDED_SPEX);
         assertThat(jdbcClient.sql("SELECT COUNT(*) FROM spex_fact").query(Long.class).single()).isPositive();
         assertThat(jdbcClient.sql("SELECT COUNT(*) FROM number_credit WHERE unresolved = 1").query(Long.class).single()).isPositive();
-        assertThat(jdbcClient.sql("""
-                SELECT COUNT(*) FROM book_song s JOIN book b ON b.id = s.book_id
-                WHERE b.title = 'Chalmersspex I' AND s.number_id IS NOT NULL""").query(Long.class).single()).isGreaterThan(10);
-        assertThat(jdbcClient.sql("SELECT COUNT(*) FROM book_song WHERE text_only = 1").query(Long.class).single()).isPositive();
-        // A spex book is a book, not a recording medium
-        assertThat(jdbcClient.sql("SELECT COUNT(*) FROM kind WHERE type = 'MEDIUM' AND name_sv = 'Spexbok'").query(Long.class).single()).isZero();
-        assertThat(jdbcClient.sql("SELECT COUNT(*) FROM recording WHERE catalogue_number = 'CCD 004' AND description IS NULL")
-                .query(Long.class).single()).isEqualTo(1);
+        // Records are Spexify's and books Spexarkivet's: Spexipedia keeps no kinds for them
+        assertThat(jdbcClient.sql("SELECT COUNT(*) FROM kind WHERE type IN ('MEDIUM', 'BOOK')").query(Long.class).single()).isZero();
 
         // Again: the seeded spex stay, without the posters and the examples the first import added
         importer.importSampleData();

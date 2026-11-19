@@ -19,8 +19,6 @@ package nu.fgv.spexipedia.server.search;
 import nu.fgv.spexipedia.server.article.ArticleGraphqlApi;
 import nu.fgv.spexipedia.server.basedata.BaseDataDtos.SpexDto;
 import nu.fgv.spexipedia.server.basedata.BaseDataService;
-import nu.fgv.spexipedia.server.content.ContentDtos.RecordingDto;
-import nu.fgv.spexipedia.server.content.RecordingService;
 import nu.fgv.spexipedia.server.page.SpexPageDto;
 import nu.fgv.spexipedia.server.page.SpexPageService;
 import nu.fgv.spexipedia.server.people.PeopleService;
@@ -59,7 +57,6 @@ public class SiteGraphqlApi {
     private final SettingsService settingsService;
     private final BaseDataService baseData;
     private final SpexPageService pageService;
-    private final RecordingService recordingService;
     private final ArticleGraphqlApi articleApi;
     private final RedirectService redirectService;
     private final PeopleService peopleService;
@@ -67,14 +64,13 @@ public class SiteGraphqlApi {
 
     @SuppressWarnings("java:S107")
     public SiteGraphqlApi(final SearchService searchService, final SettingsService settingsService, final BaseDataService baseData,
-                          final SpexPageService pageService, final RecordingService recordingService,
+                          final SpexPageService pageService,
                           final ArticleGraphqlApi articleApi, final RedirectService redirectService,
                           final PeopleService peopleService, final Clock clock) {
         this.searchService = searchService;
         this.settingsService = settingsService;
         this.baseData = baseData;
         this.pageService = pageService;
-        this.recordingService = recordingService;
         this.articleApi = articleApi;
         this.redirectService = redirectService;
         this.peopleService = peopleService;
@@ -107,13 +103,7 @@ public class SiteGraphqlApi {
             if (MonthDay.from(premiere).equals(day) && premiere.isBefore(today)) {
                 final SpexDto spex = baseData.spexByKey(page.spexKey());
 
-                entries.add(new ThisDayDto(premiere.toString(), "Premiär för " + spex.label(), spex, null));
-            }
-        }
-        for (final RecordingDto recording : recordingService.recordings()) {
-            if (recording.published() && recording.released() != null && recording.released().length() == 10
-                    && MonthDay.from(LocalDate.parse(recording.released())).equals(day)) {
-                entries.add(new ThisDayDto(recording.released(), recording.catalogueNumber() + " " + recording.title() + " släpptes", null, recording));
+                entries.add(new ThisDayDto(premiere.toString(), "Premiär för " + spex.label(), spex));
             }
         }
         entries.sort(Comparator.comparing(ThisDayDto::date).reversed());
@@ -144,7 +134,7 @@ public class SiteGraphqlApi {
                                List<RevisionDto> recentChanges, List<DecadeDto> decades) {
     }
 
-    public record ThisDayDto(String date, String text, @Nullable SpexDto spex, @Nullable RecordingDto recording) {
+    public record ThisDayDto(String date, String text, @Nullable SpexDto spex) {
     }
 
     public record DecadeDto(int decade, List<SpexDto> spex) {
