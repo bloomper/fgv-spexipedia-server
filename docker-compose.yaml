@@ -30,7 +30,7 @@ services:
   # Serves the images under /media/ with long cache times; published on localhost:8089 for an API started from the IDE,
   # which keeps the images in ./data/media too
   spexipedia-media:
-    image: 'nginx:1.29-alpine'
+    image: 'nginx:1.30-alpine'
     restart: unless-stopped
     environment:
       MEDIA_CACHE_DAYS: 365
