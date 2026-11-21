@@ -24,10 +24,8 @@ import nu.fgv.spexipedia.server.basedata.Spex;
 import nu.fgv.spexipedia.server.basedata.SpexCategory;
 import nu.fgv.spexipedia.server.content.ContentDtos.CharacterDto;
 import nu.fgv.spexipedia.server.content.ContentDtos.NumberDto;
-import nu.fgv.spexipedia.server.content.ContentDtos.RecordingDto;
 import nu.fgv.spexipedia.server.content.ContentDtos.SceneDto;
 import nu.fgv.spexipedia.server.content.ContentService;
-import nu.fgv.spexipedia.server.content.RecordingService;
 import nu.fgv.spexipedia.server.links.LinkDtos.AppLinkDto;
 import nu.fgv.spexipedia.server.links.LinkService;
 import nu.fgv.spexipedia.server.page.PageGraphqlApi;
@@ -53,8 +51,7 @@ import static org.springframework.util.StringUtils.hasText;
 
 /**
  * The MCP tools for spex, their revivals and pages, and spex categories. Base data is public, so anyone with access
- * reads it, retired records included when asked for; the page, retired characters and numbers, unpublished recordings
- * and people are shown as the GraphQL API shows them to the caller. AUTHOR changes a page's texts.
+ * reads it, retired records included when asked for; the page, retired characters and numbers and people are shown as the GraphQL API shows them to the caller. AUTHOR changes a page's texts.
  *
  * @author Anders Jacobsson
  * @since 1.0
@@ -65,7 +62,6 @@ public class SpexMcpTools {
     private final BaseDataService baseData;
     private final BaseDataGraphqlApi baseDataApi;
     private final ContentService content;
-    private final RecordingService recordings;
     private final SpexPageService pages;
     private final PageGraphqlApi pageApi;
     private final LinkService links;
@@ -73,12 +69,11 @@ public class SpexMcpTools {
 
     @SuppressWarnings("java:S107")
     public SpexMcpTools(final BaseDataService baseData, final BaseDataGraphqlApi baseDataApi, final ContentService content,
-                        final RecordingService recordings, final SpexPageService pages, final PageGraphqlApi pageApi,
+                        final SpexPageService pages, final PageGraphqlApi pageApi,
                         final LinkService links, final McpToolSupport support) {
         this.baseData = baseData;
         this.baseDataApi = baseDataApi;
         this.content = content;
-        this.recordings = recordings;
         this.pages = pages;
         this.pageApi = pageApi;
         this.links = links;
@@ -121,7 +116,7 @@ public class SpexMcpTools {
     }
 
     @McpTool(name = "get_spex",
-            description = "Get a spex by id or slug with its whole page as you may see it: category, the original for a revival or the revivals of an original, the page's texts in Markdown (introduction, description, synopsis; null while the page is unpublished unless you are an author), the characters, scenes and numbers on the page (a revival's after its changes to its original's), recordings, and links to the other FGV applications. With includePeople, also the board and who held which task, from Spexregister (visitors' rules apply: nicknames only for unpublished names).",
+            description = "Get a spex by id or slug with its whole page as you may see it: category, the original for a revival or the revivals of an original, the page's texts in Markdown (introduction, description, synopsis; null while the page is unpublished unless you are an author), the characters, scenes and numbers on the page (a revival's after its changes to its original's), records (Spexify's discography), and links to the other FGV applications. With includePeople, also the board and who held which task, from Spexregister (visitors' rules apply: nicknames only for unpublished names).",
             annotations = @McpAnnotations(readOnlyHint = true, destructiveHint = false, openWorldHint = false))
     public McpSpexDetails getSpex(@McpToolParam(description = "Spex id or slug") final String id,
                                   @McpToolParam(required = false, description = "Also the board and task holders from Spexregister, defaults to false") final @Nullable Boolean includePeople) {
@@ -136,7 +131,7 @@ public class SpexMcpTools {
                     summary.category(), summary.published(), summary.retired(), revivals, page == null ? null : McpPage.of(page),
                     characters(spex), content.scenes(spex.key()).stream().map(McpScene::of).toList(),
                     content.numbers(spex.key()).stream().map(McpNumber::of).toList(),
-                    recordings.recordingsOfSpex(spex.key()).stream().map(McpRecordingRef::of).toList(),
+                    links.records(baseDataApi.productions(spex).stream().map(SpexDto::id).toList()).stream().map(McpRecordRef::of).toList(),
                     links.spexLinks(baseDataApi.productions(spex).stream().map(SpexDto::id).toList()),
                     Boolean.TRUE.equals(includePeople) ? McpPeople.of(baseDataApi.people(spex)) : null);
         });
@@ -239,7 +234,7 @@ public class SpexMcpTools {
                                  @Nullable McpSpexRef parent, @Nullable McpCategoryRef category, boolean published,
                                  boolean retired, List<McpSpex> revivals, @Nullable McpPage page,
                                  List<ContentMcpTools.McpCharacter> characters, List<McpScene> scenes,
-                                 List<McpNumber> numbers, List<McpRecordingRef> recordings, List<AppLinkDto> links,
+                                 List<McpNumber> numbers, List<McpRecordRef> records, List<AppLinkDto> links,
                                  @Nullable McpPeople people) {
     }
 
@@ -272,12 +267,15 @@ public class SpexMcpTools {
         }
     }
 
-    public record McpRecordingRef(UUID id, String slug, String catalogueNumber, String title, @Nullable String released,
-                                  boolean published) {
+    /**
+     * A record of the spex: an album of Spexify's discography.
+     */
+    public record McpRecordRef(UUID id, @Nullable String catalogueNumber, String title, @Nullable String medium,
+                               @Nullable String released, @Nullable String url) {
 
-        static McpRecordingRef of(final RecordingDto recording) {
-            return new McpRecordingRef(recording.id(), recording.slug(), recording.catalogueNumber(), recording.title(),
-                    recording.released(), recording.published());
+        static McpRecordRef of(final nu.fgv.spexipedia.server.links.LinkDtos.RecordDto record) {
+            return new McpRecordRef(record.id(), record.catalogueNumber(), record.title(), record.mediumNameSv(),
+                    record.released(), record.url());
         }
     }
 

@@ -45,14 +45,6 @@ type Query {
     number(id: ID!): Number
     "Anyone. Numbers by id, in the given order; unknown ids are left out. At most 500."
     numbersByIds(ids: [ID!]!): [Number!]!
-    "Anyone. Recordings: published ones; all for EDITOR. By catalogue number."
-    recordings: [Recording!]!
-    "Anyone. A published recording by id or slug; any for EDITOR."
-    recording(id: ID!): Recording
-    "Anyone. Books: published ones; all for EDITOR. By volume, then title."
-    books: [Book!]!
-    "Anyone. A published book by id or slug; any for EDITOR."
-    book(id: ID!): Book
     "Anyone. The kinds admins keep (spec 4.6) of a type, in order; use only for IMAGE kinds. Retired ones only with includeRetired."
     kinds(type: KindType!, use: KindUse, includeRetired: Boolean! = false): [Kind!]!
     "EDITOR. Credits that an import brought as names nobody has resolved yet (spec 5.3), oldest numbers first."
@@ -81,7 +73,7 @@ type Query {
     "ADMIN. Every redirect, by old title."
     redirects: [Redirect!]!
 
-    "Anyone. Spex, characters, numbers, original songs, recordings, books and articles that match the words. People are never searched."
+    "Anyone. Spex, characters, numbers, original songs and articles that match the words. People are never searched."
     search(q: String!, limit: Int! = 50): [SearchHit!]!
     "Anyone. Every public page, for the sitemap."
     sitemap: [SitemapEntry!]!
@@ -176,28 +168,7 @@ type Mutation {
     numbersReorder(spexId: ID!, items: [OrderInput!]!): [Number!]!
     "EDITOR. For a revival: which of its parent's characters, scenes and numbers it cuts, and where it moves them."
     revivalSetChanges(revivalId: ID!, kind: RevivalChangeKind!, changes: [RevivalChangeInput!]!): Spex!
-    "EDITOR."
-    recordingCreate(input: RecordingInput!): Recording!
-    "EDITOR."
-    recordingUpdate(id: ID!, input: RecordingInput!): Recording!
-    "EDITOR. Tracks as given, replacing the old ones."
-    recordingSetTracks(id: ID!, tracks: [TrackInput!]!): Recording!
-    "EDITOR. Tracks as text, one per line ('A1 Title' or 'Title'; a line 'Sida B' starts a side), each matched to a number of the recording's spex by title."
-    recordingPasteTracks(id: ID!, text: String!): Recording!
-    "EDITOR."
-    recordingSetPublished(id: ID!, published: Boolean!): Recording!
-    "EDITOR."
-    recordingDelete(id: ID!): Boolean!
-    "EDITOR."
-    bookCreate(input: BookInput!): Book!
-    "EDITOR."
-    bookUpdate(id: ID!, input: BookInput!): Book!
-    "EDITOR. The songs as given, in the book's order, replacing the old ones."
-    bookSetSongs(id: ID!, songs: [BookSongInput!]!): Book!
-    "EDITOR."
-    bookSetPublished(id: ID!, published: Boolean!): Book!
-    "EDITOR."
-    bookDelete(id: ID!): Boolean!
+
 
     "AUTHOR. The texts of a spex page; every changed text is a revision. Refused with CONFLICT when baseRevisionIds no longer match the texts' latest revisions."
     spexPageUpdate(spexId: ID!, input: SpexPageInput!): SpexPage!
@@ -286,7 +257,7 @@ type StartPage {
     welcome: String
     "The spex of the year: the newest published original, else the newest published spex."
     spexOfTheYear: Spex
-    "Published spex whose premiere was on today's date in earlier years, and recordings released on it."
+    "Published spex whose premiere was on today's date in earlier years."
     thisDay: [ThisDayEntry!]!
     "The latest revisions the viewer may see, newest first."
     recentChanges: [Revision!]!
@@ -299,7 +270,6 @@ type ThisDayEntry {
     date: String!
     text: String!
     spex: Spex
-    recording: Recording
 }
 
 type Decade {
@@ -372,8 +342,8 @@ type Spex {
     numbers: [Number!]!
     "For a revival: its changes to its parent's characters, scenes and numbers."
     revivalChanges: [RevivalChange!]!
-    "Recordings of the spex, published ones; all for EDITOR."
-    recordings: [Recording!]!
+    "The records of the spex and its revivals (a revival's own only): Spexify's discography (spec 4.4), for everyone; empty when Spexify is unavailable. Oldest first."
+    records: [Record!]!
     "The board and the tasks of the spex and its revivals, from Spexregister. Visitors see nicknames only."
     people: SpexPeople!
     "How much of the page is filled in, by section of the editing page; for AUTHOR, null for others. A revival is measured by what belongs to the production itself (poster, premiere, facts, photos), as it shows its original's content for the rest."
@@ -492,8 +462,8 @@ type Number {
     retired: Boolean!
     "Links for the viewer: the track in Spexify, the arrangement in Spexarkivet."
     links: [AppLink!]!
-    "The books the number is in: published ones; all for EDITOR."
-    books: [BookSong!]!
+    "The books the number is in: Spexarkivet's published books (spec 4.4), for everyone; empty when the archive is unavailable."
+    books: [NumberBook!]!
 }
 
 input NumberInput {
@@ -582,10 +552,8 @@ input RevivalChangeInput {
 enum KindType {
     NUMBER
     CREDIT
-    MEDIUM
     IMAGE
     FACT
-    BOOK
 }
 
 "Where image kinds are used; other types of kinds have none."
@@ -629,112 +597,65 @@ input KindInput {
     aliases: [String!]
 }
 
-type Recording {
+"""
+A record of a spex: an album of Spexify's discography (spec 4.4), edited in Spexify. url leads there for users with
+access to Spexify; the covers are links Spexify signs for some hours.
+"""
+type Record {
     id: ID!
-    slug: String!
-    catalogueNumber: String!
     title: String!
-    "A recording medium (spec 4.6)."
-    medium: Kind!
-    "Null for compilations."
-    spex: Spex
+    year: Int
+    kindNameSv: String!
+    kindNameEn: String!
+    "LP, EP, CD, digital …; null for an album that was never released."
+    mediumNameSv: String
+    mediumNameEn: String
+    "e.g. CEP 019"
+    catalogueNumber: String
     "yyyy, yyyy-mm or yyyy-mm-dd"
     released: String
-    "yyyy, yyyy-mm or yyyy-mm-dd"
     recorded: String
-    conductor: Credit
-    description: String
-    "The description as HTML, safe to show."
-    descriptionHtml: String
-    tracks: [Track!]!
-    front: Image
-    back: Image
-    spexifyAlbumId: ID
-    published: Boolean!
-    links: [AppLink!]!
+    conductor: String
+    "The spex or revival it is a recording of."
+    spexId: ID
+    coverUrl: String
+    backCoverUrl: String
+    "In Spexify, for users with access there."
+    url: String
+    tracks: [RecordTrack!]!
 }
 
-"""
-A book: something printed, e.g. a book such as Chalmersspex I. Not a recording. Its songs, if any, are the spex'
-numbers or free titles, in the book's order.
-"""
-type Book {
+type RecordTrack {
     id: ID!
-    slug: String!
+    "e.g. A or B, for records with sides."
+    side: String
+    discNumber: Int!
+    position: Int!
     title: String!
-    "A book kind (spec 4.6), e.g. a spex book."
-    kind: Kind!
-    "Its number in the series: 1 for Chalmersspex I."
+    "The number it is a recording of."
+    number: Number
+    "Whether it can be listened to in Spexify."
+    hasAudio: Boolean!
+    "Plays it in Spexify, for users with access there."
+    url: String
+}
+
+"A book a number is in: a book of Spexarkivet (spec 4.4), edited there."
+type NumberBook {
+    id: ID!
+    title: String!
+    "Its number in its series: 1 for Chalmersspex I."
     volume: Int
     "yyyy, yyyy-mm or yyyy-mm-dd"
     publishedYear: String
-    description: String
-    "The description as HTML, safe to show."
-    descriptionHtml: String
-    cover: Image
-    songs: [BookSong!]!
-    published: Boolean!
-}
-
-type BookSong {
-    id: ID!
-    book: Book!
-    "From 1, in the book's order."
+    kindNameSv: String!
+    kindNameEn: String!
+    "The song's place in the book, from 1."
     position: Int!
-    "Null for a song that is not a number of a spex."
-    number: Number
-    "The number's title when there is a number."
-    title: String!
     "Whether the book has only the words."
     textOnly: Boolean!
-}
-
-input BookInput {
-    title: String!
-    "A book kind; when left out, the book keeps its kind, and a new one gets the first."
-    kindId: ID
-    volume: Int
-    publishedYear: String
-    description: String
-    coverImageId: ID
-}
-
-"A song: a number by id, or a free title."
-input BookSongInput {
-    numberId: ID
-    title: String
-    textOnly: Boolean = false
-}
-
-input RecordingInput {
-    catalogueNumber: String!
-    title: String!
-    "A recording medium."
-    mediumId: ID!
-    spexId: ID
-    released: String
-    recorded: String
-    conductor: CreditInput
-    description: String
-    frontImageId: ID
-    backImageId: ID
-    spexifyAlbumId: ID
-}
-
-type Track {
-    id: ID!
-    "e.g. A, B, 1, 2; null for a single side."
-    side: String
-    position: Int!
-    number: Number
-    "The number's title when there is a number."
-    title: String!
-}
-
-input TrackInput {
-    side: String
-    numberId: ID
-    title: String
+    "In Spexarkivet, for users with access there."
+    url: String
 }
 
 type SpexPage {
@@ -1021,12 +942,26 @@ enum AppLinkKind {
     ARCHIVE_MANUSCRIPT
     ARCHIVE_ARRANGEMENT
     SPEXGRAM_ALBUM
+    "A chapter of a Spexflix video where the number is seen."
+    SPEXFLIX_CHAPTER
+    "A document of Spexarkivet of another kind than a manuscript: programme, press cuttings …; detail names the kind."
+    ARCHIVE_DOCUMENT
+    "Everything an application has about the spex, on its page there."
+    SPEXIFY_SPEX
+    SPEXFLIX_SPEX
+    SPEXGRAM_SPEX
+    ARCHIVE_SPEX
 }
 
+"""
+A link to material in another FGV application, for users with access there (a public Spexgram album for everyone).
+"""
 type AppLink {
     kind: AppLinkKind!
     title: String!
     url: String!
+    "More about it, in the request's language: a document's kind, a chapter's video."
+    detail: String
 }
 
 enum Visibility {
@@ -1147,7 +1082,7 @@ type Redirect {
     id: ID!
     "As in the MediaWiki, e.g. 'Alexander - CEP 019'."
     oldTitle: String!
-    "A path in the web, e.g. /recordings/cep-019."
+    "A path in the web, e.g. /spex/1984-lasse-maja."
     target: String!
 }
 
@@ -1161,8 +1096,6 @@ enum SearchKind {
     SPEX
     CHARACTER
     NUMBER
-    RECORDING
-    BOOK
     ARTICLE
 }
 
@@ -1397,8 +1330,6 @@ input ImportBatchInput {
     characters: [ImportCharacterInput!]
     scenes: [ImportSceneInput!]
     numbers: [ImportNumberInput!]
-    recordings: [ImportRecordingInput!]
-    books: [ImportBookInput!]
     articleCategories: [ImportArticleCategoryInput!]
     articles: [ImportArticleInput!]
     redirects: [ImportRedirectInput!]
@@ -1512,53 +1443,6 @@ input ImportCreditInput {
     kind: String!
     name: String!
     outsideFgv: Boolean
-}
-
-input ImportRecordingInput {
-    sourceKey: String!
-    catalogueNumber: String!
-    title: String!
-    "A recording medium by name or alias; the first when left out."
-    medium: String
-    spexId: ID
-    spexSourceKey: String
-    released: String
-    recorded: String
-    description: String
-    front: ImportFileInput
-    back: ImportFileInput
-    "Replaces the tracks when given."
-    tracks: [ImportTrackInput!]
-}
-
-"A track: a number by id or source key, or by its title among the spex's numbers, or a free title."
-input ImportTrackInput {
-    side: String
-    numberSourceKey: String
-    numberId: ID
-    title: String
-}
-
-"A book (sourceKey e.g. register:spexbok:1 for a spex book)."
-input ImportBookInput {
-    sourceKey: String!
-    title: String!
-    "A book kind by name or alias; the first when left out."
-    kind: String
-    volume: Int
-    publishedYear: String
-    description: String
-    cover: ImportFileInput
-    "Replaces the songs when given."
-    songs: [ImportBookSongInput!]
-}
-
-"A song of a book: a number by id or source key, or a free title."
-input ImportBookSongInput {
-    numberSourceKey: String
-    numberId: ID
-    title: String
-    textOnly: Boolean
 }
 
 input ImportArticleCategoryInput {

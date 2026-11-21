@@ -37,7 +37,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Search across spex, characters, numbers (original songs included), recordings, books and articles, with MySQL's
+ * Search across spex, characters, numbers (original songs included) and articles, with MySQL's
  * full-text index over one table of documents. A document carries who may find it: everyone (PUBLIC), logged-in users
  * (MEMBERS) or only those who may see unpublished pages (HIDDEN). People are never indexed or searched.
  *
@@ -95,8 +95,6 @@ public class SearchService {
             case SPEX -> "spex";
             case CHARACTER -> "spex_character";
             case NUMBER -> "spex_number";
-            case RECORDING -> "recording";
-            case BOOK -> "book";
             case ARTICLE -> "article";
         };
     }
@@ -166,26 +164,6 @@ public class SearchService {
                     .flatMap(row -> spexPart((Long) row[0]).map(part -> new Document(kind, id, (String) row[1],
                             join(part.label(), row[2] == null ? null : row[2] + (row[3] == null ? "" : " (" + row[3] + ")")), null,
                             "/spex/" + part.slug() + "#number-" + id, (Boolean) row[4] ? "HIDDEN" : part.visibility())));
-            case RECORDING -> jdbc.sql("""
-                            SELECT r.slug, r.catalogue_number, r.title, r.description, r.published,
-                                   (SELECT GROUP_CONCAT(COALESCE(n.title, t.title) SEPARATOR ' ') FROM recording_track t
-                                    LEFT JOIN spex_number n ON n.id = t.number_id WHERE t.recording_id = r.id) AS tracks
-                            FROM recording r WHERE r.uuid = :id""")
-                    .param("id", uuid)
-                    .query((rs, _) -> new Document(kind, id, rs.getString(2) + " " + rs.getString(3), null,
-                            join(markdown.plain(rs.getString(4)), rs.getString(6)), "/recordings/" + rs.getString(1),
-                            rs.getBoolean(5) ? "PUBLIC" : "HIDDEN"))
-                    .optional();
-            case BOOK -> jdbc.sql("""
-                            SELECT b.slug, b.title, b.description, b.published,
-                                   (SELECT GROUP_CONCAT(COALESCE(n.title, s.title) SEPARATOR ' ') FROM book_song s
-                                    LEFT JOIN spex_number n ON n.id = s.number_id WHERE s.book_id = b.id) AS songs
-                            FROM book b WHERE b.uuid = :id""")
-                    .param("id", uuid)
-                    .query((rs, _) -> new Document(kind, id, rs.getString(2), null,
-                            join(markdown.plain(rs.getString(3)), rs.getString(5)), "/books/" + rs.getString(1),
-                            rs.getBoolean(4) ? "PUBLIC" : "HIDDEN"))
-                    .optional();
             case ARTICLE -> jdbc.sql("SELECT slug, title, body, visibility, published, trashed_at FROM article WHERE uuid = :id")
                     .param("id", uuid)
                     .query((rs, _) -> rs.getTimestamp(6) != null ? null : new Document(kind, id, rs.getString(2), null,

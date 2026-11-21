@@ -25,12 +25,8 @@ import nu.fgv.spexipedia.server.basedata.BaseDataService;
 import nu.fgv.spexipedia.server.basedata.Spex;
 import nu.fgv.spexipedia.server.content.ContentDtos.CharacterDto;
 import nu.fgv.spexipedia.server.content.ContentDtos.NumberDto;
-import nu.fgv.spexipedia.server.content.ContentRepositories.RecordingRepository;
 import nu.fgv.spexipedia.server.content.ContentService;
 import nu.fgv.spexipedia.server.content.ContentService.NumberCreditInput;
-import nu.fgv.spexipedia.server.content.Recording;
-import nu.fgv.spexipedia.server.content.RecordingService;
-import nu.fgv.spexipedia.server.content.BookService;
 import nu.fgv.spexipedia.server.image.Image;
 import nu.fgv.spexipedia.server.image.ImageKind;
 import nu.fgv.spexipedia.server.image.ImageService;
@@ -45,13 +41,9 @@ import nu.fgv.spexipedia.server.imports.ImportRecords.ImportCharacter;
 import nu.fgv.spexipedia.server.imports.ImportRecords.ImportCredit;
 import nu.fgv.spexipedia.server.imports.ImportRecords.ImportNumber;
 import nu.fgv.spexipedia.server.imports.ImportRecords.ImportPage;
-import nu.fgv.spexipedia.server.imports.ImportRecords.ImportRecording;
-import nu.fgv.spexipedia.server.imports.ImportRecords.ImportBook;
-import nu.fgv.spexipedia.server.imports.ImportRecords.ImportBookSong;
 import nu.fgv.spexipedia.server.imports.ImportRecords.ImportRedirect;
 import nu.fgv.spexipedia.server.imports.ImportRecords.ImportScene;
 import nu.fgv.spexipedia.server.imports.ImportRecords.ImportSpex;
-import nu.fgv.spexipedia.server.imports.ImportRecords.ImportTrack;
 import nu.fgv.spexipedia.server.kind.Kind;
 import nu.fgv.spexipedia.server.kind.KindService;
 import nu.fgv.spexipedia.server.kind.KindType;
@@ -94,8 +86,6 @@ public class SpexipediaImport {
     public static final String CHARACTER = "CHARACTER";
     public static final String SCENE = "SCENE";
     public static final String NUMBER = "NUMBER";
-    public static final String RECORDING = "RECORDING";
-    public static final String BOOK = "BOOK";
     public static final String ARTICLE_CATEGORY = "ARTICLE_CATEGORY";
     public static final String ARTICLE = "ARTICLE";
     public static final String REDIRECT = "REDIRECT";
@@ -106,9 +96,6 @@ public class SpexipediaImport {
     private final ImportFileStore files;
     private final BaseDataService baseData;
     private final ContentService content;
-    private final RecordingService recordings;
-    private final BookService books;
-    private final RecordingRepository recordingRepository;
     private final SpexPageService pages;
     private final SpexPageRepository pageRepository;
     private final ImageService images;
@@ -119,17 +106,13 @@ public class SpexipediaImport {
 
     @SuppressWarnings("java:S107")
     public SpexipediaImport(final ImportEngine engine, final ImportFileStore files, final BaseDataService baseData,
-                            final ContentService content, final RecordingService recordings, final BookService books,
-                            final RecordingRepository recordingRepository, final SpexPageService pages,
+                            final ContentService content, final SpexPageService pages,
                             final SpexPageRepository pageRepository, final ImageService images, final KindService kinds,
                             final PeopleService people, final ArticleService articles, final RedirectService redirects) {
         this.engine = engine;
         this.files = files;
         this.baseData = baseData;
         this.content = content;
-        this.recordings = recordings;
-        this.books = books;
-        this.recordingRepository = recordingRepository;
         this.pages = pages;
         this.pageRepository = pageRepository;
         this.images = images;
@@ -144,7 +127,7 @@ public class SpexipediaImport {
      */
     public List<ItemResult> run(final ImportRecords.Batch input, final boolean dryRun) {
         final int size = sizeOf(input.spex()) + sizeOf(input.pages()) + sizeOf(input.characters()) + sizeOf(input.scenes())
-                + sizeOf(input.numbers()) + sizeOf(input.recordings()) + sizeOf(input.books()) + sizeOf(input.articleCategories())
+                + sizeOf(input.numbers()) + sizeOf(input.articleCategories())
                 + sizeOf(input.articles()) + sizeOf(input.redirects());
 
         if (size > ImportEngine.MAX_RECORDS) {
@@ -159,8 +142,6 @@ public class SpexipediaImport {
         results.addAll(engine.run(characterHandler, input.characters(), batch));
         results.addAll(engine.run(sceneHandler, input.scenes(), batch));
         results.addAll(engine.run(numberHandler, input.numbers(), batch));
-        results.addAll(engine.run(recordingHandler, input.recordings(), batch));
-        results.addAll(engine.run(bookHandler, input.books(), batch));
         results.addAll(engine.run(categoryHandler, input.articleCategories(), batch));
         results.addAll(engine.run(articleHandler, input.articles(), batch));
         results.addAll(engine.run(redirectHandler, input.redirects(), batch));
@@ -168,7 +149,7 @@ public class SpexipediaImport {
     }
 
     public int forget(final String sourcePrefix) {
-        return engine.forget(sourcePrefix, List.of(redirectHandler, articleHandler, categoryHandler, bookHandler, recordingHandler,
+        return engine.forget(sourcePrefix, List.of(redirectHandler, articleHandler, categoryHandler,
                 numberHandler, sceneHandler, characterHandler, pageHandler, spexHandler));
     }
 
@@ -549,114 +530,6 @@ public class SpexipediaImport {
         }
     };
 
-    // Recordings -------------------------------------------------------------------------------------------------------
-
-    private final Handler<ImportRecording> recordingHandler = new Handler<>() {
-
-        @Override
-        public String kind() {
-            return RECORDING;
-        }
-
-        @Override
-        public String sourceKey(final ImportRecording record) {
-            return record.sourceKey();
-        }
-
-        @Override
-        public UUID apply(final ImportRecording record, final @Nullable UUID existing, final Batch batch) {
-            final UUID spexId = record.spexId() == null && record.spexSourceKey() == null ? null : spexOf(record.spexId(), record.spexSourceKey());
-            final Kind medium = Objects.requireNonNullElseGet(kindNamed(KindType.MEDIUM, null, record.medium(), batch),
-                    () -> kinds.first(KindType.MEDIUM, null).orElseThrow());
-            final Image front = image(record.front(), ImageKind.COVER, batch);
-            final Image back = image(record.back(), ImageKind.COVER, batch);
-            final RecordingService.RecordingInput input = new RecordingService.RecordingInput(record.catalogueNumber(),
-                    record.title(), medium.getUuid(), spexId, record.released(), record.recorded(), null, record.description(),
-                    front == null ? null : front.getUuid(), back == null ? null : back.getUuid(), null);
-            final UUID id = existing == null ? recordings.create(input).id() : recordings.update(existing, input).id();
-
-            if (record.tracks() != null) {
-                final List<NumberDto> numbers = spexId == null ? List.of() : content.numbers(baseData.requireSpex(spexId).getId());
-                final List<RecordingService.TrackInput> tracks = new ArrayList<>();
-
-                for (final ImportTrack track : record.tracks()) {
-                    UUID numberId = track.numberId() != null ? track.numberId() : engine.recordOf(NUMBER, track.numberSourceKey());
-
-                    if (numberId == null && track.title() != null) {
-                        numberId = numbers.stream().filter(number -> number.title().equalsIgnoreCase(track.title().strip()))
-                                .findFirst().map(NumberDto::id).orElse(null);
-                    }
-                    tracks.add(new RecordingService.TrackInput(track.side(), numberId, numberId == null ? track.title() : null));
-                }
-                recordings.setTracks(id, tracks);
-            }
-            return id;
-        }
-
-        @Override
-        public @Nullable Long version(final UUID id) {
-            return recordingRepository.findByUuid(id).map(Recording::getVersion).orElse(null);
-        }
-
-        @Override
-        public boolean forget(final UUID id) {
-            return recordingRepository.findByUuid(id).filter(recording -> !recording.isPublished())
-                    .map(_ -> recordings.delete(id)).orElse(false);
-        }
-    };
-
-    // Books -------------------------------------------------------------------------------------------------------
-
-    private final Handler<ImportBook> bookHandler = new Handler<>() {
-
-        @Override
-        public String kind() {
-            return BOOK;
-        }
-
-        @Override
-        public String sourceKey(final ImportBook record) {
-            return record.sourceKey();
-        }
-
-        @Override
-        public UUID apply(final ImportBook record, final @Nullable UUID existing, final Batch batch) {
-            final Image cover = image(record.cover(), ImageKind.COVER, batch);
-            final Kind kind = Objects.requireNonNullElseGet(kindNamed(KindType.BOOK, null, record.kind(), batch),
-                    () -> kinds.first(KindType.BOOK, null).orElseThrow());
-            final BookService.BookInput input = new BookService.BookInput(record.title(), kind.getUuid(), record.volume(),
-                    record.publishedYear(), record.description(), cover == null ? null : cover.getUuid());
-            final UUID id = existing == null ? books.create(input).id() : books.update(existing, input).id();
-
-            if (record.songs() != null) {
-                final List<BookService.SongInput> songs = new ArrayList<>();
-
-                for (final ImportBookSong song : record.songs()) {
-                    final UUID numberId = song.numberId() != null ? song.numberId() : engine.recordOf(NUMBER, song.numberSourceKey());
-
-                    if (numberId == null && song.title() == null) {
-                        batch.warn("En sång utan nummer och titel hoppades över");
-                        continue;
-                    }
-                    songs.add(new BookService.SongInput(numberId, numberId == null ? song.title() : null,
-                            Boolean.TRUE.equals(song.textOnly())));
-                }
-                books.setSongs(id, songs);
-            }
-            return id;
-        }
-
-        @Override
-        public @Nullable Long version(final UUID id) {
-            return books.version(id);
-        }
-
-        @Override
-        public boolean forget(final UUID id) {
-            return !books.isPublished(id) && books.delete(id);
-        }
-    };
-
     // Articles ---------------------------------------------------------------------------------------------------------
 
     private final Handler<ImportArticleCategory> categoryHandler = new Handler<>() {
@@ -780,14 +653,11 @@ public class SpexipediaImport {
                 final UUID article = engine.recordOf(ARTICLE, record.targetSourceKey());
                 final UUID spex = engine.recordOf(SPEX, record.targetSourceKey());
                 final UUID page = engine.recordOf(PAGE, record.targetSourceKey());
-                final UUID recording = engine.recordOf(RECORDING, record.targetSourceKey());
 
                 if (article != null) {
                     target = articles.article(article.toString()).map(a -> "/articles/" + a.slug()).orElse(null);
                 } else if (spex != null || page != null) {
                     target = baseData.spex(Objects.requireNonNullElse(spex, page).toString()).map(s -> "/spex/" + s.slug()).orElse(null);
-                } else if (recording != null) {
-                    target = recordings.recording(recording.toString()).map(r -> "/recordings/" + r.slug()).orElse(null);
                 }
             }
             if (target == null) {

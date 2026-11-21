@@ -21,12 +21,8 @@ import nu.fgv.spexipedia.server.basedata.BaseDataService;
 import nu.fgv.spexipedia.server.basedata.Spex;
 import nu.fgv.spexipedia.server.content.ContentDtos.CharacterDto;
 import nu.fgv.spexipedia.server.content.ContentDtos.NumberDto;
-import nu.fgv.spexipedia.server.content.ContentDtos.RecordingDto;
-import nu.fgv.spexipedia.server.content.ContentDtos.TrackDto;
 import nu.fgv.spexipedia.server.content.ContentService;
 import nu.fgv.spexipedia.server.kind.KindService;
-import nu.fgv.spexipedia.server.content.Recording;
-import nu.fgv.spexipedia.server.content.RecordingService;
 import nu.fgv.spexipedia.server.content.SpexCharacter;
 import nu.fgv.spexipedia.server.content.SpexNumber;
 import nu.fgv.spexipedia.server.page.SpexPageService;
@@ -45,10 +41,9 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * The MCP tools for what is on spex pages: characters, scenes, numbers and recordings. Characters and numbers
- * are base data, read by anyone by id; lists by spex and recordings follow the GraphQL API's rules
- * (retired ones and unpublished recordings for EDITOR). EDITOR
- * adds characters, scenes, numbers and tracks by pasting text, as in the web.
+ * The MCP tools for what is on spex pages: characters, scenes and numbers. Characters and numbers are base data, read
+ * by anyone by id; lists by spex follow the GraphQL API's rules (retired ones for EDITOR). EDITOR adds characters,
+ * scenes and numbers by pasting text, as in the web. Records are Spexify's and books Spexarkivet's.
  *
  * @author Anders Jacobsson
  * @since 1.0
@@ -59,17 +54,15 @@ public class ContentMcpTools {
     private static final String SPEX_ID = "Spex id or slug";
 
     private final ContentService content;
-    private final RecordingService recordings;
     private final BaseDataService baseData;
     private final SpexPageService pages;
     private final McpToolSupport support;
     private final KindService kinds;
 
-    public ContentMcpTools(final ContentService content, final RecordingService recordings, final BaseDataService baseData,
+    public ContentMcpTools(final ContentService content, final BaseDataService baseData,
                            final SpexPageService pages, final McpToolSupport support, final KindService kinds) {
         this.kinds = kinds;
         this.content = content;
-        this.recordings = recordings;
         this.baseData = baseData;
         this.pages = pages;
         this.support = support;
@@ -112,20 +105,6 @@ public class ContentMcpTools {
         });
     }
 
-    @McpTool(name = "list_recordings",
-            description = "List recordings (records and albums of spex music) by catalogue number: published ones, all for EDITOR.",
-            annotations = @McpAnnotations(readOnlyHint = true, destructiveHint = false, openWorldHint = false))
-    public McpToolSupport.ListResult<SpexMcpTools.McpRecordingRef> listRecordings() {
-        return support.call(() -> new McpToolSupport.ListResult<>(recordings.recordings().stream().map(SpexMcpTools.McpRecordingRef::of).toList()));
-    }
-
-    @McpTool(name = "get_recording",
-            description = "Get a recording by id or slug, with its tracks: a published one, any for EDITOR.",
-            annotations = @McpAnnotations(readOnlyHint = true, destructiveHint = false, openWorldHint = false))
-    public McpRecording getRecording(@McpToolParam(description = "Recording id or slug") final String id) {
-        return support.call(() -> recording(recordings.recording(id).orElseThrow(() -> new ResourceNotFoundException(Recording.class, id))));
-    }
-
     @McpTool(name = "paste_characters",
             description = "EDITOR: add characters to a spex as text, one per line: the name, optionally followed by ' – ' and a description. They are added after the existing ones; on a revival, as its own. Returns the characters on its page afterwards.",
             annotations = @McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false, openWorldHint = false))
@@ -150,32 +129,12 @@ public class ContentMcpTools {
         return support.call(() -> new McpToolSupport.ListResult<>(content.pasteNumbers(spex(spexId).id(), text).stream().map(SpexMcpTools.McpNumber::of).toList()));
     }
 
-    @McpTool(name = "paste_recording_tracks",
-            description = "EDITOR: set a recording's tracks as text, one per line: 'A1 Title' or 'Title'; a line 'Sida B' starts a side. Each title is matched to a number of the recording's spex. Returns the recording with its tracks.",
-            annotations = @McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true, openWorldHint = false))
-    public McpRecording pasteRecordingTracks(@McpToolParam(description = "Recording id or slug") final String recordingId,
-                                             @McpToolParam(description = "One track per line") final String text) {
-        return support.call(() -> {
-            final RecordingDto recording = recordings.recording(recordingId).orElseThrow(() -> new ResourceNotFoundException(Recording.class, recordingId));
-
-            return recording(recordings.pasteTracks(recording.id(), text));
-        });
-    }
-
     private SpexDto spex(final String id) {
         return baseData.spex(id).orElseThrow(() -> new ResourceNotFoundException(Spex.class, id));
     }
 
     private List<McpCharacter> characters(final List<CharacterDto> characters) {
         return characters.stream().map(McpCharacter::of).toList();
-    }
-
-    private McpRecording recording(final RecordingDto recording) {
-        return new McpRecording(SpexMcpTools.McpRecordingRef.of(recording),
-                kinds.byKeys(List.of(recording.mediumKey())).values().stream().findFirst().map(kind -> kind.getNameSv()).orElse(null),
-                recording.spexKey() == null ? null : SpexMcpTools.McpSpexRef.of(baseData.spexByKey(recording.spexKey())),
-                recording.recorded(), recording.description(),
-                recordings.tracks(recording.key()).stream().map(McpTrack::of).toList());
     }
 
     /**
@@ -193,20 +152,5 @@ public class ContentMcpTools {
     }
 
     public record McpNumberDetails(SpexMcpTools.McpNumber number, SpexMcpTools.McpSpexRef spex) {
-    }
-
-    public record McpRecording(SpexMcpTools.McpRecordingRef recording, @Nullable String medium,
-                               SpexMcpTools.@Nullable McpSpexRef spex, @Nullable String recorded,
-                               @Nullable String description, List<McpTrack> tracks) {
-    }
-
-    /**
-     * A track, with the title of its number when it is one.
-     */
-    public record McpTrack(@Nullable String side, int position, String title) {
-
-        static McpTrack of(final TrackDto track) {
-            return new McpTrack(track.side(), track.position(), track.title());
-        }
     }
 }

@@ -31,13 +31,10 @@ import nu.fgv.spexipedia.server.config.SpexipediaProperties;
 import nu.fgv.spexipedia.server.content.ContentDtos;
 import nu.fgv.spexipedia.server.content.ContentDtos.CharacterDto;
 import nu.fgv.spexipedia.server.content.ContentDtos.NumberDto;
-import nu.fgv.spexipedia.server.content.ContentDtos.RecordingDto;
 import nu.fgv.spexipedia.server.content.ContentService;
 import nu.fgv.spexipedia.server.content.ListStore.CreditRef;
 import nu.fgv.spexipedia.server.content.ListStore.RevivalChange;
 import nu.fgv.spexipedia.server.content.ListStore.RevivalChangeKind;
-import nu.fgv.spexipedia.server.content.RecordingService;
-import nu.fgv.spexipedia.server.content.BookService;
 import nu.fgv.spexipedia.server.feed.SyncConsumerService;
 import nu.fgv.spexipedia.server.image.Image;
 import nu.fgv.spexipedia.server.image.ImageKind;
@@ -116,8 +113,8 @@ public class SampleDataImporter {
             new String[]{"00000000-0000-7000-a000-000000000006", "Greta Gitarrqvist", "", "false"});
     // user@fgv.nu's Keycloak id, fixed in fgv-infra-deploy's sample-users.tsv
     static final String USER_ID = "00000000-0000-4000-8000-000000000003";
-    private static final List<String> TABLES = List.of("book_song", "book", "article_editing", "article_link", "article_article_category", "article", "article_category_parent", "article_category",
-            "revision", "redirect", "search_document", "recording_track", "recording", "number_character", "number_credit",
+    private static final List<String> TABLES = List.of("article_editing", "article_link", "article_article_category", "article", "article_category_parent", "article_category",
+            "revision", "redirect", "search_document", "number_character", "number_credit",
             "spex_number", "character_image", "spex_character", "scene", "revival_change", "spex_page_photo",
             "spex_page_image", "spex_fact", "spex_page", "id_alias", "sync_consumer",
             "image", "audit_entry", "app_user");
@@ -144,8 +141,6 @@ public class SampleDataImporter {
     private final BaseDataService baseData;
     private final MergeService mergeService;
     private final ContentService contentService;
-    private final RecordingService recordingService;
-    private final BookService bookService;
     private final SpexPageService pageService;
     private final ArticleService articleService;
     private final ImageService imageService;
@@ -157,7 +152,7 @@ public class SampleDataImporter {
     @SuppressWarnings("java:S107")
     public SampleDataImporter(final SpexipediaProperties properties, final Environment environment, final JdbcClient jdbc, final SeededBaseData seededBaseData,
                               final BaseDataService baseData, final MergeService mergeService,
-                              final ContentService contentService, final RecordingService recordingService, final BookService bookService,
+                              final ContentService contentService,
                               final SpexPageService pageService, final ArticleService articleService,
                               final ImageService imageService, final RedirectService redirectService,
                               final SettingsService settingsService, final SyncConsumerService consumerService,
@@ -169,8 +164,6 @@ public class SampleDataImporter {
         this.baseData = baseData;
         this.mergeService = mergeService;
         this.contentService = contentService;
-        this.recordingService = recordingService;
-        this.bookService = bookService;
         this.pageService = pageService;
         this.articleService = articleService;
         this.imageService = imageService;
@@ -304,7 +297,6 @@ public class SampleDataImporter {
                 }
             }
             revivals(all);
-            recordings(all);
             articles();
             redirects();
             retiredAndMerged();
@@ -567,76 +559,6 @@ public class SampleDataImporter {
             pageService.setPublished(lasseMaja.get(1).id(), true);
         }
 
-        // Recordings ---------------------------------------------------------------------------------------------------
-
-        private void recordings(final List<SpexDto> all) {
-            final SpexDto lasseMaja = all.stream().filter(spex -> "Lasse-Maja".equals(spex.title()) && !spex.revival()).findFirst().orElse(null);
-            final SpexDto napoleon = all.stream().filter(spex -> "Napoleon".equals(spex.title()) && !spex.revival()).findFirst().orElse(null);
-
-            if (lasseMaja == null || napoleon == null) {
-                return;
-            }
-
-            final RecordingDto ep = recordingService.create(new RecordingService.RecordingInput("CEP 019", "Lasse-Maja", DefaultKinds.EP,
-                    lasseMaja.id(), "1984-12-01", "1984-11", new CreditRef(spexare(2), null),
-                    "Spexets EP, inspelad i kårhuset efter sista föreställningen.",
-                    image(ImageKind.COVER, 1000, 1000, "CEP 019", "Lasse-Maja").getUuid(),
-                    image(ImageKind.COVER, 1000, 1000, "Baksida", "CEP 019").getUuid(), null));
-
-            recordingService.pasteTracks(ep.id(), "Sida A\n" + String.join("\n", contentService.numbers(lasseMaja.key()).stream()
-                    .limit(3).map(NumberDto::title).toList()) + "\nSida B\n" + String.join("\n", contentService.numbers(lasseMaja.key()).stream()
-                    .skip(3).limit(3).map(NumberDto::title).toList()));
-            recordingService.setPublished(ep.id(), true);
-
-            final RecordingDto lp = recordingService.create(new RecordingService.RecordingInput("CLP 100", "Det bästa från Chalmersspexet",
-                    DefaultKinds.LP, null, "1988", null, new CreditRef(null, "Gästdirigent Harald Hornblåsare"), "En samlingsskiva.",
-                    image(ImageKind.COVER, 1000, 1000, "CLP 100", "Det bästa").getUuid(), null, null));
-            final List<RecordingService.TrackInput> tracks = new ArrayList<>();
-
-            contentService.numbers(napoleon.key()).stream().limit(2).forEach(n -> tracks.add(new RecordingService.TrackInput("A", n.id(), null)));
-            contentService.numbers(lasseMaja.key()).stream().limit(2).forEach(n -> tracks.add(new RecordingService.TrackInput("B", n.id(), null)));
-            tracks.add(new RecordingService.TrackInput("B", null, "Applåder och extranummer"));
-            recordingService.setTracks(lp.id(), tracks);
-            recordingService.setPublished(lp.id(), true);
-            recordingService.create(new RecordingService.RecordingInput("CCD 042", "Napoleon – jubileumsutgåva", DefaultKinds.CD, napoleon.id(),
-                    "2006", "2006-03", null, "Opublicerad: väntar på omslaget.", null, null, null));
-            imported(all);
-        }
-
-        /**
-         * What the content migration brings from the song register: a record the wiki had no page for, only its catalogue
-         * number and tracks, and a book with the songs of several spex, each linked to its number (and an unpublished one).
-         */
-        private void imported(final List<SpexDto> all) {
-            final List<SpexDto> originals = full(all).stream().filter(spex -> !spex.revival()).limit(4).toList();
-            final RecordingDto record = recordingService.create(new RecordingService.RecordingInput("CCD 004", "Spexlåtar 4",
-                    DefaultKinds.CD, null, "1995", null, null, null, null, null, null));
-            final List<RecordingService.TrackInput> recordTracks = new ArrayList<>();
-
-            originals.forEach(spex -> contentService.numbers(spex.key()).stream().skip(1).limit(2)
-                    .forEach(n -> recordTracks.add(new RecordingService.TrackInput(null, n.id(), null))));
-            recordingService.setTracks(record.id(), recordTracks);
-            recordingService.setPublished(record.id(), true);
-
-            // A book is printed, not a recording: its songs are the spex' numbers, some with only the words
-            final ContentDtos.BookDto book = bookService.create(new BookService.BookInput("Chalmersspex I", DefaultKinds.SPEX_BOOK, 1, "1990",
-                    "Sångtexterna från de första spexen, i spexens ordning. Några sånger har bara texten, utan noter.", null));
-            final List<BookService.SongInput> songs = new ArrayList<>();
-
-            originals.forEach(spex -> contentService.numbers(spex.key())
-                    .forEach(n -> songs.add(new BookService.SongInput(n.id(), null, songs.size() % 4 == 3))));
-            songs.add(new BookService.SongInput(null, "Tackkören", false));
-            bookService.setSongs(book.id(), songs);
-            bookService.setPublished(book.id(), true);
-            bookService.create(new BookService.BookInput("Chalmersspex II", DefaultKinds.SPEX_BOOK, 2, "2005",
-                    "Opublicerad: sångerna är inte inlagda än.", null));
-            // Books of other kinds, without songs
-            bookService.setPublished(bookService.create(new BookService.BookInput("FGV 50 år", DefaultKinds.ANNIVERSARY_BOOK, null, "1998",
-                    "Jubileumsboken om de första femtio åren, med bilder och minnen från spexen.", null)).id(), true);
-            bookService.setPublished(bookService.create(new BookService.BookInput("Sånghäftet", DefaultKinds.SONGBOOK, null, "2001",
-                    "Häftet med sångerna som sjungs på sittningar.", null)).id(), true);
-        }
-
         // Articles -----------------------------------------------------------------------------------------------------
 
         private void articles() {
@@ -774,7 +696,6 @@ public class SampleDataImporter {
         private void redirects() {
             redirectService.put(null, "Huvudsida", "/");
             redirectService.put(null, "Lasse-Maja", "/spex/1984-lasse-maja");
-            redirectService.put(null, "Alexander - CEP 019", "/recordings/cep-019");
             redirectService.put(null, "Spexets_traditioner", "/articles/spexets-traditioner");
             redirectService.put(null, "Spexets tradditioner", "/articles/spexets-traditioner");
             redirectService.put(null, "Kategori:Anekdoter", "/article-categories/anekdoter");

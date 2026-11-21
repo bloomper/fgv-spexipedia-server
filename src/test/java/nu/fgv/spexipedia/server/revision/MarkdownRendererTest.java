@@ -70,4 +70,20 @@ class MarkdownRendererTest {
     void plainTextHasNoMarkup() {
         assertThat(renderer.plain("**Bojan** och [[Adrianpokalen]]")).isEqualTo("Bojan och Adrianpokalen");
     }
+
+    @Test
+    void linksToOtherApplicationsGoWhereTheViewerMayOpenThemAndAreTextOtherwise() {
+        final String album = "spexify:album/0190aaaa-0000-7000-8000-000000000001";
+        final String markdown = "Hör [[" + album + "|skivan]] och se [[arkiv:document/0190aaaa-0000-7000-8000-000000000002]].";
+
+        assertThat(renderer.render(markdown, _ -> null, ref -> ref.app().equals("spexify") ? "https://spexify.test/albums/" + ref.id() : null))
+                .contains("<a href=\"https://spexify.test/albums/0190aaaa-0000-7000-8000-000000000001\">skivan</a>")
+                .contains("se arkiv document.")
+                .doesNotContain("/articles/new");
+        assertThat(renderer.render(markdown, _ -> null)).contains("Hör skivan och").doesNotContain("<a ");
+        // They are not articles, so no article is wanted for them
+        assertThat(renderer.wikiLinks(markdown + " [[Traditioner]]")).containsExactly("Traditioner");
+        assertThat(MarkdownRenderer.AppRef.parse("Spexarkivet:Arrangement/0190AAAA-0000-7000-8000-000000000003"))
+                .hasValueSatisfying(ref -> assertThat(ref.app()).isEqualTo("arkiv"));
+    }
 }

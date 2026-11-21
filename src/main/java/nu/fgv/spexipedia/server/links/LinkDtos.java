@@ -39,10 +39,50 @@ public final class LinkDtos {
         SPEXFLIX_VIDEO,
         ARCHIVE_MANUSCRIPT,
         ARCHIVE_ARRANGEMENT,
-        SPEXGRAM_ALBUM
+        SPEXGRAM_ALBUM,
+        SPEXFLIX_CHAPTER,
+        ARCHIVE_DOCUMENT,
+        SPEXIFY_SPEX,
+        SPEXFLIX_SPEX,
+        SPEXGRAM_SPEX,
+        ARCHIVE_SPEX
     }
 
-    public record AppLinkDto(AppLinkKind kind, String title, String url) {
+    /**
+     * @param detail more about it: a document's kind, a chapter's video
+     */
+    public record AppLinkDto(AppLinkKind kind, String title, String url, @Nullable String detail) {
+
+        public AppLinkDto(final AppLinkKind kind, final String title, final String url) {
+            this(kind, title, url, null);
+        }
+    }
+
+    /**
+     * A record of the spex: an album of Spexify's discography (spec 4.4), shown to everyone; {@code url} leads to it in
+     * Spexify for users with access there.
+     */
+    public record RecordDto(UUID id, String title, @Nullable Integer year, String kindNameSv, String kindNameEn,
+                            @Nullable String mediumNameSv, @Nullable String mediumNameEn, @Nullable String catalogueNumber,
+                            @Nullable String released, @Nullable String recorded, @Nullable String conductor,
+                            @Nullable UUID spexId, @Nullable String coverUrl, @Nullable String backCoverUrl,
+                            @Nullable String url, List<RecordTrackDto> tracks) {
+    }
+
+    /**
+     * A track of a record: {@code numberId} is the number it is a recording of; {@code url} plays it in Spexify for users
+     * with access, when it has audio.
+     */
+    public record RecordTrackDto(UUID id, @Nullable String side, int discNumber, int position, String title,
+                                 @Nullable UUID numberId, boolean hasAudio, @Nullable String url) {
+    }
+
+    /**
+     * A book a number is in: a book of Spexarkivet (spec 4.4), shown to everyone; {@code url} leads to it in Spexarkivet
+     * for users with access there.
+     */
+    public record NumberBookDto(UUID id, String title, @Nullable Integer volume, @Nullable String publishedYear,
+                                String kindNameSv, String kindNameEn, int position, boolean textOnly, @Nullable String url) {
     }
 
     /**

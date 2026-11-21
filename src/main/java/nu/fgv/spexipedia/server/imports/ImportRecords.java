@@ -45,8 +45,6 @@ public final class ImportRecords {
                         @Nullable List<ImportCharacter> characters,
                         @Nullable List<ImportScene> scenes,
                         @Nullable List<ImportNumber> numbers,
-                        @Nullable List<ImportRecording> recordings,
-                        @Nullable List<ImportBook> books,
                         @Nullable List<ImportArticleCategory> articleCategories,
                         @Nullable List<ImportArticle> articles,
                         @Nullable List<ImportRedirect> redirects) {
@@ -110,33 +108,6 @@ public final class ImportRecords {
      * someone outside FGV when {@code outsideFgv}, else an unresolved credit for editors to resolve.
      */
     public record ImportCredit(String kind, String name, @Nullable Boolean outsideFgv) {
-    }
-
-    public record ImportRecording(String sourceKey, String catalogueNumber, String title, @Nullable String medium,
-                                  @Nullable UUID spexId, @Nullable String spexSourceKey, @Nullable String released,
-                                  @Nullable String recorded, @Nullable String description, @Nullable FileRef front,
-                                  @Nullable FileRef back, @Nullable List<ImportTrack> tracks) {
-    }
-
-    /**
-     * A track: a number by source key or id, or by its title among the recording's spex's numbers, or a free title.
-     */
-    public record ImportTrack(@Nullable String side, @Nullable String numberSourceKey, @Nullable UUID numberId,
-                              @Nullable String title) {
-    }
-
-    /**
-     * A book; its songs replace the old ones when given.
-     */
-    public record ImportBook(String sourceKey, String title, @Nullable String kind, @Nullable Integer volume, @Nullable String publishedYear,
-                                 @Nullable String description, @Nullable FileRef cover, @Nullable List<ImportBookSong> songs) {
-    }
-
-    /**
-     * A song of a book: a number by id or source key, or a free title.
-     */
-    public record ImportBookSong(@Nullable String numberSourceKey, @Nullable UUID numberId, @Nullable String title,
-                                     @Nullable Boolean textOnly) {
     }
 
     public record ImportArticleCategory(String sourceKey, String name, @Nullable String description,

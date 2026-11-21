@@ -27,12 +27,8 @@ public enum KindType {
     NUMBER,
     /** Kinds of credits on numbers: lyrics, music, arrangement, choreography … */
     CREDIT,
-    /** Recording media: LP, EP, CD … */
-    MEDIUM,
     /** Image kinds, within a {@link KindUse}. */
     IMAGE,
     /** Facts on spex pages: venue, number of performances … */
-    FACT,
-    /** Book kinds: spex book, songbook, anniversary book … */
-    BOOK
+    FACT
 }

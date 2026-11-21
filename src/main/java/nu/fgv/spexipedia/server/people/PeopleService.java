@@ -58,8 +58,12 @@ public class PeopleService {
                 ? properties.apps().spexregister().webUrl().replaceAll("/+$", "") : null;
     }
 
+    /**
+     * A logged-in user, or an FGV application's service account with {@code SYNC} (Spexify showing a number's credits
+     * on its tracks to its logged-in users, fgv-infra-deploy docs/data-ownership.md): they see names, not only nicknames.
+     */
     private Optional<Caller> member() {
-        return callerService.currentIfAny().filter(Caller::isUser);
+        return callerService.currentIfAny().filter(caller -> caller.isUser() || caller.isSync());
     }
 
     /**

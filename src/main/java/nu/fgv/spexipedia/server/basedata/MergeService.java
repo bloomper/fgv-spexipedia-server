@@ -52,12 +52,11 @@ public class MergeService {
      */
     private static final Map<BaseDataKind, List<String>> REFERENCES = Map.of(
             BaseDataKind.SPEX_CATEGORY, List.of("spex.category_id"),
-            BaseDataKind.SPEX, List.of("spex.parent_id", "spex_character.spex_id", "scene.spex_id", "spex_number.spex_id",
-                    "recording.spex_id"),
+            BaseDataKind.SPEX, List.of("spex.parent_id", "spex_character.spex_id", "scene.spex_id", "spex_number.spex_id"),
             BaseDataKind.TASK_CATEGORY, List.of("task.category_id"),
             BaseDataKind.TASK, List.of(),
             BaseDataKind.CHARACTER, List.of("spex_page_photo.character_id"),
-            BaseDataKind.NUMBER, List.of("recording_track.number_id", "book_song.number_id")
+            BaseDataKind.NUMBER, List.of()
     );
 
     private final JdbcClient jdbc;

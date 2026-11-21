@@ -21,9 +21,7 @@ import nu.fgv.spexipedia.server.basedata.BaseDataGraphqlApi;
 import nu.fgv.spexipedia.server.basedata.BaseDataService;
 import nu.fgv.spexipedia.server.content.ContentDtos.CharacterDto;
 import nu.fgv.spexipedia.server.content.ContentDtos.NumberDto;
-import nu.fgv.spexipedia.server.content.ContentDtos.RecordingDto;
 import nu.fgv.spexipedia.server.content.ContentDtos.SceneDto;
-import nu.fgv.spexipedia.server.content.ContentDtos.TrackDto;
 import nu.fgv.spexipedia.server.content.ListStore.Credit;
 import nu.fgv.spexipedia.server.content.ListStore.CreditRef;
 import nu.fgv.spexipedia.server.content.ListStore.PlacedImage;
@@ -61,7 +59,8 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * GraphQL for characters, scenes, numbers, recordings and revivals' changes.
+ * GraphQL for characters, scenes, numbers and revivals' changes, and the records and books Spexipedia shows from
+ * Spexify and Spexarkivet (spec 4.4).
  *
  * @author Anders Jacobsson
  * @since 1.0
@@ -70,7 +69,6 @@ import java.util.stream.Collectors;
 public class ContentGraphqlApi {
 
     private final ContentService service;
-    private final RecordingService recordingService;
     private final BaseDataService baseData;
     private final BaseDataGraphqlApi baseDataApi;
     private final SpexPageService pageService;
@@ -80,11 +78,10 @@ public class ContentGraphqlApi {
     private final KindService kindService;
 
     @SuppressWarnings("java:S107")
-    public ContentGraphqlApi(final ContentService service, final RecordingService recordingService, final BaseDataService baseData,
+    public ContentGraphqlApi(final ContentService service, final BaseDataService baseData,
                              final BaseDataGraphqlApi baseDataApi, final SpexPageService pageService, final ImageService imageService,
                              final PeopleService peopleService, final LinkService linkService, final KindService kindService) {
         this.service = service;
-        this.recordingService = recordingService;
         this.baseData = baseData;
         this.baseDataApi = baseDataApi;
         this.pageService = pageService;
@@ -114,16 +111,6 @@ public class ContentGraphqlApi {
     @QueryMapping
     public List<NumberDto> numbersByIds(@Argument final List<String> ids) {
         return service.numbersByIds(ids);
-    }
-
-    @QueryMapping
-    public List<RecordingDto> recordings() {
-        return recordingService.recordings();
-    }
-
-    @QueryMapping
-    public @Nullable RecordingDto recording(@Argument final String id) {
-        return recordingService.recording(id).orElse(null);
     }
 
     // Mutations --------------------------------------------------------------------------------------------------------
@@ -270,48 +257,6 @@ public class ContentGraphqlApi {
         return baseData.spex(revivalId).orElseThrow();
     }
 
-    @MutationMapping
-    public RecordingDto recordingCreate(@Argument final Map<String, Object> input) {
-        return recordingService.create(recording(input));
-    }
-
-    @MutationMapping
-    public RecordingDto recordingUpdate(@Argument final String id, @Argument final Map<String, Object> input) {
-        return recordingService.update(Ids.require(id), recording(input));
-    }
-
-    @SuppressWarnings("unchecked")
-    private static RecordingService.RecordingInput recording(final Map<String, Object> input) {
-        return new RecordingService.RecordingInput((String) input.get("catalogueNumber"), (String) input.get("title"),
-                Ids.require((String) input.get("mediumId")), Ids.optional((String) input.get("spexId")),
-                (String) input.get("released"), (String) input.get("recorded"),
-                input.get("conductor") == null ? null : credit((Map<String, String>) input.get("conductor")),
-                (String) input.get("description"), Ids.optional((String) input.get("frontImageId")),
-                Ids.optional((String) input.get("backImageId")), Ids.optional((String) input.get("spexifyAlbumId")));
-    }
-
-    @MutationMapping
-    public RecordingDto recordingSetTracks(@Argument final String id, @Argument final List<Map<String, String>> tracks) {
-        return recordingService.setTracks(Ids.require(id), tracks.stream()
-                .map(track -> new RecordingService.TrackInput(track.get("side"), Ids.optional(track.get("numberId")), track.get("title")))
-                .toList());
-    }
-
-    @MutationMapping
-    public RecordingDto recordingPasteTracks(@Argument final String id, @Argument final String text) {
-        return recordingService.pasteTracks(Ids.require(id), text);
-    }
-
-    @MutationMapping
-    public RecordingDto recordingSetPublished(@Argument final String id, @Argument final boolean published) {
-        return recordingService.setPublished(Ids.require(id), published);
-    }
-
-    @MutationMapping
-    public boolean recordingDelete(@Argument final String id) {
-        return recordingService.delete(Ids.require(id));
-    }
-
     // Spex's parts -----------------------------------------------------------------------------------------------------
 
     @SchemaMapping(typeName = "Spex")
@@ -334,9 +279,17 @@ public class ContentGraphqlApi {
         return spex.revival() ? service.revivalChanges(spex.key()) : List.of();
     }
 
+    /**
+     * The records of the spex and its revivals (a revival's own only), from Spexify's discography.
+     */
     @SchemaMapping(typeName = "Spex")
-    public List<RecordingDto> recordings(final SpexDto spex) {
-        return recordingService.recordingsOfSpex(spex.key());
+    public List<nu.fgv.spexipedia.server.links.LinkDtos.RecordDto> records(final SpexDto spex) {
+        return linkService.records(baseDataApi.productions(spex).stream().map(SpexDto::id).toList());
+    }
+
+    @SchemaMapping(typeName = "RecordTrack")
+    public @Nullable NumberDto number(final nu.fgv.spexipedia.server.links.LinkDtos.RecordTrackDto track) {
+        return track.numberId() == null ? null : service.number(track.numberId().toString()).orElse(null);
     }
 
     private Map<Long, SpexDto> spexOf(final Collection<Long> keys) {
@@ -499,52 +452,11 @@ public class ContentGraphqlApi {
         return numbers.stream().collect(Collectors.toMap(n -> n, n -> linkService.numberLinks(n.id(), ids), (a, _) -> a));
     }
 
-    // Recording --------------------------------------------------------------------------------------------------------
+    @BatchMapping(typeName = "Number", field = "books")
+    public Map<NumberDto, List<nu.fgv.spexipedia.server.links.LinkDtos.NumberBookDto>> numberBooks(final List<NumberDto> numbers) {
+        final List<UUID> ids = numbers.stream().map(NumberDto::id).sorted().toList();
 
-    @SchemaMapping(typeName = "Recording", field = "spex")
-    public @Nullable SpexDto recordingSpex(final RecordingDto recording) {
-        return recording.spexKey() == null ? null : baseData.spexByKey(recording.spexKey());
-    }
-
-    @SchemaMapping(typeName = "Recording")
-    public @Nullable CreditDto conductor(final RecordingDto recording) {
-        return recording.conductor() == null ? null
-                : toCredit(recording.conductor(), persons(List.of(recording.conductor()))).orElse(null);
-    }
-
-    @SchemaMapping(typeName = "Recording", field = "medium")
-    public @Nullable Kind recordingMedium(final RecordingDto recording) {
-        return kindService.byKeys(List.of(recording.mediumKey())).get(recording.mediumKey());
-    }
-
-    @SchemaMapping(typeName = "Recording")
-    public List<TrackDto> tracks(final RecordingDto recording) {
-        return recordingService.tracks(recording.key());
-    }
-
-    @SchemaMapping(typeName = "Recording")
-    public @Nullable ImageDto front(final RecordingDto recording) {
-        return recording.frontKey() == null ? null : imageService.visible(imageService.byIds(List.of(recording.frontKey())).get(recording.frontKey()));
-    }
-
-    @SchemaMapping(typeName = "Recording")
-    public @Nullable ImageDto back(final RecordingDto recording) {
-        return recording.backKey() == null ? null : imageService.visible(imageService.byIds(List.of(recording.backKey())).get(recording.backKey()));
-    }
-
-    @SchemaMapping(typeName = "Recording", field = "links")
-    public List<AppLinkDto> recordingLinks(final RecordingDto recording) {
-        return linkService.recordingLinks(recording.spexifyAlbumId(), recording.title());
-    }
-
-    @BatchMapping(typeName = "Track", field = "number")
-    public Map<TrackDto, @Nullable NumberDto> trackNumber(final List<TrackDto> tracks) {
-        final Map<Long, NumberDto> numbers = service.numbersByKeys(tracks.stream().map(TrackDto::numberKey).filter(Objects::nonNull)
-                .collect(Collectors.toSet()));
-        final Map<TrackDto, @Nullable NumberDto> result = new HashMap<>();
-
-        tracks.forEach(t -> result.put(t, t.numberKey() == null ? null : numbers.get(t.numberKey())));
-        return result;
+        return numbers.stream().collect(Collectors.toMap(n -> n, n -> linkService.numberBooks(n.id(), ids), (a, _) -> a));
     }
 
     /**

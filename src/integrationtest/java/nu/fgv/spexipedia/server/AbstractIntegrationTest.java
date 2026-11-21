@@ -100,7 +100,7 @@ public abstract class AbstractIntegrationTest {
     private static final Map<String, String> TOKENS = new ConcurrentHashMap<>();
     private static final List<String> TABLES = List.of("import_key", "spex_package", "spex_fact", "article_link",
             "article_category_parent", "article_editing", "article_article_category", "article", "article_category",
-            "revision", "redirect", "search_document", "book_song", "book", "recording_track", "recording", "number_character", "number_credit",
+            "revision", "redirect", "search_document", "number_character", "number_credit",
             "spex_number", "character_image", "spex_character", "scene", "revival_change", "spex_page_photo",
             "spex_page_image", "spex_page", "spex", "spex_category", "task", "task_category", "id_alias", "sync_consumer",
             "change_feed_entry", "image", "audit_entry", "app_user");

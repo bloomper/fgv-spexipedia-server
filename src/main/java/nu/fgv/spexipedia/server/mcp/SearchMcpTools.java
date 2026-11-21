@@ -41,7 +41,7 @@ public class SearchMcpTools {
     }
 
     @McpTool(name = "search",
-            description = "Search Spexipedia: spex, characters, numbers, original songs, recordings, books and articles that match the words, among what you may see. People are never searched. Each hit has its kind, id, title, a snippet and its path in the web.",
+            description = "Search Spexipedia: spex, characters, numbers, original songs and articles that match the words, among what you may see. People are never searched. Each hit has its kind, id, title, a snippet and its path in the web.",
             annotations = @McpAnnotations(readOnlyHint = true, destructiveHint = false, openWorldHint = false))
     public McpToolSupport.ListResult<SearchService.Hit> search(
             @McpToolParam(description = "Words to search for") final String query,

@@ -72,46 +72,4 @@ public final class ContentRepositories {
         @Query("SELECT COALESCE(MAX(n.position), 0) FROM SpexNumber n WHERE n.spex = :spex")
         int maxPosition(Spex spex);
     }
-
-    public interface RecordingRepository extends JpaRepository<Recording, Long> {
-        Optional<Recording> findByUuid(UUID uuid);
-
-        Optional<Recording> findBySlug(String slug);
-
-        boolean existsBySlug(String slug);
-
-        List<Recording> findAllByOrderByCatalogueNumberAsc();
-
-        List<Recording> findBySpexOrderByReleasedAsc(Spex spex);
-    }
-
-    public interface TrackRepository extends JpaRepository<Track, Long> {
-        List<Track> findByRecordingOrderByPositionAsc(Recording recording);
-
-        void deleteByRecording(Recording recording);
-
-        long countByNumber(SpexNumber number);
-    }
-
-    public interface BookRepository extends JpaRepository<Book, Long> {
-        Optional<Book> findByUuid(UUID uuid);
-
-        Optional<Book> findBySlug(String slug);
-
-        boolean existsBySlug(String slug);
-
-        @Query("SELECT b FROM Book b ORDER BY CASE WHEN b.volume IS NULL THEN 1 ELSE 0 END, b.volume, b.title")
-        List<Book> findAllInOrder();
-    }
-
-    public interface BookSongRepository extends JpaRepository<BookSong, Long> {
-        List<BookSong> findByBookOrderByPositionAsc(Book book);
-
-        @Query("SELECT s FROM BookSong s JOIN FETCH s.book WHERE s.number.id IN :numberKeys ORDER BY s.book.volume, s.book.title")
-        List<BookSong> findByNumberKeys(Collection<Long> numberKeys);
-
-        void deleteByBook(Book book);
-
-        long countByNumber(SpexNumber number);
-    }
 }

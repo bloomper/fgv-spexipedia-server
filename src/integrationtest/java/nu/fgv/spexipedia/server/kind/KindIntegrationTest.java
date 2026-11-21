@@ -69,7 +69,7 @@ class KindIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void theLastKindInUseCannotBeRetired() {
-        final List<String> media = graphQl(null).document("{ kinds(type: MEDIUM) { id } }").execute()
+        final List<String> media = graphQl(null).document("{ kinds(type: FACT) { id } }").execute()
                 .path("kinds[*].id").entityList(String.class).get();
 
         for (int i = 0; i < media.size() - 1; i++) {

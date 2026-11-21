@@ -26,7 +26,5 @@ public enum SearchKind {
     SPEX,
     CHARACTER,
     NUMBER,
-    RECORDING,
-    BOOK,
     ARTICLE
 }
