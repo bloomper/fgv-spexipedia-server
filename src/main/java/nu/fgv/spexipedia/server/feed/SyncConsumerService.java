@@ -78,13 +78,15 @@ public class SyncConsumerService {
     private static @Nullable String origin(final String url) {
         try {
             final URI uri = URI.create(url.strip());
+            // Schemes and hosts are written in any case
+            final String scheme = uri.getScheme() == null ? null : uri.getScheme().toLowerCase(java.util.Locale.ROOT);
 
-            if (uri.getHost() == null || (!"http".equals(uri.getScheme()) && !"https".equals(uri.getScheme()))) {
+            if (uri.getHost() == null || (!"http".equals(scheme) && !"https".equals(scheme))) {
                 return null;
             }
-            final int port = uri.getPort() >= 0 ? uri.getPort() : "https".equals(uri.getScheme()) ? 443 : 80;
+            final int port = uri.getPort() >= 0 ? uri.getPort() : "https".equals(scheme) ? 443 : 80;
 
-            return uri.getScheme() + "://" + uri.getHost().toLowerCase(java.util.Locale.ROOT) + ":" + port;
+            return scheme + "://" + uri.getHost().toLowerCase(java.util.Locale.ROOT) + ":" + port;
         } catch (final IllegalArgumentException e) {
             return null;
         }
@@ -100,8 +102,10 @@ public class SyncConsumerService {
         }
         try {
             final URI uri = URI.create(url.strip());
+            final String origin = origin(url);
 
-            return uri.getRawUserInfo() == null && notifyOrigins.contains(origin(url));
+            // An address that is no http(s) address has no origin, and the set of origins takes no null
+            return uri.getRawUserInfo() == null && origin != null && notifyOrigins.contains(origin);
         } catch (final IllegalArgumentException e) {
             return false;
         }
