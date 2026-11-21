@@ -1196,6 +1196,8 @@ type FeedNumber {
     act: Int!
     position: Int!
     title: String!
+    "The number's kind (kinds of type NUMBER), if it has one."
+    kindId: ID
     originalTitle: String
     originalArtist: String
     retired: Boolean!

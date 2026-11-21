@@ -17,6 +17,9 @@
 package nu.fgv.spexipedia.server.kind;
 
 import nu.fgv.spexipedia.server.audit.AuditService;
+import nu.fgv.spexipedia.server.basedata.BaseDataKind;
+import nu.fgv.spexipedia.server.feed.ChangeFeedService;
+import nu.fgv.spexipedia.server.feed.FeedRecords;
 import nu.fgv.spexipedia.server.user.CallerService;
 import nu.fgv.spexipedia.server.util.Texts;
 import nu.fgv.spexipedia.server.util.Uuids;
@@ -61,13 +64,15 @@ public class KindService {
     private final JdbcClient jdbc;
     private final CallerService callerService;
     private final AuditService auditService;
+    private final ChangeFeedService feed;
 
     public KindService(final KindRepository repository, final JdbcClient jdbc, final CallerService callerService,
-                       final AuditService auditService) {
+                       final AuditService auditService, final ChangeFeedService feed) {
         this.repository = repository;
         this.jdbc = jdbc;
         this.callerService = callerService;
         this.auditService = auditService;
+        this.feed = feed;
     }
 
     // Reading --------------------------------------------------------------------------------------------------------
@@ -284,6 +289,10 @@ public class KindService {
         if (from.getId().equals(into.getId()) || from.getType() != into.getType() || from.getUse() != into.getUse()) {
             throw new BadRequestException("error.kind.wrongType", into.getNameSv());
         }
+        // The numbers of a merged number kind change kind, which the feed's followers copy
+        final List<Long> numbers = from.getType() != KindType.NUMBER ? List.of()
+                : jdbc.sql("SELECT id FROM spex_number WHERE kind_id = :from").param("from", from.getId()).query(Long.class).list();
+
         for (final String[] reference : REFERENCES.get(from.getType())) {
             // A record may hold both kinds (a fact of each, credits of each): keep the one already there
             jdbc.sql("UPDATE IGNORE " + reference[0] + " SET " + reference[1] + " = :to WHERE " + reference[1] + " = :from")
@@ -298,6 +307,7 @@ public class KindService {
         aliases.addAll(from.aliasList());
         into.setAliases(aliases(aliases));
         repository.delete(from);
+        FeedRecords.numbers(jdbc, numbers).forEach(number -> feed.upsert(BaseDataKind.NUMBER, number.id(), number));
         auditService.record("MERGE", "KIND", intoId, "Slog ihop sorten " + from.getNameSv() + " med " + into.getNameSv());
         return into;
     }

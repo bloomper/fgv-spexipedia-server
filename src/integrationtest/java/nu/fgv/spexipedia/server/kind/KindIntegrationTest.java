@@ -65,6 +65,9 @@ class KindIntegrationTest extends AbstractIntegrationTest {
                 .path("kindMerge.aliases").entityList(String.class).contains("Polka");
         graphQl(null).document("query($id: ID!) { spex(id: $id) { numbers { kind { nameSv } } } }").variable("id", spex).execute()
                 .path("spex.numbers[0].kind.nameSv").entity(String.class).isEqualTo("Dans");
+        // The feed's followers copy the number's kind: once when it was made and again with the kind it was merged into
+        graphQlWithToken(serviceToken("fgv-spexify-service")).document("{ baseDataChanges(first: 50) { changes { number { kindId } } } }").execute()
+                .path("baseDataChanges.changes[*].number.kindId").entityList(String.class).containsExactly(polka, dance);
     }
 
     @Test
