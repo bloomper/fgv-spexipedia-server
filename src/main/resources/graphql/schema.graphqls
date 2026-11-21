@@ -942,12 +942,26 @@ enum AppLinkKind {
     ARCHIVE_MANUSCRIPT
     ARCHIVE_ARRANGEMENT
     SPEXGRAM_ALBUM
+    "A chapter of a Spexflix video where the number is seen."
+    SPEXFLIX_CHAPTER
+    "A document of Spexarkivet of another kind than a manuscript: programme, press cuttings …; detail names the kind."
+    ARCHIVE_DOCUMENT
+    "Everything an application has about the spex, on its page there."
+    SPEXIFY_SPEX
+    SPEXFLIX_SPEX
+    SPEXGRAM_SPEX
+    ARCHIVE_SPEX
 }
 
+"""
+A link to material in another FGV application, for users with access there (a public Spexgram album for everyone).
+"""
 type AppLink {
     kind: AppLinkKind!
     title: String!
     url: String!
+    "More about it, in the request's language: a document's kind, a chapter's video."
+    detail: String
 }
 
 enum Visibility {

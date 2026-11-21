@@ -41,7 +41,8 @@ import java.util.regex.Pattern;
 /**
  * Markdown (CommonMark with tables) to HTML for articles and spex page texts. Anyone logged in writes articles, so raw
  * HTML is escaped and only http(s), mailto and relative links are kept. {@code [[Title]]} and {@code [[Title|text]]}
- * link to articles by title.
+ * link to articles by title. {@code [[spexify:album/<id>|text]]} and the like link to material in another FGV
+ * application ({@link AppRef}), shown as a link to those who may open it there and as text to everyone else.
  *
  * @author Anders Jacobsson
  * @since 1.0
@@ -52,6 +53,9 @@ public class MarkdownRenderer {
     private static final Pattern WIKI_LINK = Pattern.compile("\\[\\[([^\\[\\]|\\n]{1,200})(?:\\|([^\\[\\]\\n]{1,200}))?]]");
     private static final Set<String> SCHEMES = Set.of("http", "https", "mailto");
     private static final Pattern HEADING = Pattern.compile("<h([1-6]) id=\"([^\"]+)\">(.*?)</h\\1>", Pattern.DOTALL);
+
+    private static final Pattern APP_REF = Pattern.compile(
+            "(?i)(spexify|spexflix|spexgram|arkiv|spexarkivet):([a-z]+)/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})");
 
     /** Where links to missing articles go: the new article page, with the title. */
     public static final String NEW_ARTICLE = "/articles/new?title=";
@@ -74,9 +78,40 @@ public class MarkdownRenderer {
     }
 
     /**
+     * Material in another FGV application that an article links to, e.g. {@code spexify:album/<id>}: the application
+     * ({@code spexify}, {@code spexflix}, {@code spexgram}, {@code arkiv}), the kind of material and its id.
+     */
+    public record AppRef(String app, String kind, java.util.UUID id) {
+
+        /** The reference in the link, or empty when the link is to an article. */
+        public static java.util.Optional<AppRef> parse(final String link) {
+            final Matcher matcher = APP_REF.matcher(link.strip());
+
+            if (!matcher.matches()) {
+                return java.util.Optional.empty();
+            }
+
+            final String app = matcher.group(1).toLowerCase(Locale.ROOT);
+
+            return java.util.Optional.of(new AppRef("spexarkivet".equals(app) ? "arkiv" : app, matcher.group(2).toLowerCase(Locale.ROOT),
+                    java.util.UUID.fromString(matcher.group(3).toLowerCase(Locale.ROOT))));
+        }
+    }
+
+    /**
      * The Markdown as HTML; wiki links go where {@code articlePath} says (by title), or to a search when it says null.
+     * Links to other applications' material are text only.
      */
     public String render(final @Nullable String markdown, final Function<String, @Nullable String> articlePath) {
+        return render(markdown, articlePath, _ -> null);
+    }
+
+    /**
+     * The Markdown as HTML; wiki links go where {@code articlePath} says (by title), or to a search when it says null,
+     * and links to other applications' material where {@code appLink} says, or are text only when it says null.
+     */
+    public String render(final @Nullable String markdown, final Function<String, @Nullable String> articlePath,
+                         final Function<AppRef, @Nullable String> appLink) {
         if (markdown == null || markdown.isBlank()) {
             return "";
         }
@@ -87,6 +122,17 @@ public class MarkdownRenderer {
         while (matcher.find()) {
             final String title = matcher.group(1).strip();
             final String text = matcher.group(2) == null ? title : matcher.group(2).strip();
+            final java.util.Optional<AppRef> app = AppRef.parse(title);
+
+            if (app.isPresent()) {
+                final String url = appLink.apply(app.get());
+                final String label = matcher.group(2) == null ? app.get().app() + " " + app.get().kind() : text;
+
+                matcher.appendReplacement(resolved, Matcher.quoteReplacement(url == null ? label.replace("[", "\\[")
+                        : "[" + label.replace("]", "\\]") + "](" + url + ")"));
+                continue;
+            }
+
             final String path = articlePath.apply(title);
             // A link to a missing article opens a new one with the title; the web shows such links in red
             final String target = path != null ? path : NEW_ARTICLE + java.net.URLEncoder.encode(title, java.nio.charset.StandardCharsets.UTF_8);
@@ -130,7 +176,8 @@ public class MarkdownRenderer {
         if (markdown == null) {
             return List.of();
         }
-        return WIKI_LINK.matcher(markdown).results().map(result -> result.group(1).strip()).toList();
+        return WIKI_LINK.matcher(markdown).results().map(result -> result.group(1).strip())
+                .filter(title -> AppRef.parse(title).isEmpty()).toList();
     }
 
     private static boolean safe(final String url) {

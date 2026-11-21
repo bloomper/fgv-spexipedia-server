@@ -39,10 +39,23 @@ public final class LinkDtos {
         SPEXFLIX_VIDEO,
         ARCHIVE_MANUSCRIPT,
         ARCHIVE_ARRANGEMENT,
-        SPEXGRAM_ALBUM
+        SPEXGRAM_ALBUM,
+        SPEXFLIX_CHAPTER,
+        ARCHIVE_DOCUMENT,
+        SPEXIFY_SPEX,
+        SPEXFLIX_SPEX,
+        SPEXGRAM_SPEX,
+        ARCHIVE_SPEX
     }
 
-    public record AppLinkDto(AppLinkKind kind, String title, String url) {
+    /**
+     * @param detail more about it: a document's kind, a chapter's video
+     */
+    public record AppLinkDto(AppLinkKind kind, String title, String url, @Nullable String detail) {
+
+        public AppLinkDto(final AppLinkKind kind, final String title, final String url) {
+            this(kind, title, url, null);
+        }
     }
 
     /**

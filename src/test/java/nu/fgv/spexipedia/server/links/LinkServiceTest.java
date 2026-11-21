@@ -160,4 +160,63 @@ class LinkServiceTest {
                 "A", java.util.Set.of(nu.fgv.spexipedia.server.user.Role.USER), java.util.Set.of(App.ARCHIVE))));
         assertThat(service.numberBooks(number, List.of(number)).getFirst().url()).isEqualTo("https://arkiv.example/manuscripts/" + book);
     }
+
+    private static nu.fgv.spexipedia.server.user.Caller with(final App... apps) {
+        return new nu.fgv.spexipedia.server.user.Caller("s-apps", "a@spexipedia.test", "A",
+                java.util.Set.of(nu.fgv.spexipedia.server.user.Role.USER), java.util.Set.of(apps));
+    }
+
+    @Test
+    void aNumberLeadsToTheChaptersWhereItIsSeen() {
+        final UUID number = UUID.randomUUID();
+        final UUID track = UUID.randomUUID();
+        final UUID video = UUID.randomUUID();
+
+        when(client.web(App.SPEXFLIX)).thenReturn(Optional.of("https://flix.example"));
+        when(client.spexifyLinks(any(), any())).thenReturn(Optional.of(new AppsClient.SpexifyLinks(List.of(),
+                List.of(new AppsClient.SpexifyTrack(track, "Ouvertyr", number, UUID.randomUUID())))));
+        when(client.spexflixChapters(any())).thenReturn(Optional.of(List.of(new AppsClient.SpexflixChapter(track, video, "Premiären", "Ouvertyr", 75))));
+        when(callerService.currentIfAny()).thenReturn(Optional.of(with(App.SPEXFLIX)));
+
+        assertThat(service.numberLinks(number, List.of(number))).singleElement().satisfies(link -> {
+            assertThat(link.kind()).isEqualTo(LinkDtos.AppLinkKind.SPEXFLIX_CHAPTER);
+            assertThat(link.url()).isEqualTo("https://flix.example/videos/" + video + "?t=75");
+            assertThat(link.detail()).isEqualTo("Premiären");
+        });
+    }
+
+    @Test
+    void aSpexLeadsToEveryApplicationsPageOfItAndNamesTheKindsOfDocuments() {
+        final UUID spex = UUID.randomUUID();
+
+        when(client.web(App.ARCHIVE)).thenReturn(Optional.of("https://arkiv.example"));
+        when(client.web(App.SPEXIFY)).thenReturn(Optional.of("https://spexify.example"));
+        when(client.spexgramAlbums(any(), anyBoolean())).thenReturn(Optional.of(List.of()));
+        when(client.spexifyLinks(any(), any())).thenReturn(Optional.of(new AppsClient.SpexifyLinks(List.of(), List.of())));
+        when(client.archiveLinks(any(), any())).thenReturn(Optional.of(new AppsClient.ArchiveLinks(List.of(
+                new AppsClient.ArchiveDocument(UUID.randomUUID(), "Lasse-Maja", spex, "Manus", "Manuscript"),
+                new AppsClient.ArchiveDocument(UUID.randomUUID(), "Pressklipp 1984", spex, "Pressklipp", "Press cuttings")), List.of(), List.of())));
+        when(callerService.currentIfAny()).thenReturn(Optional.of(with(App.ARCHIVE, App.SPEXIFY)));
+
+        final List<LinkDtos.AppLinkDto> links = service.spexLinks(List.of(spex));
+
+        assertThat(links).extracting(LinkDtos.AppLinkDto::kind).containsExactly(LinkDtos.AppLinkKind.ARCHIVE_MANUSCRIPT,
+                LinkDtos.AppLinkKind.ARCHIVE_DOCUMENT, LinkDtos.AppLinkKind.SPEXIFY_SPEX, LinkDtos.AppLinkKind.ARCHIVE_SPEX);
+        assertThat(links.get(1).detail()).isEqualTo("Pressklipp");
+        assertThat(links.get(2).url()).isEqualTo("https://spexify.example/albums?spex=" + spex);
+        assertThat(links.get(3).url()).isEqualTo("https://arkiv.example/spex/" + spex);
+    }
+
+    @Test
+    void anArticleLinksToMaterialOnlyForThoseWithAccessThere() {
+        final nu.fgv.spexipedia.server.revision.MarkdownRenderer.AppRef ref =
+                nu.fgv.spexipedia.server.revision.MarkdownRenderer.AppRef.parse("spexify:album/0190aaaa-0000-7000-8000-000000000001").orElseThrow();
+
+        when(client.web(App.SPEXIFY)).thenReturn(Optional.of("https://spexify.example"));
+        when(callerService.currentIfAny()).thenReturn(Optional.empty());
+        assertThat(service.materialLink(ref)).isEmpty();
+        when(callerService.currentIfAny()).thenReturn(Optional.of(with(App.SPEXIFY)));
+        assertThat(service.materialLink(ref)).contains("https://spexify.example/albums/0190aaaa-0000-7000-8000-000000000001");
+        assertThat(service.materialLink(new nu.fgv.spexipedia.server.revision.MarkdownRenderer.AppRef("spexify", "konsert", ref.id()))).isEmpty();
+    }
 }

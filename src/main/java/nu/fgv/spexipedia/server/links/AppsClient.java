@@ -69,12 +69,14 @@ public class AppsClient {
                     spexId coverUrl backCoverUrl tracks { id side discNumber trackNumber title numberId hasAudio }
                 }
             }""";
+    private static final String SPEXFLIX_CHAPTERS = """
+            query Chapters($trackIds: [ID!]!) { chapterLinks(trackIds: $trackIds) { trackId videoId videoTitle chapterTitle startSeconds } }""";
     private static final String SPEXFLIX_VIDEOS = """
             query Videos($spexIds: [ID!]!) { spexipediaVideos(spexIds: $spexIds) { id title spexId } }""";
     private static final String ARCHIVE_LINKS = """
             query Links($spexIds: [ID!]!, $numberIds: [ID!]!) {
                 spexipediaLinks(spexIds: $spexIds, numberIds: $numberIds) {
-                    manuscripts { id title spexId } arrangements { id title numberId }
+                    manuscripts { id title spexId kindNameSv kindNameEn } arrangements { id title numberId }
                     books { id title volume publishedYear kindNameSv kindNameEn spexId songs { position numberId textOnly } }
                 }
             }""";
@@ -151,6 +153,18 @@ public class AppsClient {
     public Optional<List<DiscographyAlbum>> spexifyDiscography(final List<UUID> spexIds) {
         return call(service.get(App.SPEXIFY), App.SPEXIFY, SPEXIFY_DISCOGRAPHY, "spexipediaDiscography", DiscographyAlbum.class,
                 Map.of("spexIds", strings(spexIds)));
+    }
+
+    /**
+     * The chapters of Spexflix's videos where the tracks are seen.
+     */
+    @Cacheable(cacheNames = CacheConfig.LINKS, key = "'chapters:' + #trackIds.toString()")
+    public Optional<List<SpexflixChapter>> spexflixChapters(final List<UUID> trackIds) {
+        if (trackIds.isEmpty()) {
+            return Optional.of(List.of());
+        }
+        return call(service.get(App.SPEXFLIX), App.SPEXFLIX, SPEXFLIX_CHAPTERS, "chapterLinks", SpexflixChapter.class,
+                Map.of("trackIds", strings(trackIds)));
     }
 
     @Cacheable(cacheNames = CacheConfig.LINKS, key = "'spexflix:' + #spexIds.toString()")
@@ -242,7 +256,13 @@ public class AppsClient {
                               String kindNameSv, String kindNameEn, @Nullable UUID spexId, @Nullable List<ArchiveBookSong> songs) {
     }
 
-    public record ArchiveLinks(@Nullable List<Titled> manuscripts, @Nullable List<ArchiveArrangement> arrangements,
+    public record SpexflixChapter(UUID trackId, UUID videoId, String videoTitle, String chapterTitle, int startSeconds) {
+    }
+
+    public record ArchiveDocument(UUID id, String title, @Nullable UUID spexId, @Nullable String kindNameSv, @Nullable String kindNameEn) {
+    }
+
+    public record ArchiveLinks(@Nullable List<ArchiveDocument> manuscripts, @Nullable List<ArchiveArrangement> arrangements,
                                @Nullable List<ArchiveBook> books) {
     }
 

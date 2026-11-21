@@ -87,6 +87,17 @@ public class ArticleService {
     private final RedirectService redirects;
     private final BaseDataService baseData;
 
+    /**
+     * Where links to other applications' material go for the viewer; set by Spring, absent in some unit tests (the
+     * links are then text only).
+     */
+    private nu.fgv.spexipedia.server.links.@org.jspecify.annotations.Nullable LinkService links;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setLinks(final nu.fgv.spexipedia.server.links.LinkService links) {
+        this.links = links;
+    }
+
     @SuppressWarnings("java:S107")
     public ArticleService(final ArticleRepository repository, final ArticleCategoryRepository categoryRepository,
                           final RevisionService revisionService, final MarkdownRenderer markdown,
@@ -400,8 +411,12 @@ public class ArticleService {
     }
 
 
+    /**
+     * The Markdown as HTML for the viewer: links to articles by title, and links to other applications' material for
+     * a viewer with access there.
+     */
     public String html(final @Nullable String body) {
-        return markdown.render(body, this::pathByTitle);
+        return markdown.render(body, this::pathByTitle, ref -> links == null ? null : links.materialLink(ref).orElse(null));
     }
 
     @Transactional

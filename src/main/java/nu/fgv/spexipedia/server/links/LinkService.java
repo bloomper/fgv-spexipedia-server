@@ -31,6 +31,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -141,25 +142,66 @@ public class LinkService {
                     link(App.SPEXFLIX, "/videos/" + video.id()).ifPresent(url -> links.add(new AppLinkDto(AppLinkKind.SPEXFLIX_VIDEO, video.title(), url)))));
         }
         if (access(App.ARCHIVE)) {
-            client.archiveLinks(productions, List.of()).ifPresent(archive -> nonNull(archive.manuscripts()).forEach(manuscript ->
-                    link(App.ARCHIVE, "/manuscripts/" + manuscript.id()).ifPresent(url -> links.add(new AppLinkDto(AppLinkKind.ARCHIVE_MANUSCRIPT, manuscript.title(), url)))));
+            // A manuscript is shown with the manuscript and programme section; documents of other kinds are named by kind
+            client.archiveLinks(productions, List.of()).ifPresent(archive -> nonNull(archive.manuscripts()).forEach(document ->
+                    link(App.ARCHIVE, "/manuscripts/" + document.id()).ifPresent(url -> links.add(new AppLinkDto(
+                            manuscript(document) ? AppLinkKind.ARCHIVE_MANUSCRIPT : AppLinkKind.ARCHIVE_DOCUMENT, document.title(), url,
+                            english() ? document.kindNameEn() : document.kindNameSv())))));
         }
+        // Everything each application has about the spex, on its page there, for users with access
+        final UUID spex = productions.getFirst();
+
+        everything(links, App.SPEXIFY, AppLinkKind.SPEXIFY_SPEX, "/albums?spex=" + spex);
+        everything(links, App.SPEXFLIX, AppLinkKind.SPEXFLIX_SPEX, "/spex/" + spex);
+        everything(links, App.SPEXGRAM, AppLinkKind.SPEXGRAM_SPEX, "/spex/" + spex);
+        everything(links, App.ARCHIVE, AppLinkKind.ARCHIVE_SPEX, "/spex/" + spex);
         return links;
     }
 
+    private void everything(final List<AppLinkDto> links, final App app, final AppLinkKind kind, final String path) {
+        if (access(app)) {
+            link(app, path).ifPresent(url -> links.add(new AppLinkDto(kind, "", url)));
+        }
+    }
+
+    /** Whether a document of Spexarkivet is the spex' manuscript: of the kind named so, the archive's first kind. */
+    private static boolean manuscript(final AppsClient.ArchiveDocument document) {
+        return document.kindNameSv() == null || "manus".equalsIgnoreCase(document.kindNameSv().strip());
+    }
+
+    /** Whether the request asked for English; Swedish otherwise, as everywhere in Spexipedia. */
+    private static boolean english() {
+        final org.springframework.context.i18n.LocaleContext context = org.springframework.context.i18n.LocaleContextHolder.getLocaleContext();
+
+        return nu.fgv.spexipedia.server.util.Locales.supported(context == null ? null : context.getLocale()).equals(java.util.Locale.ENGLISH);
+    }
+
     /**
-     * Links about a number: its tracks in Spexify and its arrangements in Spexarkivet.
+     * Links about a number: its tracks in Spexify, the chapters of Spexflix's videos where it is seen, and its
+     * arrangements in Spexarkivet.
      *
      * @param numberIds every number of the page, asked for at once and cached, so a page asks each application once
      */
     public List<AppLinkDto> numberLinks(final UUID numberId, final List<UUID> numberIds) {
         final List<AppLinkDto> links = new ArrayList<>();
 
+        final List<AppsClient.SpexifyTrack> tracks = access(App.SPEXIFY) || access(App.SPEXFLIX)
+                ? client.spexifyLinks(List.of(), numberIds).map(spexify -> nonNull(spexify.tracks())).orElse(List.of()) : List.of();
+        final List<AppsClient.SpexifyTrack> own = tracks.stream().filter(track -> numberId.equals(track.numberId())).toList();
+
         if (access(App.SPEXIFY)) {
-            client.spexifyLinks(List.of(), numberIds).ifPresent(spexify -> nonNull(spexify.tracks()).stream()
-                    .filter(track -> numberId.equals(track.numberId()) && track.albumId() != null)
+            own.stream().filter(track -> track.albumId() != null)
                     .forEach(track -> link(App.SPEXIFY, "/albums/" + track.albumId() + "?track=" + track.id())
-                            .ifPresent(url -> links.add(new AppLinkDto(AppLinkKind.SPEXIFY_TRACK, track.title(), url)))));
+                            .ifPresent(url -> links.add(new AppLinkDto(AppLinkKind.SPEXIFY_TRACK, track.title(), url))));
+        }
+        if (access(App.SPEXFLIX) && !own.isEmpty()) {
+            // Asked for every track of the page at once, so the page asks Spexflix once
+            final java.util.Set<UUID> mine = own.stream().map(AppsClient.SpexifyTrack::id).collect(java.util.stream.Collectors.toSet());
+
+            client.spexflixChapters(tracks.stream().map(AppsClient.SpexifyTrack::id).sorted().toList()).ifPresent(chapters -> chapters.stream()
+                    .filter(chapter -> mine.contains(chapter.trackId()))
+                    .forEach(chapter -> link(App.SPEXFLIX, "/videos/" + chapter.videoId() + "?t=" + chapter.startSeconds())
+                            .ifPresent(url -> links.add(new AppLinkDto(AppLinkKind.SPEXFLIX_CHAPTER, chapter.chapterTitle(), url, chapter.videoTitle())))));
         }
         if (access(App.ARCHIVE)) {
             client.archiveLinks(List.of(), numberIds).ifPresent(archive -> nonNull(archive.arrangements()).stream()
@@ -209,6 +251,26 @@ public class LinkService {
                                 book.kindNameSv(), book.kindNameEn(), song.position(), song.textOnly(),
                                 archive ? link(App.ARCHIVE, "/manuscripts/" + book.id()).orElse(null) : null)))
                 .toList();
+    }
+
+    /**
+     * The address of material in another application that an article links to (spec 4.5), for a viewer with access
+     * there; empty for everyone else, who see the link's text only.
+     */
+    public Optional<String> materialLink(final nu.fgv.spexipedia.server.revision.MarkdownRenderer.AppRef ref) {
+        final String id = ref.id().toString();
+        final Optional<Map.Entry<App, String>> target = switch (ref.app() + ":" + ref.kind()) {
+            case "spexify:album" -> Optional.of(Map.entry(App.SPEXIFY, "/albums/" + id));
+            case "spexflix:video" -> Optional.of(Map.entry(App.SPEXFLIX, "/videos/" + id));
+            case "spexflix:collection" -> Optional.of(Map.entry(App.SPEXFLIX, "/collections/" + id));
+            case "spexgram:album" -> Optional.of(Map.entry(App.SPEXGRAM, "/albums/" + id));
+            case "spexgram:item" -> Optional.of(Map.entry(App.SPEXGRAM, "/items/" + id));
+            case "arkiv:document" -> Optional.of(Map.entry(App.ARCHIVE, "/manuscripts/" + id));
+            case "arkiv:arrangement" -> Optional.of(Map.entry(App.ARCHIVE, "/arrangements/" + id));
+            default -> Optional.empty();
+        };
+
+        return target.filter(entry -> access(entry.getKey())).flatMap(entry -> link(entry.getKey(), entry.getValue()));
     }
 
     private Optional<String> link(final App app, final String path) {
