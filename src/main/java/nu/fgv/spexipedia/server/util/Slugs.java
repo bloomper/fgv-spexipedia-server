@@ -63,11 +63,4 @@ public final class Slugs {
         }
         return candidate;
     }
-
-    /**
-     * For comparing names and titles: lower case, without diacritics, spacing or punctuation.
-     */
-    public static String fold(final @Nullable String text) {
-        return of(text).replace("-", "");
-    }
 }

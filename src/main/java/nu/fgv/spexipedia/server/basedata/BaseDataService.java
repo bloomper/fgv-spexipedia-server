@@ -655,28 +655,6 @@ public class BaseDataService {
     }
 
     /**
-     * ADMIN. Creates or updates a task category with a given id.
-     */
-    @Transactional
-    public TaskCategoryDto importTaskCategory(final UUID id, final String name, final boolean actorPresent, final boolean instruments) {
-        callerService.current().requireAdmin();
-
-        final TaskCategory category = taskCategoryRepository.findByUuid(id).orElseGet(() -> {
-            final TaskCategory created = new TaskCategory();
-
-            created.setUuid(id);
-            return created;
-        });
-
-        category.setName(Texts.required(name, 255, "name"));
-        category.setActorPresent(actorPresent);
-        category.setInstruments(instruments);
-        taskCategoryRepository.save(category);
-        changed(category);
-        return BaseDataDtos.toDto(category);
-    }
-
-    /**
      * ADMIN. Creates or updates a task with a given id.
      */
     @Transactional

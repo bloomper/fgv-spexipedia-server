@@ -39,9 +39,4 @@ class SlugsTest {
         assertThat(Slugs.unique("1950 Cæsarion", "x", taken::contains)).isEqualTo("1950-caesarion-3");
         assertThat(Slugs.unique("!!!", "fallback", taken::contains)).isEqualTo("fallback");
     }
-
-    @Test
-    void foldingIgnoresCaseDiacriticsAndPunctuation() {
-        assertThat(Slugs.fold("Kärleksduett i månsken")).isEqualTo(Slugs.fold("KARLEKSDUETT I MANSKEN!"));
-    }
 }

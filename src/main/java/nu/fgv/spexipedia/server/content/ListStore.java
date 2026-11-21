@@ -311,27 +311,4 @@ public class ListStore {
                         rs.getBoolean(3), (Integer) rs.getObject(4), (Integer) rs.getObject(5)))
                 .list();
     }
-
-    // Merges ---------------------------------------------------------------------------------------------------------
-
-    /**
-     * Moves references to a merged character onto the one it was merged into.
-     */
-    @Transactional(propagation = Propagation.MANDATORY)
-    public void moveCharacter(final long from, final long to, final UUID fromUuid, final UUID toUuid) {
-        jdbc.sql("UPDATE IGNORE number_character SET character_id = :to WHERE character_id = :from").param("to", to).param("from", from).update();
-        jdbc.sql("DELETE FROM number_character WHERE character_id = :from").param("from", from).update();
-        jdbc.sql("UPDATE spex_page_photo SET character_id = :to WHERE character_id = :from").param("to", to).param("from", from).update();
-        jdbc.sql("UPDATE revival_change SET record_id = :to WHERE record_id = :from AND kind = 'CHARACTER'")
-                .param("to", toUuid.toString()).param("from", fromUuid.toString()).update();
-    }
-
-    /**
-     * Moves references to a merged number onto the one it was merged into.
-     */
-    @Transactional(propagation = Propagation.MANDATORY)
-    public void moveNumber(final long from, final long to, final UUID fromUuid, final UUID toUuid) {
-        jdbc.sql("UPDATE revival_change SET record_id = :to WHERE record_id = :from AND kind = 'NUMBER'")
-                .param("to", toUuid.toString()).param("from", fromUuid.toString()).update();
-    }
 }
