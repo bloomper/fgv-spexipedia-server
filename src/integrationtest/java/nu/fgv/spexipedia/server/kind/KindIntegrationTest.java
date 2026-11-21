@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Kinds are data that admins keep (spec 4.6).
@@ -68,6 +69,75 @@ class KindIntegrationTest extends AbstractIntegrationTest {
         // The feed's followers copy the number's kind: once when it was made and again with the kind it was merged into
         graphQlWithToken(serviceToken("fgv-spexify-service")).document("{ baseDataChanges(first: 50) { changes { number { kindId } } } }").execute()
                 .path("baseDataChanges.changes[*].number.kindId").entityList(String.class).containsExactly(polka, dance);
+    }
+
+    @Test
+    void aMergedCreditKindPutsItsCreditsAfterTheOthers() {
+        final String spex = createSpex("1984", "Lasse-Maja", null);
+        final String text = graphQl(ADMIN).document(SAVE).variable("type", "CREDIT").variable("n", "Textförfattare").execute()
+                .path("kindSave.id").entity(String.class).get();
+        final String lyrics = graphQl(ADMIN).document(SAVE).variable("type", "CREDIT").variable("n", "Sångtext").execute()
+                .path("kindSave.id").entity(String.class).get();
+        final String number = graphQl(EDITOR).document("""
+                        mutation($s: ID!, $text: ID!, $lyrics: ID!) { numberCreate(spexId: $s, input: {act: 1, title: "Finalen", credits: [
+                            {kindId: $text, name: "Tage Text"}, {kindId: $lyrics, name: "Lisa Lyrik"}, {kindId: $lyrics, name: "Lars Lyrik"}]}) { id } }""")
+                .variable("s", spex).variable("text", text).variable("lyrics", lyrics).execute()
+                .path("numberCreate.id").entity(String.class).get();
+
+        graphQl(ADMIN).document("mutation($id: ID!, $into: ID!) { kindMerge(id: $id, intoId: $into) { id } }")
+                .variable("id", text).variable("into", lyrics).execute().path("kindMerge.id").entity(String.class).isEqualTo(lyrics);
+
+        // Nobody's credit is lost: the merged kind's come after those the number already had of the other kind
+        graphQl(EDITOR).document("query($id: ID!) { number(id: $id) { credits { kind { id } position credit { name } } } }")
+                .variable("id", number).execute()
+                .path("number.credits[*].credit.name").entityList(String.class).containsExactly("Lisa Lyrik", "Lars Lyrik", "Tage Text")
+                .path("number.credits[*].position").entityList(Integer.class).containsExactly(0, 1, 2)
+                .path("number.credits[*].kind.id").entityList(String.class).containsExactly(lyrics, lyrics, lyrics);
+    }
+
+    @Test
+    void aMergedImageKindPutsItsImagesAfterTheOthersOnAPage() throws Exception {
+        final String spex = createSpex("1984", "Lasse-Maja", null);
+        final String kind = "mutation($n: String!) { kindSave(input: {type: IMAGE, use: PAGE, nameSv: $n, nameEn: $n}) { id } }";
+        final String sketches = graphQl(ADMIN).document(kind).variable("n", "Skisser").execute().path("kindSave.id").entity(String.class).get();
+        final String drawings = graphQl(ADMIN).document(kind).variable("n", "Teckningar").execute().path("kindSave.id").entity(String.class).get();
+        final String sketch = upload("skiss.png");
+        final String first = upload("teckning-1.png");
+        final String second = upload("teckning-2.png");
+        final String set = "mutation($s: ID!, $k: ID!, $images: [ImageRefInput!]!) { spexPageSetImages(spexId: $s, section: OTHER, kindId: $k, images: $images) { published } }";
+
+        graphQl(AUTHOR).document(set).variable("s", spex).variable("k", sketches).variable("images", List.of(Map.of("imageId", sketch))).execute()
+                .path("spexPageSetImages.published").hasValue();
+        graphQl(AUTHOR).document(set).variable("s", spex).variable("k", drawings)
+                .variable("images", List.of(Map.of("imageId", first), Map.of("imageId", second))).execute()
+                .path("spexPageSetImages.published").hasValue();
+
+        graphQl(ADMIN).document("mutation($id: ID!, $into: ID!) { kindMerge(id: $id, intoId: $into) { id } }")
+                .variable("id", sketches).variable("into", drawings).execute().path("kindMerge.id").entity(String.class).isEqualTo(drawings);
+
+        graphQl(AUTHOR).document("query($id: ID!) { spex(id: $id) { page { images(section: OTHER) { image { id } kind { id } } } } }")
+                .variable("id", spex).execute()
+                .path("spex.page.images[*].image.id").entityList(String.class).containsExactly(first, second, sketch)
+                .path("spex.page.images[*].kind.id").entityList(String.class).containsExactly(drawings, drawings, drawings);
+    }
+
+    private String upload(final String name) throws Exception {
+        final java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        final org.springframework.http.client.MultipartBodyBuilder body = new org.springframework.http.client.MultipartBodyBuilder();
+
+        javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(160, 90, java.awt.image.BufferedImage.TYPE_INT_RGB), "png", out);
+        body.part("file", new org.springframework.core.io.ByteArrayResource(out.toByteArray()) {
+            @Override
+            public String getFilename() {
+                return name;
+            }
+        });
+        return String.valueOf(http().post().uri("/api/images?kind=OTHER")
+                .header(HttpHeaders.AUTHORIZATION, token(AUTHOR))
+                .contentType(org.springframework.http.MediaType.MULTIPART_FORM_DATA)
+                .body(body.build())
+                .retrieve()
+                .body(Map.class).get("id"));
     }
 
     @Test
