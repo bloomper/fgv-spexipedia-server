@@ -43,8 +43,6 @@ public final class ContentRepositories {
 
         List<SpexCharacter> findBySpexOrderByPositionAsc(Spex spex);
 
-        List<SpexCharacter> findBySpexInOrderByPositionAsc(Collection<Spex> spex);
-
         @Query("SELECT COALESCE(MAX(c.position), 0) FROM SpexCharacter c WHERE c.spex = :spex")
         int maxPosition(Spex spex);
     }

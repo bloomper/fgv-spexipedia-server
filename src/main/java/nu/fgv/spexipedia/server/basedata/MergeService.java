@@ -237,13 +237,7 @@ public class MergeService {
                     .query((rs, _) -> new FeedRecords.FeedCharacter(UUID.fromString(rs.getString(1)), UUID.fromString(rs.getString(2)),
                             rs.getString(3), rs.getInt(4), rs.getBoolean(5)))
                     .single();
-            case NUMBER -> jdbc.sql("""
-                            SELECT n.uuid, s.uuid AS spex, n.act, n.position, n.title, n.original_title, n.original_artist, n.retired
-                            FROM spex_number n JOIN spex s ON s.id = n.spex_id WHERE n.id = :id""")
-                    .param("id", key)
-                    .query((rs, _) -> new FeedRecords.FeedNumber(UUID.fromString(rs.getString(1)), UUID.fromString(rs.getString(2)),
-                            rs.getInt(3), rs.getInt(4), rs.getString(5), rs.getString(6), rs.getString(7), rs.getBoolean(8)))
-                    .single();
+            case NUMBER -> FeedRecords.numbers(jdbc, List.of(key)).getFirst();
         };
     }
 

@@ -790,7 +790,8 @@ public class ContentService {
 
     FeedRecords.FeedNumber feedRecord(final SpexNumber number) {
         return new FeedRecords.FeedNumber(number.getUuid(), number.getSpex().getUuid(), number.getAct(), number.getPosition(),
-                number.getTitle(), number.getOriginalTitle(), number.getOriginalArtist(), number.isRetired());
+                number.getTitle(), number.getKind() == null ? null : number.getKind().getUuid(), number.getOriginalTitle(),
+                number.getOriginalArtist(), number.isRetired());
     }
 
     // Imports (spec 5.11) ----------------------------------------------------------------------------------------------

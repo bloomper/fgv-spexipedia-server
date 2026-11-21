@@ -43,6 +43,20 @@ class MarkdownRendererTest {
     }
 
     @Test
+    void schemesWrittenWithEntitiesOrThroughReferencesAreNotLinks() {
+        final String html = renderer.render("""
+                [a](javascript&colon;alert(1)) [b](&#106;avascript:alert(1)) [c](JaVaScRiPt:alert(1)) [d](data:text/html,x)
+                [e][r] ![f](javascript:alert(1)) <javascript:alert(1)>
+
+                [r]: javascript:alert(1)
+                """, _ -> null);
+
+        assertThat(java.util.regex.Pattern.compile("(?:href|src)=\"([^\"]*)\"").matcher(html).results().map(result -> result.group(1)))
+                .isNotEmpty()
+                .allMatch("#"::equals);
+    }
+
+    @Test
     void wikiLinksGoToArticlesOrToANewArticle() {
         final String html = renderer.render("Se [[Spexets traditioner]] och [[Okänd sida|den här]].",
                 title -> title.equals("Spexets traditioner") ? "/articles/spexets-traditioner" : null);

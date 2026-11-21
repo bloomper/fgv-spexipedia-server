@@ -17,6 +17,9 @@
 package nu.fgv.spexipedia.server.kind;
 
 import nu.fgv.spexipedia.server.audit.AuditService;
+import nu.fgv.spexipedia.server.basedata.BaseDataKind;
+import nu.fgv.spexipedia.server.feed.ChangeFeedService;
+import nu.fgv.spexipedia.server.feed.FeedRecords;
 import nu.fgv.spexipedia.server.user.CallerService;
 import nu.fgv.spexipedia.server.util.Texts;
 import nu.fgv.spexipedia.server.util.Uuids;
@@ -49,25 +52,30 @@ import java.util.stream.Collectors;
 public class KindService {
 
     /**
-     * Where each type of kind is referred to: table and column. A merge moves these references.
+     * Where each type of kind is referred to, and what a merge does where both kinds are there: a number or a
+     * character's image has one kind, so it just changes; credits and a page's images are lists per kind, so the merged
+     * kind's come after the other's; a spex has one fact of a kind, so the one already there is kept.
      */
-    private static final Map<KindType, List<String[]>> REFERENCES = Map.of(
-            KindType.NUMBER, List.<String[]>of(new String[]{"spex_number", "kind_id"}),
-            KindType.CREDIT, List.<String[]>of(new String[]{"number_credit", "kind_id"}),
-            KindType.IMAGE, List.of(new String[]{"character_image", "kind_id"}, new String[]{"spex_page_image", "kind_id"}),
-            KindType.FACT, List.<String[]>of(new String[]{"spex_fact", "kind_id"}));
+    private static final Map<KindType, List<Reference>> REFERENCES = Map.of(
+            KindType.NUMBER, List.of(new Reference("spex_number", List.of(), false)),
+            KindType.CREDIT, List.of(new Reference("number_credit", List.of("number_id"), true)),
+            KindType.IMAGE, List.of(new Reference("character_image", List.of(), false),
+                    new Reference("spex_page_image", List.of("spex_id", "section"), true)),
+            KindType.FACT, List.of(new Reference("spex_fact", List.of("spex_id"), false)));
 
     private final KindRepository repository;
     private final JdbcClient jdbc;
     private final CallerService callerService;
     private final AuditService auditService;
+    private final ChangeFeedService feed;
 
     public KindService(final KindRepository repository, final JdbcClient jdbc, final CallerService callerService,
-                       final AuditService auditService) {
+                       final AuditService auditService, final ChangeFeedService feed) {
         this.repository = repository;
         this.jdbc = jdbc;
         this.callerService = callerService;
         this.auditService = auditService;
+        this.feed = feed;
     }
 
     // Reading --------------------------------------------------------------------------------------------------------
@@ -284,11 +292,12 @@ public class KindService {
         if (from.getId().equals(into.getId()) || from.getType() != into.getType() || from.getUse() != into.getUse()) {
             throw new BadRequestException("error.kind.wrongType", into.getNameSv());
         }
-        for (final String[] reference : REFERENCES.get(from.getType())) {
-            // A record may hold both kinds (a fact of each, credits of each): keep the one already there
-            jdbc.sql("UPDATE IGNORE " + reference[0] + " SET " + reference[1] + " = :to WHERE " + reference[1] + " = :from")
-                    .param("to", into.getId()).param("from", from.getId()).update();
-            jdbc.sql("DELETE FROM " + reference[0] + " WHERE " + reference[1] + " = :from").param("from", from.getId()).update();
+        // The numbers of a merged number kind change kind, which the feed's followers copy
+        final List<Long> numbers = from.getType() != KindType.NUMBER ? List.of()
+                : jdbc.sql("SELECT id FROM spex_number WHERE kind_id = :from").param("from", from.getId()).query(Long.class).list();
+
+        for (final Reference reference : REFERENCES.get(from.getType())) {
+            move(reference, from.getId(), into.getId());
         }
 
         final List<String> aliases = new java.util.ArrayList<>(into.aliasList());
@@ -298,8 +307,45 @@ public class KindService {
         aliases.addAll(from.aliasList());
         into.setAliases(aliases(aliases));
         repository.delete(from);
+        FeedRecords.numbers(jdbc, numbers).forEach(number -> feed.upsert(BaseDataKind.NUMBER, number.id(), number));
         auditService.record("MERGE", "KIND", intoId, "Slog ihop sorten " + from.getNameSv() + " med " + into.getNameSv());
         return into;
+    }
+
+    private void move(final Reference reference, final long from, final long to) {
+        final String table = reference.table();
+
+        if (reference.list()) {
+            // The merged kind's rows go after the other kind's of the same owner, in their own order
+            final String owner = String.join(", ", reference.owner());
+            final String sameOwner = reference.owner().stream().map(column -> "kept." + column + " = moved." + column)
+                    .collect(Collectors.joining(" AND "));
+
+            jdbc.sql("""
+                            UPDATE %s moved
+                            LEFT JOIN (SELECT %s, MAX(position) + 1 AS next FROM %s WHERE kind_id = :to GROUP BY %s) kept ON %s
+                            SET moved.kind_id = :to, moved.position = moved.position + COALESCE(kept.next, 0)
+                            WHERE moved.kind_id = :from""".formatted(table, owner, table, owner, sameOwner))
+                    .param("to", to).param("from", from).update();
+            return;
+        }
+        if (!reference.owner().isEmpty()) {
+            // One of a kind per owner: the one already there is kept
+            jdbc.sql("UPDATE IGNORE " + table + " SET kind_id = :to WHERE kind_id = :from").param("to", to).param("from", from).update();
+            jdbc.sql("DELETE FROM " + table + " WHERE kind_id = :from").param("from", from).update();
+            return;
+        }
+        jdbc.sql("UPDATE " + table + " SET kind_id = :to WHERE kind_id = :from").param("to", to).param("from", from).update();
+    }
+
+    /**
+     * A table that refers to kinds in {@code kind_id}.
+     *
+     * @param owner the columns that with the kind (and, for a list, the position) are the row's key; none when the kind
+     *              is no part of the key
+     * @param list  whether an owner has several rows of a kind, in {@code position}
+     */
+    private record Reference(String table, List<String> owner, boolean list) {
     }
 
     public record KindInput(@Nullable KindType type, @Nullable KindUse use, @Nullable FactValueType valueType,

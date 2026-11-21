@@ -239,7 +239,7 @@ public class SearchService {
      */
     @Transactional(readOnly = true)
     public List<String> publicPaths() {
-        return jdbc.sql("SELECT path FROM search_document WHERE visibility = 'PUBLIC' AND kind IN ('SPEX', 'RECORDING', 'BOOK', 'ARTICLE') ORDER BY path")
+        return jdbc.sql("SELECT path FROM search_document WHERE visibility = 'PUBLIC' AND kind IN ('SPEX', 'ARTICLE') ORDER BY path")
                 .query(String.class).list();
     }
 
