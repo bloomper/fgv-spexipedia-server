@@ -70,6 +70,9 @@ public class SyncNotifier {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     void changed(final ChangeFeedService.FeedChangedEvent event) {
+        // On purpose not through the scheduler lock, which only the scheduled job takes: a change during a run must
+        // reach the loop below, so that the run goes round once more. Two containers may then tell a consumer twice,
+        // which only makes it pull twice.
         executor.execute(this::notifyConsumers);
     }
 
