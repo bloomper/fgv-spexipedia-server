@@ -50,7 +50,7 @@ type Query {
     "EDITOR. Credits that an import brought as names nobody has resolved yet (spec 5.3), oldest numbers first."
     unresolvedCredits(limit: Int! = 100): UnresolvedCredits!
 
-    "Anyone. An article by id or slug that the viewer may see: published public ones for visitors; members' and unpublished ones for USER."
+    "Anyone. An article by id or slug that the viewer may see: published public ones for visitors; published members' ones, and unpublished ones they have written, for USER; all for AUTHOR."
     article(id: ID!): Article
     "Anyone. Articles the viewer may see, by title, optionally in one category, and with includeSubcategories also in the categories below it."
     articles(categoryId: ID, includeSubcategories: Boolean! = false): [Article!]!
@@ -187,7 +187,7 @@ type Mutation {
 
     "USER. New articles start unpublished."
     articleCreate(input: ArticleInput!): Article!
-    "USER. Refused with CONFLICT, with the newer revision, when baseRevisionId is not the article's latest revision."
+    "USER, of an article the caller may see (NOT_FOUND otherwise). Refused with CONFLICT, with the newer revision, when baseRevisionId is not the article's latest revision."
     articleUpdate(id: ID!, input: ArticleInput!, baseRevisionId: ID): Article!
     "USER. The caller is editing the article, for a few minutes; others see who."
     articleEditing(id: ID!): Article!

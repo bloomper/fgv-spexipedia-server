@@ -34,6 +34,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -84,6 +85,14 @@ public class RevisionService {
         revision.setAuthorName(caller == null ? "Spexipedia" : caller.displayName());
         revision.setCreatedAt(clock.instant());
         return repository.save(revision);
+    }
+
+    /**
+     * The articles the user (a Keycloak subject) has saved a revision of: the unpublished ones they may read.
+     */
+    @Transactional(readOnly = true)
+    public Set<UUID> articlesWrittenBy(final String subject) {
+        return repository.findArticlesWrittenBy(subject);
     }
 
     public Optional<Revision> latest(final RevisionTarget target, final UUID targetId, final @Nullable String field) {

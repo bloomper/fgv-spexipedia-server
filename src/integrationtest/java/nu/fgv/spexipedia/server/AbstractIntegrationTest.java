@@ -83,6 +83,8 @@ public abstract class AbstractIntegrationTest {
 
     protected static final String DOMAIN = "@spexipedia.test";
     protected static final String MEMBER = "medlem" + DOMAIN;
+    // A second member without roles: for what one member writes and another may not see
+    protected static final String OTHER_MEMBER = "medlem2" + DOMAIN;
     protected static final String AUTHOR = "forfattare" + DOMAIN;
     protected static final String EDITOR = "redaktor" + DOMAIN;
     protected static final String ADMIN = "admin" + DOMAIN;
@@ -179,6 +181,7 @@ public abstract class AbstractIntegrationTest {
             realm.clients().create(unbound).close();
             // USER comes with the realm's default role, as for every approved user
             createUser(realm, MEMBER, "Lisa", List.of(), List.of("fgv-spexregister"));
+            createUser(realm, OTHER_MEMBER, "Olle", List.of(), List.of());
             createUser(realm, AUTHOR, "Agnes", List.of("AUTHOR"), List.of());
             createUser(realm, EDITOR, "Erik", List.of("EDITOR"), List.of("fgv-spexgram"));
             createUser(realm, ADMIN, "Anna", List.of("ADMIN"), List.of());

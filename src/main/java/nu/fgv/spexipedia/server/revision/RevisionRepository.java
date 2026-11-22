@@ -24,6 +24,7 @@ import org.springframework.data.jpa.repository.Query;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -41,6 +42,13 @@ public interface RevisionRepository extends JpaRepository<Revision, Long> {
     Optional<Revision> findFirstByTargetAndTargetIdAndFieldOrderByIdDesc(RevisionTarget target, UUID targetId, String field);
 
     Optional<Revision> findFirstByTargetAndTargetIdOrderByIdDesc(RevisionTarget target, UUID targetId);
+
+    /**
+     * The articles the user has saved a revision of.
+     */
+    @Query("SELECT DISTINCT r.targetId FROM Revision r WHERE r.target = nu.fgv.spexipedia.server.revision.RevisionTarget.ARTICLE "
+            + "AND r.author = :author")
+    Set<UUID> findArticlesWrittenBy(String author);
 
     /**
      * Revisions of the given targets, newest first: the articles and spex pages the viewer may see.

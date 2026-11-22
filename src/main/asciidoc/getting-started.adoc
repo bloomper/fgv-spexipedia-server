@@ -134,9 +134,9 @@ what the GraphQL API would show them. The tools, and the role a write needs as i
 ``list_task_categories``, ``get_task_category``, ``list_characters``, ``get_character``, ``list_numbers``,
 ``get_number``, ``search``, ``list_articles``,
 ``get_article``, ``list_article_categories``, ``get_article_category``
-|Anyone signed in; unpublished pages, retired characters and numbers as in GraphQL
+|Anyone signed in; unpublished pages and articles, retired characters and numbers as in GraphQL
 |``list_recent_changes`` |USER
-|``create_article``, ``update_article`` |USER; created unpublished, and only unpublished articles are changed
+|``create_article``, ``update_article`` |USER; created unpublished, and only unpublished articles are changed: their writers' (an author's: any)
 |``update_spex_page`` (the texts only) |AUTHOR
 |``paste_characters``, ``paste_scenes``, ``paste_numbers`` |EDITOR
 |===

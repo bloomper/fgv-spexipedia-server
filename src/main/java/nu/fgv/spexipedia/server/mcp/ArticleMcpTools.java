@@ -50,7 +50,8 @@ import java.util.UUID;
 
 /**
  * The MCP tools for articles, article categories and the recent changes. Visitors' rules apply as in the GraphQL API:
- * every user reads all articles outside the trash, published or not. Users write articles as in the web, but only
+ * every user reads published articles outside the trash, and the unpublished ones they have written; authors read all.
+ * Users write articles as in the web, but only
  * unpublished ones: an article created here starts unpublished, a published one is changed in the web, and publishing
  * is not a tool.
  *
@@ -111,7 +112,7 @@ public class ArticleMcpTools {
     }
 
     @McpTool(name = "update_article",
-            description = "USER: change an unpublished article as a new revision. Leave out what stays as it is; categoryIds replaces the categories. A published article is changed in the web. Give baseRevisionId (from get_article) to be refused if someone else has saved since.",
+            description = "USER: change an unpublished article you have written (an author: any) as a new revision. Leave out what stays as it is; categoryIds replaces the categories. A published article is changed in the web. Give baseRevisionId (from get_article) to be refused if someone else has saved since.",
             annotations = @McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true, openWorldHint = false))
     public McpArticle updateArticle(
             @McpToolParam(description = "Article id or slug") final String id,
