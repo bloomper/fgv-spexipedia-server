@@ -72,7 +72,7 @@ public class AdminGraphqlApi {
     }
 
     @QueryMapping
-    public Map<String, Object> auditLog(@Argument final int page, @Argument final int size,
+    public AuditPageDto auditLog(@Argument final int page, @Argument final int size,
                                         @Argument final @Nullable Map<String, Object> filter,
                                         final Locale locale) {
         final AuditFilter auditFilter = filter == null ? null : new AuditFilter((String) filter.get("entityType"),
@@ -80,8 +80,8 @@ public class AdminGraphqlApi {
                 (Instant) filter.get("to"), (String) filter.get("q"), (String) filter.get("entityId"));
         final Page<AuditEntry> entries = auditService.page(page, size, auditFilter);
 
-        return Map.of("entries", entries.getContent().stream().map(entry -> toDto(entry, locale)).toList(),
-                "totalCount", (int) entries.getTotalElements(), "page", entries.getNumber(), "size", entries.getSize());
+        return new AuditPageDto(entries.getContent().stream().map(entry -> toDto(entry, locale)).toList(),
+                (int) entries.getTotalElements(), entries.getNumber(), entries.getSize());
     }
 
     private AuditLogEntryDto toDto(final AuditEntry entry, final Locale locale) {
@@ -136,6 +136,9 @@ public class AdminGraphqlApi {
     }
 
     public record AuditActorDto(String id, @Nullable String name) {
+    }
+
+    public record AuditPageDto(List<AuditLogEntryDto> entries, int totalCount, int page, int size) {
     }
 
     public record TrashDto(List<ArticleDto> articles, List<ImageDto> images) {

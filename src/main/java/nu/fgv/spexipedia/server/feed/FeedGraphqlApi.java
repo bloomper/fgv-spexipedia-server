@@ -56,14 +56,13 @@ public class FeedGraphqlApi {
     }
 
     @QueryMapping
-    public Map<String, Object> baseDataChanges(@Argument final @Nullable String after, @Argument final @Nullable Integer first) {
+    public BaseDataChangePageDto baseDataChanges(@Argument final @Nullable String after, @Argument final @Nullable Integer first) {
         final ChangeFeedService.Page page = feed.page(after, first == null ? ChangeFeedService.MAX_PAGE : first);
-        final java.util.HashMap<String, Object> result = new java.util.HashMap<>();
 
-        result.put("changes", page.entries());
-        result.put("cursor", page.cursor());
-        result.put("hasMore", page.hasMore());
-        return result;
+        return new BaseDataChangePageDto(page.entries(), page.cursor(), page.hasMore());
+    }
+
+    public record BaseDataChangePageDto(List<ChangeFeedEntry> changes, @Nullable String cursor, boolean hasMore) {
     }
 
     @SchemaMapping(typeName = "BaseDataChange")
@@ -82,33 +81,33 @@ public class FeedGraphqlApi {
     }
 
     @SchemaMapping(typeName = "BaseDataChange")
-    public @Nullable Object spexCategory(final ChangeFeedEntry entry) {
-        return entry.getKind() == nu.fgv.spexipedia.server.basedata.BaseDataKind.SPEX_CATEGORY ? feed.payload(entry) : null;
+    public FeedRecords.@Nullable FeedSpexCategory spexCategory(final ChangeFeedEntry entry) {
+        return entry.getKind() == nu.fgv.spexipedia.server.basedata.BaseDataKind.SPEX_CATEGORY ? (FeedRecords.FeedSpexCategory) feed.payload(entry) : null;
     }
 
     @SchemaMapping(typeName = "BaseDataChange")
-    public @Nullable Object spex(final ChangeFeedEntry entry) {
-        return entry.getKind() == nu.fgv.spexipedia.server.basedata.BaseDataKind.SPEX ? feed.payload(entry) : null;
+    public FeedRecords.@Nullable FeedSpex spex(final ChangeFeedEntry entry) {
+        return entry.getKind() == nu.fgv.spexipedia.server.basedata.BaseDataKind.SPEX ? (FeedRecords.FeedSpex) feed.payload(entry) : null;
     }
 
     @SchemaMapping(typeName = "BaseDataChange")
-    public @Nullable Object taskCategory(final ChangeFeedEntry entry) {
-        return entry.getKind() == nu.fgv.spexipedia.server.basedata.BaseDataKind.TASK_CATEGORY ? feed.payload(entry) : null;
+    public FeedRecords.@Nullable FeedTaskCategory taskCategory(final ChangeFeedEntry entry) {
+        return entry.getKind() == nu.fgv.spexipedia.server.basedata.BaseDataKind.TASK_CATEGORY ? (FeedRecords.FeedTaskCategory) feed.payload(entry) : null;
     }
 
     @SchemaMapping(typeName = "BaseDataChange")
-    public @Nullable Object task(final ChangeFeedEntry entry) {
-        return entry.getKind() == nu.fgv.spexipedia.server.basedata.BaseDataKind.TASK ? feed.payload(entry) : null;
+    public FeedRecords.@Nullable FeedTask task(final ChangeFeedEntry entry) {
+        return entry.getKind() == nu.fgv.spexipedia.server.basedata.BaseDataKind.TASK ? (FeedRecords.FeedTask) feed.payload(entry) : null;
     }
 
     @SchemaMapping(typeName = "BaseDataChange")
-    public @Nullable Object character(final ChangeFeedEntry entry) {
-        return entry.getKind() == nu.fgv.spexipedia.server.basedata.BaseDataKind.CHARACTER ? feed.payload(entry) : null;
+    public FeedRecords.@Nullable FeedCharacter character(final ChangeFeedEntry entry) {
+        return entry.getKind() == nu.fgv.spexipedia.server.basedata.BaseDataKind.CHARACTER ? (FeedRecords.FeedCharacter) feed.payload(entry) : null;
     }
 
     @SchemaMapping(typeName = "BaseDataChange")
-    public @Nullable Object number(final ChangeFeedEntry entry) {
-        return entry.getKind() == nu.fgv.spexipedia.server.basedata.BaseDataKind.NUMBER ? feed.payload(entry) : null;
+    public FeedRecords.@Nullable FeedNumber number(final ChangeFeedEntry entry) {
+        return entry.getKind() == nu.fgv.spexipedia.server.basedata.BaseDataKind.NUMBER ? (FeedRecords.FeedNumber) feed.payload(entry) : null;
     }
 
     @QueryMapping

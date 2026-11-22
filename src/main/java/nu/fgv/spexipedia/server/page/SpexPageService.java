@@ -378,20 +378,22 @@ public class SpexPageService {
      * The ids of the latest revisions of the texts, to pass back when saving.
      */
     @Transactional(readOnly = true)
-    public Map<String, @Nullable UUID> revisionIds(final UUID spexId) {
-        final Map<String, @Nullable UUID> ids = new LinkedHashMap<>();
+    public RevisionIdsDto revisionIds(final UUID spexId) {
+        return new RevisionIdsDto(latestRevision(spexId, INTRODUCTION), latestRevision(spexId, DESCRIPTION),
+                latestRevision(spexId, SYNOPSIS));
+    }
 
-        for (final String field : List.of(INTRODUCTION, DESCRIPTION, SYNOPSIS)) {
-            ids.put(field.toLowerCase(java.util.Locale.ROOT),
-                    revisionService.latest(RevisionTarget.SPEX_PAGE, spexId, field).map(Revision::getUuid).orElse(null));
-        }
-        return ids;
+    private @Nullable UUID latestRevision(final UUID spexId, final String field) {
+        return revisionService.latest(RevisionTarget.SPEX_PAGE, spexId, field).map(Revision::getUuid).orElse(null);
     }
 
     @Transactional(readOnly = true)
     public List<RevisionDto> history(final UUID spexId) {
         callerService.current().requireUser();
         return revisionService.history(RevisionTarget.SPEX_PAGE, spexId);
+    }
+
+    public record RevisionIdsDto(@Nullable UUID introduction, @Nullable UUID description, @Nullable UUID synopsis) {
     }
 
     public record PageInput(@Nullable String premiere, @Nullable String introduction,

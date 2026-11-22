@@ -402,12 +402,18 @@ public class ContentGraphqlApi {
                     continue;
                 }
 
+                final Kind kind = kinds.get(credit.kindId());
+
+                if (kind == null) {
+                    continue;
+                }
+
                 final int position = positions.merge(credit.kindId(), 1, Integer::sum) - 1;
                 final Optional<CreditDto> shown = credit.unresolved()
                         ? Optional.of(new CreditDto(null, credit.ref().name(), true))
                         : toCredit(credit.ref(), people);
 
-                shown.ifPresent(dto -> result.add(new NumberCreditDto(kinds.get(credit.kindId()), position, dto)));
+                shown.ifPresent(dto -> result.add(new NumberCreditDto(kind, position, dto)));
             }
             return result;
         }, (a, _) -> a));
@@ -465,7 +471,7 @@ public class ContentGraphqlApi {
     public record CreditDto(@Nullable PersonDto person, @Nullable String name, boolean unresolved) {
     }
 
-    public record NumberCreditDto(@Nullable Kind kind, int position, CreditDto credit) {
+    public record NumberCreditDto(Kind kind, int position, CreditDto credit) {
     }
 
     public record UnresolvedCreditDto(NumberDto number, @Nullable Kind kind, int position, String name) {
