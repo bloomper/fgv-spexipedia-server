@@ -23,6 +23,7 @@ import nu.fgv.spexipedia.server.imports.ImportEngine;
 import nu.fgv.spexipedia.server.imports.ImportEngine.ItemResult;
 import nu.fgv.spexipedia.server.imports.ImportEngine.Outcome;
 import nu.fgv.spexipedia.server.imports.ImportFileStore;
+import nu.fgv.spexipedia.server.imports.ImportText;
 import nu.fgv.spexipedia.server.imports.SpexipediaImport;
 import nu.fgv.spexipedia.server.kind.KindService;
 import nu.fgv.spexipedia.server.spexpackage.PackagePlan.AppBatch;
@@ -133,7 +134,7 @@ public class PackageJobs {
                 p.setState(PackageState.FAILED);
                 p.setProgress(0);
                 p.setMessage(encode(e instanceof PackageException failure ? failure.text()
-                        : PackageText.literal(e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage())));
+                        : PackageText.of("failed.unexpected", e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage())));
             });
         }
     }
@@ -281,7 +282,7 @@ public class PackageJobs {
             sleep();
         }
         return report(app.name(), "UNAVAILABLE", batch.records(), batch.files().size(), List.of(),
-                last == null ? PackageText.of("app.notAnswering") : PackageText.literal(truncate(last.getMessage())), web);
+                last == null ? PackageText.of("app.notAnswering") : PackageText.of("app.error", truncate(last.getMessage())), web);
     }
 
     private static Map<String, Object> withKinds(final Map<String, Object> part) {
@@ -353,7 +354,12 @@ public class PackageJobs {
 
     private static Item item(final ItemResult result) {
         return new Item(result.kind(), result.sourceKey(), result.id() == null ? null : result.id().toString(), result.outcome().name(),
-                result.message(), result.warnings());
+                result.message() == null ? null : text(result.message()), result.warnings().stream().map(PackageJobs::text).toList());
+    }
+
+    /** Spexipedia's own import texts are its message codes too. */
+    private static PackageText text(final ImportText text) {
+        return new PackageText(text.code(), text.args());
     }
 
     private static AppReport report(final String app, final String status, final int records, final int files, final List<Item> items,

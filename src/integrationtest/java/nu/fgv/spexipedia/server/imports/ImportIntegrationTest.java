@@ -195,4 +195,16 @@ class ImportIntegrationTest extends AbstractIntegrationTest {
     private static String getEditorToken() {
         return token(EDITOR);
     }
+
+    @Test
+    void aRecordsMessageIsInTheLanguageAskedFor() {
+        graphQlWithToken(serviceToken(MIGRATION)).document("""
+                        mutation($input: ImportBatchInput!) { importBatch(input: $input, dryRun: true) {
+                            items { outcome sv: message(locale: "sv") en: message(locale: "en") }
+                        } }""")
+                .variable("input", Map.of("spex", List.of(Map.of("sourceKey", " ", "year", "2027")))).execute()
+                .path("importBatch.items[0].outcome").entity(String.class).isEqualTo("FAILED")
+                .path("importBatch.items[0].sv").entity(String.class).isEqualTo("Fältet sourceKey är tomt, för långt eller ogiltigt.")
+                .path("importBatch.items[0].en").entity(String.class).isEqualTo("The field sourceKey is empty, too long or invalid.");
+    }
 }

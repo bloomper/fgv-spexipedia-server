@@ -51,7 +51,7 @@ public record PackageReport(List<AppReport> apps, List<PackageText> unmatched, L
     /**
      * One record's outcome: CREATED, UPDATED, UNCHANGED, KEPT or FAILED, with the application's message.
      */
-    public record Item(String kind, String sourceKey, @Nullable String id, String outcome, @Nullable String message,
-                       List<String> warnings) {
+    public record Item(String kind, String sourceKey, @Nullable String id, String outcome, @Nullable PackageText message,
+                       List<PackageText> warnings) {
     }
 }

@@ -65,7 +65,7 @@ class PackageIntegrationTest extends AbstractIntegrationTest {
             query($id: ID!) { spexPackage(id: $id) {
                 state progress message zipReceived spex { id title year }
                 preview { unmatched warnings apps { app status records files created failed message items { kind outcome message } } }
-                results { apps { app status created failed message } }
+                results { apps { app status created failed message items { kind message warnings } } }
             } }""";
 
     @Test
@@ -89,8 +89,10 @@ class PackageIntegrationTest extends AbstractIntegrationTest {
         WIREMOCK.stubFor(post(urlEqualTo("/spexify/graphql")).withRequestBody(containing("importBatch")).willReturn(aResponse()
                 .withHeader("Content-Type", "application/json").withBody("""
                         {"data": {"importBatch": {"created": 2, "updated": 0, "unchanged": 0, "kept": 0, "failed": 0, "items": [
-                          {"kind": "ALBUM", "sourceKey": "a", "id": "019a0000-0000-7000-8000-000000000001", "outcome": "CREATED", "message": null, "warnings": []},
-                          {"kind": "TRACK", "sourceKey": "t", "id": "019a0000-0000-7000-8000-000000000002", "outcome": "CREATED", "message": null, "warnings": []}
+                          {"kind": "ALBUM", "sourceKey": "a", "id": "019a0000-0000-7000-8000-000000000001", "outcome": "CREATED",
+                           "messageSv": null, "messageEn": null, "warningsSv": ["Ny albumsort: Live"], "warningsEn": ["New album kind: Live"]},
+                          {"kind": "TRACK", "sourceKey": "t", "id": "019a0000-0000-7000-8000-000000000002", "outcome": "CREATED",
+                           "messageSv": null, "messageEn": null, "warningsSv": [], "warningsEn": []}
                         ]}}}""")));
 
         final byte[] zip = zip(Map.of(
@@ -141,6 +143,13 @@ class PackageIntegrationTest extends AbstractIntegrationTest {
                 .path("spexPackage.results.apps[0].status").entity(String.class).isEqualTo("APPLIED")
                 .path("spexPackage.results.apps[?(@.app == 'ARCHIVE')].status").entityList(String.class).containsExactly("UNAVAILABLE")
                 .path("spexPackage.results.apps[?(@.app == 'SPEXIFY')].status").entityList(String.class).containsExactly("APPLIED");
+        // Another application's warnings were asked for in both languages; the report shows the reader's
+        for (final String[] language : new String[][]{{"sv", "Ny albumsort: Live"}, {"en", "New album kind: Live"}}) {
+            graphQl(EDITOR).mutate().header(HttpHeaders.ACCEPT_LANGUAGE, language[0]).build().document(PACKAGE).variable("id", id).execute()
+                    .path("spexPackage.results.apps[?(@.app == 'SPEXIFY')].items[0].warnings[0]").entityList(String.class)
+                    .containsExactly(language[1]);
+        }
+        WIREMOCK.verify(postRequestedFor(urlEqualTo("/spexify/graphql")).withRequestBody(containing("message(locale: \\\"en\\\")")));
         assertThat(jdbcClient.sql("SELECT COUNT(*) FROM spex_number n JOIN spex s ON s.id = n.spex_id WHERE s.title = 'Paketspexet'")
                 .query(Integer.class).single()).isEqualTo(1);
         // Spexify got the spex' and the number's ids

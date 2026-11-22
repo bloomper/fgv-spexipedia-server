@@ -40,6 +40,7 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import static org.springframework.security.oauth2.client.web.client.RequestAttributeClientRegistrationIdResolver.clientRegistrationId;
 
@@ -61,7 +62,11 @@ public class PackageApps {
 
     static final String BATCH = """
             mutation($input: ImportBatchInput!, $dryRun: Boolean!) { importBatch(input: $input, dryRun: $dryRun) {
-                created updated unchanged kept failed items { kind sourceKey id outcome message warnings }
+                created updated unchanged kept failed items {
+                    kind sourceKey id outcome
+                    messageSv: message(locale: "sv") messageEn: message(locale: "en")
+                    warningsSv: warnings(locale: "sv") warningsEn: warnings(locale: "en")
+                }
             } }""";
 
     /** What an import call gave. */
@@ -127,14 +132,25 @@ public class PackageApps {
 
         final @Nullable List<Map<String, Object>> answered = response.field("importBatch.items").getValue();
 
+        // Each text in both languages, kept so the report can be read in either
         for (final Map<String, Object> item : answered == null ? List.<Map<String, Object>>of() : answered) {
-            @SuppressWarnings("unchecked") final List<String> warnings = (List<String>) item.getOrDefault("warnings", List.of());
+            final List<String> swedish = strings(item.get("warningsSv"));
+            final List<String> english = strings(item.get("warningsEn"));
+            final List<PackageText> warnings = new ArrayList<>();
 
+            for (int i = 0; i < swedish.size(); i++) {
+                warnings.add(PackageText.translated(swedish.get(i), i < english.size() ? english.get(i) : swedish.get(i)));
+            }
             items.add(new PackageReport.Item(String.valueOf(item.get("kind")), String.valueOf(item.get("sourceKey")),
                     item.get("id") == null ? null : String.valueOf(item.get("id")), String.valueOf(item.get("outcome")),
-                    item.get("message") == null ? null : String.valueOf(item.get("message")), warnings == null ? List.of() : warnings));
+                    item.get("messageSv") == null ? null : PackageText.translated(String.valueOf(item.get("messageSv")),
+                            String.valueOf(Objects.requireNonNullElse(item.get("messageEn"), item.get("messageSv")))), warnings));
         }
         return new BatchResult(items);
+    }
+
+    private static List<String> strings(final @Nullable Object value) {
+        return value instanceof List<?> list ? list.stream().map(String::valueOf).toList() : List.of();
     }
 
     private String filesUrl(final App app) {

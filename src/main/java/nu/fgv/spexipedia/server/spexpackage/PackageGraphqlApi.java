@@ -116,6 +116,16 @@ public class PackageGraphqlApi {
         return app.message() == null ? null : app.message().in(messages, locale);
     }
 
+    @SchemaMapping(typeName = "SpexPackageItem", field = "message")
+    public @Nullable String message(final PackageReport.Item item, final Locale locale) {
+        return item.message() == null ? null : item.message().in(messages, locale);
+    }
+
+    @SchemaMapping(typeName = "SpexPackageItem", field = "warnings")
+    public List<String> warnings(final PackageReport.Item item, final Locale locale) {
+        return item.warnings().stream().map(text -> text.in(messages, locale)).toList();
+    }
+
     @SchemaMapping(typeName = "SpexPackage", field = "preview")
     public @Nullable PackageReport preview(final SpexPackage pkg) {
         return pkg.getPreview() == null ? null : service.report(pkg.getPreview());

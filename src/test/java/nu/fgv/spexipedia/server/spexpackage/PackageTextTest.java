@@ -44,7 +44,11 @@ class PackageTextTest {
         assertThat(text.in(MESSAGES, Locale.GERMAN)).startsWith("Karaktärer/Okänd/Skiss/a.png: ingen karaktär");
         assertThat(text.in(MESSAGES, Locale.ENGLISH)).isEqualTo("Karaktärer/Okänd/Skiss/a.png: no character of the Karaktärer sheet is called Okänd.");
         assertThat(PackageText.of("app.deferred").in(MESSAGES, Locale.of("sv"))).startsWith("Kontrolleras när importen tillämpas");
-        assertThat(PackageText.literal("Connection refused").in(MESSAGES, Locale.of("sv"))).isEqualTo("Connection refused");
+        assertThat(PackageText.of("failed.unexpected", "IOException: x").in(MESSAGES, Locale.of("sv"))).isEqualTo("Oväntat fel: IOException: x");
+        assertThat(PackageText.translated("Ny albumsort: Live", "New album kind: Live").in(MESSAGES, Locale.of("sv"))).isEqualTo("Ny albumsort: Live");
+        assertThat(PackageText.translated("Ny albumsort: Live", "New album kind: Live").in(MESSAGES, Locale.ENGLISH)).isEqualTo("New album kind: Live");
+        // Spexipedia's own import keeps its codes
+        assertThat(new PackageText("import.warning.unknownCharacter", List.of("Ada")).in(MESSAGES, Locale.ENGLISH)).isEqualTo("Unknown character: Ada");
     }
 
     @Test

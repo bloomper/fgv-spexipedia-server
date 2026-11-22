@@ -29,11 +29,12 @@ import java.util.regex.Pattern;
 
 /**
  * A text of a package's progress or report: a message code of {@code messages*.properties} with its arguments, put
- * in the reader's language when it is read, not when the job writes it (the job runs without a request). A text from
- * elsewhere, such as an exception's message, is {@link #literal}: shown as it is.
+ * in the reader's language when it is read, not when the job writes it (the job runs without a request). Every text is
+ * in {@code messages_sv.properties} and {@code messages_en.properties}, but for two kinds: another application's
+ * text, which it gave in both languages ({@link #translated}), and text stored before texts were codes, shown as it is.
  *
- * @param code the message code; {@code package.literal} for a text shown as it is
- * @param args the arguments, e.g. a file's path
+ * @param code the message code, from {@code package.*} or the import's own codes
+ * @param args the arguments, e.g. a file's path; Swedish and English for a translated text
  *
  * @author Anders Jacobsson
  * @since 1.0
@@ -41,6 +42,7 @@ import java.util.regex.Pattern;
 public record PackageText(String code, List<String> args) {
 
     static final String LITERAL = "package.literal";
+    static final String TRANSLATED = "package.translated";
     private static final String PREFIX = "package.";
     private static final char SEPARATOR = '\u001F';
     private static final Pattern CODE = Pattern.compile("package\\.[A-Za-z.]+");
@@ -55,7 +57,13 @@ public record PackageText(String code, List<String> args) {
         return new PackageText(PREFIX + code, Arrays.stream(args).map(String::valueOf).toList());
     }
 
-    public static PackageText literal(final String text) {
+    /** Another application's text, as it gave it in Swedish and in English. */
+    public static PackageText translated(final String swedish, final String english) {
+        return new PackageText(TRANSLATED, List.of(swedish, english));
+    }
+
+    /** Only for text stored before texts were codes. */
+    static PackageText literal(final String text) {
         return new PackageText(LITERAL, List.of(text));
     }
 
@@ -69,6 +77,9 @@ public record PackageText(String code, List<String> args) {
     public String in(final MessageSource messages, final @Nullable Locale locale) {
         if (LITERAL.equals(code)) {
             return args.isEmpty() ? "" : args.getFirst();
+        }
+        if (TRANSLATED.equals(code) && args.size() == 2) {
+            return Locale.ENGLISH.equals(Locales.supported(locale)) ? args.get(1) : args.getFirst();
         }
         return messages.getMessage(code, args.toArray(), code, Locales.supported(locale));
     }
