@@ -76,6 +76,12 @@ public class KindGraphqlApi {
         return service.merge(Ids.require(id), Ids.require(intoId));
     }
 
+    @MutationMapping
+    public boolean kindDelete(@Argument final String id) {
+        service.delete(Ids.require(id));
+        return true;
+    }
+
     @SchemaMapping(typeName = "Kind", field = "id")
     public UUID id(final Kind kind) {
         return kind.getUuid();

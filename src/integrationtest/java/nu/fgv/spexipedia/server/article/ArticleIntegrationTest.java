@@ -20,9 +20,11 @@ import nu.fgv.spexipedia.server.AbstractIntegrationTest;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 /**
- * Articles (4.5 of the spec): every logged-in user writes, authors publish, members' articles stay with members.
+ * Articles (4.5 of the spec): every logged-in user writes, authors publish, members' articles stay with members, and
+ * unpublished ones with their writers and authors.
  */
 class ArticleIntegrationTest extends AbstractIntegrationTest {
 
@@ -52,6 +54,32 @@ class ArticleIntegrationTest extends AbstractIntegrationTest {
         graphQl(null).document("query($id: ID!) { article(id: $id) { title } }").variable("id", members).execute().path("article").valueIsNull();
         graphQl(MEMBER).document("query($id: ID!) { article(id: $id) { title } }").variable("id", members).execute()
                 .path("article.title").entity(String.class).isEqualTo("Anekdot");
+    }
+
+    @Test
+    void anUnpublishedArticleIsReadOnlyByItsWritersAndAuthors() {
+        final String article = create(MEMBER, "Utkast om repslagarbanan", "PUBLIC");
+        final String read = "query($id: ID!) { article(id: $id) { title } }";
+        final String list = "{ articles { title } }";
+
+        graphQl(MEMBER).document(read).variable("id", article).execute().path("article.title").entity(String.class).isEqualTo("Utkast om repslagarbanan");
+        graphQl(AUTHOR).document(read).variable("id", article).execute().path("article.title").entity(String.class).isEqualTo("Utkast om repslagarbanan");
+        graphQl(OTHER_MEMBER).document(read).variable("id", article).execute().path("article").valueIsNull();
+        graphQl(OTHER_MEMBER).document(list).execute().path("articles[*].title").entityList(String.class)
+                .satisfies(titles -> assertThat(titles).doesNotContain("Utkast om repslagarbanan"));
+        graphQl(MEMBER).document(list).execute().path("articles[*].title").entityList(String.class)
+                .satisfies(titles -> assertThat(titles).contains("Utkast om repslagarbanan"));
+        await().untilAsserted(() -> graphQl(MEMBER).document("{ search(q: \"repslagarbanan\") { title } }").execute()
+                .path("search[*].title").entityList(String.class).contains("Utkast om repslagarbanan"));
+        graphQl(OTHER_MEMBER).document("{ search(q: \"repslagarbanan\") { title } }").execute().path("search").entityList(Object.class).hasSize(0);
+        graphQl(null).document("{ search(q: \"repslagarbanan\") { title } }").execute().path("search").entityList(Object.class).hasSize(0);
+        expectError(graphQl(OTHER_MEMBER).document("mutation($id: ID!) { articleUpdate(id: $id, input: {title: \"X\", body: \"Y\", visibility: PUBLIC}) { id } }")
+                .variable("id", article).execute(), "NOT_FOUND");
+
+        // Once published, every member reads it
+        graphQl(AUTHOR).document("mutation($id: ID!) { articleSetPublished(id: $id, published: true) { published } }")
+                .variable("id", article).execute().path("articleSetPublished.published").entity(Boolean.class).isEqualTo(true);
+        graphQl(OTHER_MEMBER).document(read).variable("id", article).execute().path("article.title").entity(String.class).isEqualTo("Utkast om repslagarbanan");
     }
 
     @Test

@@ -63,9 +63,10 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * Articles (section 4.5 of the spec). Visitors read published public articles; every logged-in user reads all,
- * unpublished and members' ones too, writes them and restores earlier revisions; AUTHOR publishes, unpublishes and
- * trashes them. New articles start unpublished; changes to published ones are shown at once.
+ * Articles (section 4.5 of the spec). Visitors read published public articles; every logged-in user reads published
+ * members' ones too, and unpublished ones they have written; they write articles and restore earlier revisions. AUTHOR
+ * reads all, and publishes, unpublishes and trashes them. New articles start unpublished; changes to published ones
+ * are shown at once.
  *
  * @author Anders Jacobsson
  * @since 1.0
@@ -123,14 +124,51 @@ public class ArticleService {
     }
 
     /**
-     * Whether the viewer may read the article: visitors only published public ones outside the trash; members all
-     * outside the trash; authors also trashed ones.
+     * Who reads: the logged-in user, if any, and the unpublished articles they have saved a revision of.
      */
-    static boolean visible(final Article article, final @Nullable Caller member) {
-        if (article.getTrashedAt() != null) {
-            return member != null && member.isAuthor();
+    private Reader reader() {
+        final Caller member = member().orElse(null);
+
+        return member == null || member.isAuthor() ? new Reader(member, Set.of())
+                : new Reader(member, revisionService.articlesWrittenBy(member.subject()));
+    }
+
+    /**
+     * The viewer of articles.
+     *
+     * @param member  the logged-in user; null for visitors
+     * @param written the articles the member has saved a revision of
+     */
+    record Reader(@Nullable Caller member, Set<UUID> written) {
+
+        /**
+         * Whether the viewer may read the article: visitors only published public ones; members also published
+         * members' ones, and unpublished ones they have written; authors all, trashed ones too.
+         */
+        boolean sees(final Article article) {
+            if (member != null && member.isAuthor()) {
+                return true;
+            }
+            if (article.getTrashedAt() != null) {
+                return false;
+            }
+            if (article.isPublished()) {
+                return member != null || article.getVisibility() == Visibility.PUBLIC;
+            }
+            return member != null && written.contains(article.getUuid());
         }
-        return member != null || (article.isPublished() && article.getVisibility() == Visibility.PUBLIC);
+    }
+
+    /**
+     * The article, or not found when the viewer may not read it: no one changes what they cannot see.
+     */
+    private Article requireVisible(final UUID id) {
+        final Article article = require(id);
+
+        if (!reader().sees(article)) {
+            throw new ResourceNotFoundException(Article.class, id);
+        }
+        return article;
     }
 
     private static ArticleDto toDto(final Article article) {
@@ -143,9 +181,9 @@ public class ArticleService {
 
     @Transactional(readOnly = true)
     public Optional<ArticleDto> article(final String idOrSlug) {
-        final Caller member = member().orElse(null);
+        final Reader reader = reader();
 
-        return find(idOrSlug).filter(article -> visible(article, member)).map(ArticleService::toDto);
+        return find(idOrSlug).filter(article -> reader.sees(article)).map(ArticleService::toDto);
     }
 
     private Optional<Article> find(final String idOrSlug) {
@@ -163,12 +201,12 @@ public class ArticleService {
      */
     @Transactional(readOnly = true)
     public List<ArticleDto> articles(final @Nullable UUID categoryId, final boolean includeSubcategories) {
-        final Caller member = member().orElse(null);
+        final Reader reader = reader();
         final Set<UUID> categories = categoryId == null ? Set.of()
                 : includeSubcategories ? descendants(categoryId) : Set.of(categoryId);
 
         return repository.findAllLive().stream()
-                .filter(article -> visible(article, member))
+                .filter(article -> reader.sees(article))
                 .filter(article -> categoryId == null || article.getCategories().stream().anyMatch(c -> categories.contains(c.getUuid())))
                 .map(ArticleService::toDto)
                 .toList();
@@ -198,11 +236,11 @@ public class ArticleService {
      */
     @Transactional(readOnly = true)
     public List<ArticleDto> children(final @Nullable Long parentKey) {
-        final Caller member = member().orElse(null);
+        final Reader reader = reader();
         final List<Article> children = parentKey == null ? repository.findRoots()
                 : repository.findById(parentKey).map(repository::findChildren).orElse(List.of());
 
-        return children.stream().filter(article -> visible(article, member)).map(ArticleService::toDto).toList();
+        return children.stream().filter(article -> reader.sees(article)).map(ArticleService::toDto).toList();
     }
 
     /**
@@ -211,12 +249,12 @@ public class ArticleService {
      */
     @Transactional(readOnly = true)
     public List<ArticleDto> ancestors(final long articleKey) {
-        final Caller member = member().orElse(null);
+        final Reader reader = reader();
         final List<ArticleDto> path = new ArrayList<>();
         Article current = repository.findById(articleKey).map(Article::getParent).orElse(null);
 
         while (current != null && path.size() < 50) {
-            if (!visible(current, member)) {
+            if (!reader.sees(current)) {
                 break;
             }
             path.addFirst(toDto(current));
@@ -315,12 +353,12 @@ public class ArticleService {
      */
     @Transactional(readOnly = true)
     public List<ArticleDto> backlinks(final long articleKey) {
-        final Caller member = member().orElse(null);
+        final Reader reader = reader();
         final List<Long> from = jdbc.sql("SELECT from_article_id FROM article_link WHERE to_article_id = :a")
                 .param("a", articleKey).query(Long.class).list();
 
         return repository.findAllById(from).stream()
-                .filter(article -> visible(article, member))
+                .filter(article -> reader.sees(article))
                 .sorted(java.util.Comparator.comparing(Article::getTitle))
                 .map(ArticleService::toDto).toList();
     }
@@ -331,10 +369,16 @@ public class ArticleService {
      */
     @Transactional(readOnly = true)
     public List<ArticleDtos.WantedArticleDto> wanted(final int limit) {
-        callerService.current().requireUser();
+        final Caller caller = callerService.current();
+
+        caller.requireUser();
+        // Links in unpublished articles count only for those who see them: authors, and the articles' writers
         return jdbc.sql("SELECT MIN(l.title), COUNT(*) FROM article_link l JOIN article a ON a.id = l.from_article_id "
-                        + "WHERE l.to_article_id IS NULL AND a.trashed_at IS NULL "
+                        + "WHERE l.to_article_id IS NULL AND a.trashed_at IS NULL AND (a.published = 1 OR :author OR a.uuid IN "
+                        + "(SELECT r.target_id FROM revision r WHERE r.target = 'ARTICLE' AND r.author = :subject)) "
                         + "GROUP BY l.normalized_title ORDER BY COUNT(*) DESC, MIN(l.title) LIMIT :l")
+                .param("author", caller.isAuthor())
+                .param("subject", caller.subject())
                 .param("l", Math.clamp(limit, 1, 500))
                 .query((rs, _) -> new ArticleDtos.WantedArticleDto(rs.getString(1), rs.getInt(2)))
                 .list().stream()
@@ -349,12 +393,14 @@ public class ArticleService {
     public List<ArticleDto> orphans() {
         callerService.current().requireUser();
 
+        final Reader reader = reader();
         final Set<Long> linked = new java.util.HashSet<>(jdbc.sql("SELECT DISTINCT to_article_id FROM article_link WHERE to_article_id IS NOT NULL")
                 .query(Long.class).list());
         final Set<Long> parents = new java.util.HashSet<>(jdbc.sql("SELECT DISTINCT parent_id FROM article WHERE parent_id IS NOT NULL AND trashed_at IS NULL")
                 .query(Long.class).list());
 
         return repository.findAllLive().stream()
+                .filter(reader::sees)
                 .filter(article -> article.getParent() == null && article.getCategories().isEmpty()
                         && !linked.contains(article.getId()) && !parents.contains(article.getId()))
                 .map(ArticleService::toDto).toList();
@@ -366,9 +412,9 @@ public class ArticleService {
      */
     @Transactional(readOnly = true)
     public Set<UUID> visibleIds() {
-        final Caller member = member().orElse(null);
+        final Reader reader = reader();
 
-        return repository.findAllLive().stream().filter(article -> visible(article, member)).map(Article::getUuid)
+        return repository.findAllLive().stream().filter(article -> reader.sees(article)).map(Article::getUuid)
                 .collect(Collectors.toSet());
     }
 
@@ -377,9 +423,9 @@ public class ArticleService {
      */
     @Transactional(readOnly = true)
     public @Nullable String pathByTitle(final String title) {
-        final Caller member = member().orElse(null);
+        final Reader reader = reader();
 
-        final String path = repository.findByTitle(title).stream().filter(article -> visible(article, member)).findFirst()
+        final String path = repository.findByTitle(title).stream().filter(article -> reader.sees(article)).findFirst()
                 .map(article -> "/articles/" + article.getSlug()).orElse(null);
 
         if (path != null) {
@@ -433,7 +479,7 @@ public class ArticleService {
         apply(article, input);
         article.setSlug(Slugs.unique(article.getTitle(), "artikel", repository::existsBySlug));
         if (input.parentId() != null) {
-            final Article parent = require(input.parentId());
+            final Article parent = requireVisible(input.parentId());
 
             article.setParent(parent);
             article.setPosition(repository.maxPosition(parent) + 1);
@@ -460,7 +506,7 @@ public class ArticleService {
 
         caller.requireUser();
 
-        final Article article = require(id);
+        final Article article = requireVisible(id);
 
         if (article.getTrashedAt() != null) {
             throw new BadRequestException("error.article.trashed");
@@ -519,7 +565,7 @@ public class ArticleService {
 
         caller.requireUser();
 
-        final Article article = require(id);
+        final Article article = requireVisible(id);
         final Revision revision = revisionService.find(revisionId)
                 .filter(r -> r.getTarget() == RevisionTarget.ARTICLE && r.getTargetId().equals(article.getUuid()))
                 .orElseThrow(() -> new ResourceNotFoundException(Revision.class, revisionId));
@@ -641,7 +687,7 @@ public class ArticleService {
         caller.requireUser();
         callerService.record(caller);
 
-        final Article article = require(id);
+        final Article article = requireVisible(id);
 
         jdbc.sql("INSERT INTO article_editing (article_id, subject, since) VALUES (:a, :s, :t) ON DUPLICATE KEY UPDATE since = :t")
                 .param("a", article.getId()).param("s", caller.subject()).param("t", java.sql.Timestamp.from(clock.instant()))
@@ -714,10 +760,10 @@ public class ArticleService {
     }
 
     private Map<Long, Integer> counts() {
-        final Caller member = member().orElse(null);
+        final Reader reader = reader();
 
         return repository.findAllLive().stream()
-                .filter(article -> visible(article, member))
+                .filter(article -> reader.sees(article))
                 .flatMap(article -> article.getCategories().stream())
                 .collect(Collectors.groupingBy(ArticleCategory::getId, Collectors.summingInt(_ -> 1)));
     }

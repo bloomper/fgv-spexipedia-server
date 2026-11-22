@@ -43,7 +43,8 @@ import java.util.UUID;
 /**
  * Search across spex, characters, numbers (original songs included) and articles, with MySQL's
  * full-text index over one table of documents. A document carries who may find it: everyone (PUBLIC), logged-in users
- * (MEMBERS) or only those who may see unpublished pages (HIDDEN). People are never indexed or searched.
+ * (MEMBERS) or only those who may see unpublished pages and articles (HIDDEN: authors, and an unpublished article's
+ * writers). People are never indexed or searched.
  *
  * @author Anders Jacobsson
  * @since 1.0
@@ -176,7 +177,7 @@ public class SearchService {
                     .param("id", uuid)
                     .query((rs, _) -> rs.getTimestamp(6) != null ? null : new Document(kind, id, rs.getString(2), null,
                             markdown.plain(rs.getString(3)), "/articles/" + rs.getString(1),
-                            rs.getBoolean(5) && "PUBLIC".equals(rs.getString(4)) ? "PUBLIC" : "MEMBERS"))
+                            !rs.getBoolean(5) ? "HIDDEN" : "PUBLIC".equals(rs.getString(4)) ? "PUBLIC" : "MEMBERS"))
                     .optional();
         };
     }
@@ -228,8 +229,15 @@ public class SearchService {
             params.add("%" + word + "%");
             params.add("%" + word + "%");
         }
-        sql.append(" AND visibility IN (").append(String.join(",", visibilities.stream().map(_ -> "?").toList())).append(")");
+        sql.append(" AND (visibility IN (").append(String.join(",", visibilities.stream().map(_ -> "?").toList())).append(")");
         params.addAll(visibilities);
+        if (caller.isPresent() && !caller.get().isAuthor()) {
+            // Unpublished articles also for those who have written them
+            sql.append(" OR (kind = 'ARTICLE' AND visibility = 'HIDDEN' AND record_id IN"
+                    + " (SELECT target_id FROM revision WHERE target = 'ARTICLE' AND author = ?))");
+            params.add(caller.get().subject());
+        }
+        sql.append(")");
         sql.append(" ORDER BY score DESC, title LIMIT ?");
         params.add(Math.clamp(limit, 1, 200));
 
