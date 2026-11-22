@@ -70,7 +70,7 @@ import java.util.regex.Pattern;
 @Component
 public class PackageJobs {
 
-    private static final String NOT_CONFIGURED = "not configured";
+    private static final PackageText NOT_CONFIGURED = PackageText.of("app.notConfigured");
     private static final Pattern NUMBER = Pattern.compile("^\\{\\{number:(.+)}}$");
 
     private final SpexPackageRepository repository;
@@ -132,30 +132,31 @@ public class PackageJobs {
             update(id, p -> {
                 p.setState(PackageState.FAILED);
                 p.setProgress(0);
-                p.setMessage(truncate(e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
+                p.setMessage(encode(e instanceof PackageException failure ? failure.text()
+                        : PackageText.literal(e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage())));
             });
         }
     }
 
     private void work(final UUID id, final boolean dryRun) {
-        progress(id, 1, "Packar upp zip-filen");
+        progress(id, 1, PackageText.of("progress.unpacking"));
 
         final long zipLength = length(id);
         final List<PackageFile> files;
 
         try {
-            files = store.unpack(id, read -> progress(id, (int) Math.min(40, 1 + 39 * read / Math.max(1, zipLength)), "Packar upp zip-filen"));
+            files = store.unpack(id, read -> progress(id, (int) Math.min(40, 1 + 39 * read / Math.max(1, zipLength)), PackageText.of("progress.unpacking")));
         } catch (final IOException e) {
-            throw new IllegalStateException("The zip could not be unpacked: " + e.getMessage(), e);
+            throw new PackageException(PackageText.of("failed.unpack", String.valueOf(e.getMessage())), e);
         }
-        progress(id, 40, "Läser kalkylarket");
+        progress(id, 40, PackageText.of("progress.reading"));
 
         final PackagePlan plan;
 
         try {
             plan = PackagePlan.of(PackageSheets.read(store.spreadsheet(id), kinds), files, baseData.spexAll(true), baseData.categories(true));
         } catch (final IOException e) {
-            throw new IllegalArgumentException("The spreadsheet could not be read: " + e.getMessage(), e);
+            throw new PackageException(PackageText.of("failed.spreadsheet", String.valueOf(e.getMessage())), e);
         }
 
         // Spexipedia's own files, then its batch
@@ -163,10 +164,10 @@ public class PackageJobs {
             try (InputStream in = Files.newInputStream(store.file(id, file.sha256()))) {
                 importFiles.put(file.sha256(), in);
             } catch (final IOException e) {
-                throw new IllegalStateException("A file of the package could not be read: " + file.path(), e);
+                throw new PackageException(PackageText.of("failed.file", file.path()), e);
             }
         }
-        progress(id, 45, "Spexipedia");
+        progress(id, 45, PackageText.of("progress.app", "Spexipedia"));
 
         // A dry run in one transaction that is rolled back, so that the page, characters and numbers see the new spex
         // the same call would make
@@ -210,11 +211,11 @@ public class PackageJobs {
             if (batch == null) {
                 continue;
             }
-            progress(id, 50 + 50 * (step - 1) / PackageApps.APPS.size(), app.name().charAt(0) + app.name().substring(1).toLowerCase());
+            progress(id, 50 + 50 * (step - 1) / PackageApps.APPS.size(), PackageText.of("progress.app", app.name().charAt(0) + app.name().substring(1).toLowerCase()));
             reports.add(other(id, app, batch, ids, dryRun || ownFailed, dryRun));
         }
 
-        final List<String> unmatched = new ArrayList<>(plan.unmatched());
+        final List<PackageText> unmatched = new ArrayList<>(plan.unmatched());
         final PackageReport report = new PackageReport(reports, unmatched, plan.warnings());
         // An application that is not deployed never takes its part; one that did not answer may, when applied again
         final boolean failed = reports.stream().anyMatch(r -> "FAILED".equals(r.status())
@@ -231,7 +232,7 @@ public class PackageJobs {
             } else {
                 p.setResults(json);
                 p.setState(failed ? PackageState.FAILED : PackageState.APPLIED);
-                p.setMessage(failed ? "Some records were not imported; the package can be applied again" : null);
+                p.setMessage(failed ? PackageText.of("failed.someRecords").encode() : null);
                 p.setAppliedAt(failed ? p.getAppliedAt() : clock.instant());
             }
         });
@@ -250,7 +251,7 @@ public class PackageJobs {
 
         if (!missing.isEmpty() && (onlyCheck || missing.contains(PackagePlan.SPEX))) {
             return report(app.name(), onlyCheck && dryRun ? "DEFERRED" : "FAILED", batch.records(), batch.files().size(), List.of(),
-                    dryRun ? "checked when applied: it needs the spex and numbers Spexipedia creates" : "Spexipedia's records are missing", web);
+                    PackageText.of(dryRun ? "app.deferred" : "app.missingRecords"), web);
         }
 
         Exception last = null;
@@ -271,7 +272,7 @@ public class PackageJobs {
 
                 if (!failed || dryRun || attempt == attempts) {
                     return report(app.name(), failed ? "FAILED" : dryRun ? "CHECKED" : "APPLIED", batch.records(), batch.files().size(),
-                            dedupe(items), missing.isEmpty() ? null : "left out what refers to missing numbers", web);
+                            dedupe(items), missing.isEmpty() ? null : PackageText.of("app.leftOut"), web);
                 }
             } catch (final RuntimeException e) {
                 last = e;
@@ -280,7 +281,7 @@ public class PackageJobs {
             sleep();
         }
         return report(app.name(), "UNAVAILABLE", batch.records(), batch.files().size(), List.of(),
-                last == null ? "not answering" : truncate(last.getMessage()), web);
+                last == null ? PackageText.of("app.notAnswering") : PackageText.literal(truncate(last.getMessage())), web);
     }
 
     private static Map<String, Object> withKinds(final Map<String, Object> part) {
@@ -356,7 +357,7 @@ public class PackageJobs {
     }
 
     private static AppReport report(final String app, final String status, final int records, final int files, final List<Item> items,
-                                    final @Nullable String message, final @Nullable String web) {
+                                    final @Nullable PackageText message, final @Nullable String web) {
         final Map<String, Integer> counts = new HashMap<>();
 
         items.forEach(item -> counts.merge(item.outcome(), 1, Integer::sum));
@@ -381,10 +382,10 @@ public class PackageJobs {
         }
     }
 
-    private void progress(final UUID id, final int progress, final String message) {
+    private void progress(final UUID id, final int progress, final PackageText message) {
         update(id, p -> {
             p.setProgress(progress);
-            p.setMessage(message);
+            p.setMessage(encode(message));
         });
     }
 
@@ -393,6 +394,14 @@ public class PackageJobs {
             change.accept(p);
             repository.save(p);
         });
+    }
+
+    /** For the message column: arguments such as an exception's message are cut short to fit. */
+    private static String encode(final PackageText text) {
+        final String encoded = text.encode();
+
+        return encoded.length() <= 1000 ? encoded
+                : new PackageText(text.code(), text.args().stream().map(PackageJobs::truncate).map(a -> a.length() > 200 ? a.substring(0, 200) + "…" : a).toList()).encode();
     }
 
     private static String truncate(final @Nullable String text) {

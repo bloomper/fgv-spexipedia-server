@@ -210,7 +210,7 @@ public class PackageService {
     public void failInterrupted() {
         repository.findByStateIn(List.of(PackageState.PREVIEWING, PackageState.APPLYING)).forEach(pkg -> {
             pkg.setState(PackageState.FAILED);
-            pkg.setMessage("Interrupted by a restart; start it again");
+            pkg.setMessage(PackageText.of("failed.restart").encode());
         });
     }
 

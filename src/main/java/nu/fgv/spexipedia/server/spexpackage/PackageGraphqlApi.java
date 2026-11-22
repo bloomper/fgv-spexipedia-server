@@ -19,6 +19,7 @@ package nu.fgv.spexipedia.server.spexpackage;
 import nu.fgv.spexipedia.server.basedata.BaseDataDtos.SpexDto;
 import nu.fgv.spexipedia.server.basedata.BaseDataService;
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.MessageSource;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
@@ -26,6 +27,7 @@ import org.springframework.graphql.data.method.annotation.SchemaMapping;
 import org.springframework.stereotype.Controller;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 /**
@@ -39,10 +41,12 @@ public class PackageGraphqlApi {
 
     private final PackageService service;
     private final BaseDataService baseData;
+    private final MessageSource messages;
 
-    public PackageGraphqlApi(final PackageService service, final BaseDataService baseData) {
+    public PackageGraphqlApi(final PackageService service, final BaseDataService baseData, final MessageSource messages) {
         this.service = service;
         this.baseData = baseData;
+        this.messages = messages;
     }
 
     @QueryMapping
@@ -89,6 +93,27 @@ public class PackageGraphqlApi {
     @SchemaMapping(typeName = "SpexPackage", field = "spex")
     public @Nullable SpexDto spex(final SpexPackage pkg) {
         return pkg.getSpexId() == null ? null : baseData.spexByIds(List.of(pkg.getSpexId())).get(pkg.getSpexId());
+    }
+
+    /** Progress or why it failed, in the reader's language. */
+    @SchemaMapping(typeName = "SpexPackage", field = "message")
+    public @Nullable String message(final SpexPackage pkg, final Locale locale) {
+        return pkg.getMessage() == null ? null : PackageText.decode(pkg.getMessage()).in(messages, locale);
+    }
+
+    @SchemaMapping(typeName = "SpexPackageReport", field = "unmatched")
+    public List<String> unmatched(final PackageReport report, final Locale locale) {
+        return report.unmatched().stream().map(text -> text.in(messages, locale)).toList();
+    }
+
+    @SchemaMapping(typeName = "SpexPackageReport", field = "warnings")
+    public List<String> warnings(final PackageReport report, final Locale locale) {
+        return report.warnings().stream().map(text -> text.in(messages, locale)).toList();
+    }
+
+    @SchemaMapping(typeName = "SpexPackageApp", field = "message")
+    public @Nullable String message(final PackageReport.AppReport app, final Locale locale) {
+        return app.message() == null ? null : app.message().in(messages, locale);
     }
 
     @SchemaMapping(typeName = "SpexPackage", field = "preview")

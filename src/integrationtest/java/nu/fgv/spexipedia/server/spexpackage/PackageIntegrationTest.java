@@ -113,14 +113,22 @@ class PackageIntegrationTest extends AbstractIntegrationTest {
                 .path("spexPackagePreview.state").entity(String.class).isEqualTo("PREVIEWING");
         await(id, "PREVIEWED");
 
-        graphQl(EDITOR).document(PACKAGE).variable("id", id).execute()
+        graphQl(EDITOR).mutate().header(HttpHeaders.ACCEPT_LANGUAGE, "sv").build().document(PACKAGE).variable("id", id).execute()
                 .path("spexPackage.preview.apps[0].app").entity(String.class).isEqualTo("SPEXIPEDIA")
                 .path("spexPackage.preview.apps[0].status").entity(String.class).isEqualTo("CHECKED")
                 .path("spexPackage.preview.apps[0].failed").entity(Integer.class).isEqualTo(0)
                 .path("spexPackage.preview.apps[?(@.app == 'ARCHIVE')].status").entityList(String.class).containsExactly("UNAVAILABLE")
                 .path("spexPackage.preview.apps[?(@.app == 'SPEXIFY')].status").entityList(String.class).containsExactly("DEFERRED")
-                .path("spexPackage.preview.unmatched").entityList(String.class).satisfies(u -> assertThat(u).anyMatch(s -> s.startsWith("Lös fil.txt")))
+                .path("spexPackage.preview.unmatched").entityList(String.class)
+                .contains("Lös fil.txt: en fil överst i zip-filen hamnar ingenstans. Lägg den i en mapp.")
+                .path("spexPackage.preview.apps[?(@.app == 'SPEXIFY')].message").entityList(String.class)
+                .containsExactly("Kontrolleras när importen tillämpas: den behöver spexet och numren som Spexipedia skapar.")
                 .path("spexPackage.spex").valueIsNull();
+        // The report is in the reader's language
+        graphQl(EDITOR).mutate().header(HttpHeaders.ACCEPT_LANGUAGE, "en").build().document(PACKAGE).variable("id", id).execute()
+                .path("spexPackage.preview.unmatched").entityList(String.class)
+                .contains("Lös fil.txt: a file at the top of the zip goes nowhere. Put it in a folder.")
+                .path("spexPackage.preview.apps[?(@.app == 'ARCHIVE')].message").entityList(String.class).containsExactly("Not in this environment.");
         // A dry run made nothing
         assertThat(jdbcClient.sql("SELECT COUNT(*) FROM spex WHERE title = 'Paketspexet'").query(Integer.class).single()).isZero();
 
