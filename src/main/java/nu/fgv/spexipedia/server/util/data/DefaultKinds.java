@@ -45,6 +45,15 @@ public final class DefaultKinds {
     public static final UUID VENUE = id(501);
     public static final UUID PERFORMANCES = id(502);
     public static final UUID SETTING = id(503);
+    public static final UUID GROUP = id(701);
+    public static final UUID CHARACTERS = id(702);
+    public static final UUID SCENOGRAPHY = id(703);
+    public static final UUID VEST = id(708);
+    public static final UUID OTHER_IMAGES_SECTION = id(711);
+    public static final UUID SPEXFLIX_VIDEO = id(721);
+    public static final UUID SPEXGRAM = id(722);
+    public static final UUID SPEXIFY_ALBUM = id(723);
+    public static final UUID ARCHIVE_DOCUMENT = id(724);
 
     private DefaultKinds() {
     }

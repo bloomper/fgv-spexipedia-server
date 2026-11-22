@@ -44,7 +44,11 @@ import java.util.stream.Collectors;
 
 /**
  * The kinds admins keep (spec 4.6). Anyone reads them; ADMIN changes them. A kind in use is retired or merged into
- * another of the same type and use, never deleted. The import finds kinds by name or alias ({@link #match}).
+ * another of the same group, never deleted. The import finds kinds by name or alias ({@link #match}).
+ *
+ * <p>A group is a type of kinds, for image kinds also their use, and for image kinds of an image section that section
+ * (a section kind of content {@link SectionContent#IMAGES}). Section kinds have a content: the contents with one kind
+ * ({@link SectionContent#single()}) are created by the first start, never by admins, and are not merged.</p>
  *
  * @author Anders Jacobsson
  * @since 1.0
@@ -61,8 +65,9 @@ public class KindService {
             KindType.NUMBER, List.of(new Reference("spex_number", List.of(), false)),
             KindType.CREDIT, List.of(new Reference("number_credit", List.of("number_id"), true)),
             KindType.IMAGE, List.of(new Reference("character_image", List.of(), false),
-                    new Reference("spex_page_image", List.of("spex_id", "section"), true)),
-            KindType.FACT, List.of(new Reference("spex_fact", List.of("spex_id"), false)));
+                    new Reference("spex_page_image", List.of("spex_id", "section_id"), true)),
+            KindType.FACT, List.of(new Reference("spex_fact", List.of("spex_id"), false)),
+            KindType.SECTION, List.of());
 
     private final KindRepository repository;
     private final JdbcClient jdbc;
@@ -81,12 +86,72 @@ public class KindService {
 
     // Reading --------------------------------------------------------------------------------------------------------
 
+    /**
+     * The kinds of a type (and use, for image kinds other than an image section's), in order.
+     */
     @Transactional(readOnly = true)
     public List<Kind> kinds(final KindType type, final @Nullable KindUse use, final boolean includeRetired) {
-        requireUse(type, use);
-        return repository.findByTypeAndUseForOrderByPositionAsc(type, use == null ? "" : use.name()).stream()
+        requireUse(type, use, null);
+        return group(type, use, null, includeRetired);
+    }
+
+    /**
+     * The image kinds of an image section, in order.
+     */
+    @Transactional(readOnly = true)
+    public List<Kind> imageKinds(final Kind section, final boolean includeRetired) {
+        requireImageSection(section);
+        return group(KindType.IMAGE, KindUse.SECTION, section.getId(), includeRetired);
+    }
+
+    /**
+     * The image kinds of many image sections, by section key, in order.
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, List<Kind>> imageKinds(final Collection<Long> sectionKeys, final boolean includeRetired) {
+        return sectionKeys.isEmpty() ? Map.of() : repository.findBySectionKeyInOrderByPositionAsc(sectionKeys).stream()
+                .filter(kind -> includeRetired || !kind.isRetired())
+                .collect(Collectors.groupingBy(Kind::getSectionKey, java.util.LinkedHashMap::new, Collectors.toList()));
+    }
+
+    private List<Kind> group(final KindType type, final @Nullable KindUse use, final @Nullable Long sectionKey,
+                             final boolean includeRetired) {
+        return repository.findGroup(type, use == null ? "" : use.name(), sectionKey).stream()
                 .filter(kind -> includeRetired || !kind.isRetired())
                 .toList();
+    }
+
+    private List<Kind> groupOf(final Kind kind, final boolean includeRetired) {
+        return group(kind.getType(), kind.getUse(), kind.getSectionKey(), includeRetired);
+    }
+
+    private static boolean sameGroup(final Kind a, final Kind b) {
+        return a.getType() == b.getType() && a.getUse() == b.getUse() && java.util.Objects.equals(a.getSectionKey(), b.getSectionKey());
+    }
+
+    /**
+     * The section kind of a content with one kind (e.g. VEST); empty when it was never created.
+     */
+    @Transactional(readOnly = true)
+    public Optional<Kind> section(final SectionContent content) {
+        return group(KindType.SECTION, null, null, true).stream().filter(kind -> kind.getContent() == content).findFirst();
+    }
+
+    /**
+     * A section kind of content IMAGES; a bad request otherwise.
+     */
+    @Transactional(readOnly = true)
+    public Kind requireImageSection(final UUID id) {
+        final Kind section = repository.findByUuid(id).orElseThrow(() -> new ResourceNotFoundException(Kind.class, id));
+
+        requireImageSection(section);
+        return section;
+    }
+
+    private static void requireImageSection(final Kind section) {
+        if (section.getType() != KindType.SECTION || section.getContent() != SectionContent.IMAGES) {
+            throw new BadRequestException("error.kind.wrongType", section.getNameSv());
+        }
     }
 
     @Transactional(readOnly = true)
@@ -107,11 +172,24 @@ public class KindService {
     public Kind require(final UUID id, final KindType type, final @Nullable KindUse use, final @Nullable Kind current) {
         final Kind kind = repository.findByUuid(id).orElseThrow(() -> new ResourceNotFoundException(Kind.class, id));
 
-        if (kind.getType() != type || kind.getUse() != use) {
+        if (kind.getType() != type || kind.getUse() != use || (use != KindUse.SECTION && kind.getSectionKey() != null)) {
             throw new BadRequestException("error.kind.wrongType", kind.getNameSv());
         }
         if (kind.isRetired() && (current == null || !current.getId().equals(kind.getId()))) {
             throw new BadRequestException("error.kind.retired", kind.getNameSv());
+        }
+        return kind;
+    }
+
+    /**
+     * An image kind of the image section, as {@link #require}.
+     */
+    @Transactional(readOnly = true)
+    public Kind requireImageKind(final UUID id, final Kind section, final @Nullable Kind current) {
+        final Kind kind = require(id, KindType.IMAGE, KindUse.SECTION, current);
+
+        if (!section.getId().equals(kind.getSectionKey())) {
+            throw new BadRequestException("error.kind.wrongType", kind.getNameSv());
         }
         return kind;
     }
@@ -125,19 +203,36 @@ public class KindService {
     }
 
     /**
+     * The first image kind of an image section that is not retired: the default.
+     */
+    @Transactional(readOnly = true)
+    public Optional<Kind> firstImageKind(final Kind section) {
+        return imageKinds(section, false).stream().findFirst();
+    }
+
+    /**
      * The kind whose Swedish or English name or one of whose aliases is the text, ignoring case, accents, punctuation
      * and blanks; retired kinds too, since old material uses old names. Empty when nothing matches.
      */
     @Transactional(readOnly = true)
     public Optional<Kind> match(final KindType type, final @Nullable KindUse use, final @Nullable String text) {
+        return match(kinds(type, use, true), text);
+    }
+
+    /**
+     * An image kind of the image section by name or alias, as {@link #match(KindType, KindUse, String)}.
+     */
+    @Transactional(readOnly = true)
+    public Optional<Kind> matchImageKind(final Kind section, final @Nullable String text) {
+        return match(imageKinds(section, true), text);
+    }
+
+    private static Optional<Kind> match(final List<Kind> kinds, final @Nullable String text) {
         final String wanted = normalize(text);
 
         if (wanted.isEmpty()) {
             return Optional.empty();
         }
-
-        final List<Kind> kinds = kinds(type, use, true);
-
         return kinds.stream().filter(kind -> !kind.isRetired() && names(kind).contains(wanted)).findFirst()
                 .or(() -> kinds.stream().filter(kind -> names(kind).contains(wanted)).findFirst());
     }
@@ -184,7 +279,16 @@ public class KindService {
         } else if (input.valueType() != null) {
             throw new BadRequestException("error.field.invalid", "valueType");
         }
+        if (kind.getType() == KindType.SECTION) {
+            kind.setSubtitleSv(Texts.optional(input.subtitleSv(), 200, "subtitleSv"));
+            kind.setSubtitleEn(Texts.optional(input.subtitleEn(), 200, "subtitleEn"));
+        } else if (input.subtitleSv() != null || input.subtitleEn() != null) {
+            throw new BadRequestException("error.field.invalid", "subtitle");
+        }
         repository.save(kind);
+        if (id == null) {
+            firstImageKind(kind, kind.getNameSv(), kind.getNameEn());
+        }
         auditService.record(id == null ? "CREATE" : "UPDATE", "KIND", kind.getUuid(),
                 StoredText.of(id == null ? "audit.kind.create" : "audit.kind.update", name(kind), type(kind.getType())));
         return kind;
@@ -196,16 +300,38 @@ public class KindService {
      */
     @Transactional
     public Kind createForImport(final KindType type, final @Nullable KindUse use, final String name) {
+        return createForImport(new KindInput(type, use, null, null, null, name, name, null, null, null));
+    }
+
+    /**
+     * IMPORT. A new image section with this name, with one image kind of the same name; see {@link #createForImport}.
+     */
+    @Transactional
+    public Kind createImageSectionForImport(final String name) {
+        return createForImport(new KindInput(KindType.SECTION, null, null, SectionContent.IMAGES, null, name, name, null, null, null));
+    }
+
+    /**
+     * IMPORT. A new image kind of an image section with this name; see {@link #createForImport}.
+     */
+    @Transactional
+    public Kind createImageKindForImport(final Kind section, final String name) {
+        return createForImport(new KindInput(KindType.IMAGE, KindUse.SECTION, section.getUuid(), null, null, name, name, null, null, null));
+    }
+
+    private Kind createForImport(final KindInput input) {
         callerService.current().requireImport();
 
-        final Kind kind = newKind(new KindInput(type, use, null, name, name, null));
+        final Kind kind = newKind(input);
+        final KindType type = kind.getType();
 
-        kind.setNameSv(Texts.required(name, 100, "name"));
+        kind.setNameSv(Texts.required(input.nameSv(), 100, "name"));
         kind.setNameEn(kind.getNameSv());
         if (type == KindType.FACT) {
             kind.setValueType(FactValueType.TEXT);
         }
         repository.save(kind);
+        firstImageKind(kind, kind.getNameSv(), kind.getNameEn());
         auditService.record("CREATE", "KIND", kind.getUuid(), StoredText.of("audit.kind.createForImport", name(kind), type(type)));
         return kind;
     }
@@ -214,15 +340,48 @@ public class KindService {
         if (input.type() == null) {
             throw new BadRequestException("error.field.invalid", "type");
         }
-        requireUse(input.type(), input.use());
+
+        final Kind section = input.sectionId() == null ? null : requireImageSection(input.sectionId());
+
+        requireUse(input.type(), input.use(), section);
 
         final Kind kind = new Kind();
 
         kind.setUuid(Uuids.v7());
         kind.setType(input.type());
         kind.setUse(input.use());
-        kind.setPosition(repository.maxPosition(input.type(), input.use() == null ? "" : input.use().name()) + 1);
+        kind.setSectionKey(section == null ? null : section.getId());
+        if (input.type() == KindType.SECTION) {
+            // The contents with one section kind have theirs from the first start
+            if (input.content() == null || input.content().single()) {
+                throw new BadRequestException("error.kind.content");
+            }
+            kind.setContent(input.content());
+        } else if (input.content() != null) {
+            throw new BadRequestException("error.field.invalid", "content");
+        }
+        kind.setPosition(repository.maxPosition(input.type(), input.use() == null ? "" : input.use().name(), kind.getSectionKey()) + 1);
         return kind;
+    }
+
+    /**
+     * A new image section gets an image kind of its own name, so that its images have a kind from the start.
+     */
+    private void firstImageKind(final Kind section, final String nameSv, final String nameEn) {
+        if (section.getType() != KindType.SECTION || section.getContent() != SectionContent.IMAGES) {
+            return;
+        }
+
+        final Kind kind = new Kind();
+
+        kind.setUuid(Uuids.v7());
+        kind.setType(KindType.IMAGE);
+        kind.setUse(KindUse.SECTION);
+        kind.setSectionKey(section.getId());
+        kind.setNameSv(nameSv);
+        kind.setNameEn(nameEn);
+        kind.setPosition(1);
+        repository.save(kind);
     }
 
     private static String aliases(final @Nullable List<String> aliases) {
@@ -239,20 +398,33 @@ public class KindService {
         return joined;
     }
 
-    private static void requireUse(final KindType type, final @Nullable KindUse use) {
+    /**
+     * Image kinds have a use, and those of use SECTION an image section; other kinds have neither.
+     */
+    private static void requireUse(final KindType type, final @Nullable KindUse use, final @Nullable Kind section) {
         if ((type == KindType.IMAGE) != (use != null)) {
             throw new BadRequestException("error.field.invalid", "use");
+        }
+        if ((use == KindUse.SECTION) != (section != null)) {
+            throw new BadRequestException("error.field.invalid", "sectionId");
         }
     }
 
     /**
-     * The kinds of a type and use in the given order; every kind of them must be listed.
+     * The kinds of a group in the given order; every kind of them must be listed. For image kinds of use SECTION, the
+     * image section is given. The order of the section kinds is the pages' default order.
      */
     @Transactional
-    public List<Kind> reorder(final KindType type, final @Nullable KindUse use, final List<UUID> ids) {
+    public List<Kind> reorder(final KindType type, final @Nullable KindUse use, final @Nullable UUID sectionId,
+                              final List<UUID> ids) {
         callerService.current().requireAdmin();
 
-        final List<Kind> kinds = kinds(type, use, true);
+        final Kind section = sectionId == null ? null : requireImageSection(sectionId);
+
+        requireUse(type, use, section);
+
+        final Long sectionKey = section == null ? null : section.getId();
+        final List<Kind> kinds = group(type, use, sectionKey, true);
         final Map<UUID, Kind> byId = kinds.stream().collect(Collectors.toMap(Kind::getUuid, Function.identity()));
 
         if (ids.size() != kinds.size() || !byId.keySet().equals(Set.copyOf(ids))) {
@@ -262,7 +434,7 @@ public class KindService {
             byId.get(ids.get(i)).setPosition(i + 1);
         }
         auditService.record("UPDATE", "KIND", ids.getFirst(), StoredText.of("audit.kind.reorder", type(type)));
-        return kinds(type, use, true);
+        return group(type, use, sectionKey, true);
     }
 
     @Transactional
@@ -271,7 +443,9 @@ public class KindService {
 
         final Kind kind = repository.findByUuid(id).orElseThrow(() -> new ResourceNotFoundException(Kind.class, id));
 
-        if (retired && kinds(kind.getType(), kind.getUse(), false).stream().allMatch(other -> other.getId().equals(kind.getId()))) {
+        // A section kind may be the last of its content: retired, it is on no page
+        if (retired && kind.getType() != KindType.SECTION
+                && groupOf(kind, false).stream().allMatch(other -> other.getId().equals(kind.getId()))) {
             throw new BadRequestException("error.kind.last");
         }
         kind.setRetired(retired);
@@ -290,8 +464,14 @@ public class KindService {
         final Kind from = repository.findByUuid(id).orElseThrow(() -> new ResourceNotFoundException(Kind.class, id));
         final Kind into = repository.findByUuid(intoId).orElseThrow(() -> new ResourceNotFoundException(Kind.class, intoId));
 
-        if (from.getId().equals(into.getId()) || from.getType() != into.getType() || from.getUse() != into.getUse()) {
+        if (from.getId().equals(into.getId()) || !sameGroup(from, into)) {
             throw new BadRequestException("error.kind.wrongType", into.getNameSv());
+        }
+        if (from.getType() == KindType.SECTION) {
+            if (from.getContent() != into.getContent() || from.getContent() == null || from.getContent().single()) {
+                throw new BadRequestException("error.kind.content");
+            }
+            mergeSection(from, into);
         }
         // The numbers of a merged number kind change kind, which the feed's followers copy
         final List<Long> numbers = from.getType() != KindType.NUMBER ? List.of()
@@ -311,6 +491,23 @@ public class KindService {
         FeedRecords.numbers(jdbc, numbers).forEach(number -> feed.upsert(BaseDataKind.NUMBER, number.id(), number));
         auditService.record("MERGE", "KIND", intoId, StoredText.of("audit.kind.merge", name(from), name(into)));
         return into;
+    }
+
+    /**
+     * Moves what is of one section kind onto another of the same content: the spex' sections (an image section appears
+     * once on a page, so where both are, the merged one goes), and for image sections their image kinds, which follow
+     * the other's, and the images of the pages.
+     */
+    private void mergeSection(final Kind from, final Kind into) {
+        if (from.getContent() == SectionContent.IMAGES) {
+            jdbc.sql("DELETE moved FROM spex_section moved JOIN spex_section kept ON kept.spex_id = moved.spex_id AND kept.kind_id = :to WHERE moved.kind_id = :from")
+                    .param("to", into.getId()).param("from", from.getId()).update();
+            jdbc.sql("UPDATE kind SET section_id = :to, position = position + :offset WHERE section_id = :from")
+                    .param("to", into.getId()).param("from", from.getId())
+                    .param("offset", repository.maxPosition(KindType.IMAGE, KindUse.SECTION.name(), into.getId())).update();
+            jdbc.sql("UPDATE spex_page_image SET section_id = :to WHERE section_id = :from").param("to", into.getId()).param("from", from.getId()).update();
+        }
+        jdbc.sql("UPDATE spex_section SET kind_id = :to WHERE kind_id = :from").param("to", into.getId()).param("from", from.getId()).update();
     }
 
     private void move(final Reference reference, final long from, final long to) {
@@ -349,8 +546,14 @@ public class KindService {
     private record Reference(String table, List<String> owner, boolean list) {
     }
 
-    public record KindInput(@Nullable KindType type, @Nullable KindUse use, @Nullable FactValueType valueType,
-                            String nameSv, String nameEn, @Nullable List<String> aliases) {
+    /**
+     * @param sectionId for a new image kind of use SECTION: its image section
+     * @param content   for a new section kind: IMAGES or a content of another application
+     */
+    public record KindInput(@Nullable KindType type, @Nullable KindUse use, @Nullable UUID sectionId,
+                            @Nullable SectionContent content, @Nullable FactValueType valueType,
+                            String nameSv, String nameEn, @Nullable List<String> aliases,
+                            @Nullable String subtitleSv, @Nullable String subtitleEn) {
     }
 
     /** A kind's name for the audit log, in the reader's language. */

@@ -48,6 +48,7 @@ import nu.fgv.spexipedia.server.kind.Kind;
 import nu.fgv.spexipedia.server.kind.KindService;
 import nu.fgv.spexipedia.server.kind.KindType;
 import nu.fgv.spexipedia.server.kind.KindUse;
+import nu.fgv.spexipedia.server.kind.SectionContent;
 import nu.fgv.spexipedia.server.page.SpexPageDto;
 import nu.fgv.spexipedia.server.page.SpexPageRepository;
 import nu.fgv.spexipedia.server.page.SpexPageService;
@@ -66,6 +67,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -188,6 +190,47 @@ public class SpexipediaImport {
             }
             throw new BadRequestException("error.kind.unknown", cleaned,
                     kinds.kinds(type, use, false).stream().map(Kind::getNameSv).collect(Collectors.joining(", ")));
+        });
+    }
+
+    /**
+     * The section a page image goes in: an image section or the vest, by name or alias; an image section is created when
+     * the batch allows it, else an error lists the known names.
+     */
+    private Kind imageSection(final String name, final Batch batch) {
+        final String cleaned = Texts.clean(name);
+        final List<Kind> sections = kinds.kinds(KindType.SECTION, null, true).stream()
+                .filter(section -> section.getContent() == SectionContent.IMAGES || section.getContent() == SectionContent.VEST)
+                .toList();
+        final Optional<Kind> found = cleaned == null ? Optional.empty() : kinds.match(KindType.SECTION, null, cleaned)
+                .filter(sections::contains);
+
+        return found.orElseGet(() -> {
+            if (cleaned != null && batch.createMissingKinds()) {
+                batch.warn("import.warning.newKind", cleaned);
+                return kinds.createImageSectionForImport(cleaned);
+            }
+            throw new BadRequestException("error.kind.unknown", Objects.requireNonNullElse(cleaned, ""),
+                    sections.stream().filter(section -> !section.isRetired()).map(Kind::getNameSv).collect(Collectors.joining(", ")));
+        });
+    }
+
+    /**
+     * An image kind of an image section by name or alias, as {@link #kindNamed}.
+     */
+    private @Nullable Kind imageKindNamed(final Kind section, final @Nullable String name, final Batch batch) {
+        final String cleaned = Texts.clean(name);
+
+        if (cleaned == null) {
+            return null;
+        }
+        return kinds.matchImageKind(section, cleaned).orElseGet(() -> {
+            if (batch.createMissingKinds()) {
+                batch.warn("import.warning.newKind", cleaned);
+                return kinds.createImageKindForImport(section, cleaned);
+            }
+            throw new BadRequestException("error.kind.unknown", cleaned,
+                    kinds.imageKinds(section, false).stream().map(Kind::getNameSv).collect(Collectors.joining(", ")));
         });
     }
 
@@ -359,25 +402,21 @@ public class SpexipediaImport {
                 final Map<String, @Nullable UUID> groupKinds = new LinkedHashMap<>();
 
                 for (final ImportRecords.ImportPageImage pageImage : record.images()) {
-                    final String section = pageImage.section().strip().toUpperCase(Locale.ROOT);
-                    final KindUse use = switch (section) {
-                        case SpexPageService.SCENOGRAPHY -> KindUse.SCENOGRAPHY;
-                        case SpexPageService.OTHER -> KindUse.PAGE;
-                        case SpexPageService.VEST -> null;
-                        default -> throw new BadRequestException("error.field.invalid", "section");
-                    };
-                    final Kind kind = use == null ? null : kindNamed(KindType.IMAGE, use, pageImage.kind(), batch);
-                    final UUID kindId = kind == null ? use == null ? null : kinds.first(KindType.IMAGE, use).map(Kind::getUuid).orElse(null) : kind.getUuid();
-                    final String group = section + "/" + kindId;
-                    final Image image = image(pageImage.file(), section.equals(SpexPageService.VEST) ? ImageKind.VEST
-                            : section.equals(SpexPageService.SCENOGRAPHY) ? ImageKind.SCENOGRAPHY : ImageKind.OTHER, batch);
+                    final Kind section = imageSection(pageImage.section(), batch);
+                    final boolean images = section.getContent() == SectionContent.IMAGES;
+                    final Kind kind = images ? imageKindNamed(section, pageImage.kind(), batch) : null;
+                    final UUID kindId = kind != null ? kind.getUuid()
+                            : images ? kinds.firstImageKind(section).map(Kind::getUuid).orElse(null) : null;
+                    final String group = section.getUuid() + "/" + kindId;
+                    final Image image = image(pageImage.file(), ImageKind.SECTION, batch);
 
                     groupKinds.put(group, kindId);
                     if (image != null) {
                         groups.computeIfAbsent(group, _ -> new ArrayList<>()).add(new ContentService.ImageRef(image.getUuid(), null, pageImage.caption()));
                     }
                 }
-                groups.forEach((group, refs) -> pages.setImages(spexId, group.substring(0, group.indexOf('/')), groupKinds.get(group), refs));
+                groups.forEach((group, refs) -> pages.setImages(spexId, UUID.fromString(group.substring(0, group.indexOf('/'))),
+                        groupKinds.get(group), refs));
             }
             return spexId;
         }
@@ -424,7 +463,7 @@ public class SpexipediaImport {
 
                 for (final ImportRecords.ImportCharacterImage characterImage : record.images()) {
                     final Kind kind = kindNamed(KindType.IMAGE, KindUse.CHARACTER, characterImage.kind(), batch);
-                    final Image image = image(characterImage.file(), ImageKind.SKETCH, batch);
+                    final Image image = image(characterImage.file(), ImageKind.CHARACTER, batch);
 
                     if (image != null) {
                         refs.add(new ContentService.ImageRef(image.getUuid(), kind == null ? null : kind.getUuid(), characterImage.caption()));

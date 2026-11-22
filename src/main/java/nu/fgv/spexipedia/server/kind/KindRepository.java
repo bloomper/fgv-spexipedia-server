@@ -16,6 +16,7 @@
 
 package nu.fgv.spexipedia.server.kind;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -34,8 +35,18 @@ public interface KindRepository extends JpaRepository<Kind, Long> {
 
     List<Kind> findByUuidIn(Collection<UUID> uuids);
 
-    List<Kind> findByTypeAndUseForOrderByPositionAsc(KindType type, String useFor);
+    /**
+     * The kinds of a group: a type, a use, and for image kinds of use SECTION, the image section.
+     */
+    @Query("""
+            SELECT k FROM Kind k WHERE k.type = :type AND k.useFor = :useFor
+            AND ((:sectionKey IS NULL AND k.sectionKey IS NULL) OR k.sectionKey = :sectionKey) ORDER BY k.position""")
+    List<Kind> findGroup(KindType type, String useFor, @Nullable Long sectionKey);
 
-    @Query("SELECT COALESCE(MAX(k.position), 0) FROM Kind k WHERE k.type = :type AND k.useFor = :useFor")
-    int maxPosition(KindType type, String useFor);
+    @Query("""
+            SELECT COALESCE(MAX(k.position), 0) FROM Kind k WHERE k.type = :type AND k.useFor = :useFor
+            AND ((:sectionKey IS NULL AND k.sectionKey IS NULL) OR k.sectionKey = :sectionKey)""")
+    int maxPosition(KindType type, String useFor, @Nullable Long sectionKey);
+
+    List<Kind> findBySectionKeyInOrderByPositionAsc(Collection<Long> sectionKeys);
 }

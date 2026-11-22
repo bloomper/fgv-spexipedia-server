@@ -148,9 +148,9 @@ public class PageGraphqlApi {
     }
 
     @MutationMapping
-    public SpexPageDto spexPageSetImages(@Argument final String spexId, @Argument final String section,
+    public SpexPageDto spexPageSetImages(@Argument final String spexId, @Argument final String sectionId,
                                          @Argument final @Nullable String kindId, @Argument final List<Map<String, String>> images) {
-        return service.setImages(Ids.require(spexId), section, Ids.optional(kindId), ContentGraphqlApi.imageRefs(images));
+        return service.setImages(Ids.require(spexId), Ids.require(sectionId), Ids.optional(kindId), ContentGraphqlApi.imageRefs(images));
     }
 
     @MutationMapping
@@ -215,14 +215,15 @@ public class PageGraphqlApi {
     }
 
     @SchemaMapping(typeName = "SpexPage")
-    public List<PageImageDto> images(final SpexPageDto page, @Argument final String section) {
-        List<PlacedImage> placed = service.images(page.spexKey(), section);
+    public List<PageImageDto> images(final SpexPageDto page, @Argument final String sectionId) {
+        final long sectionKey = service.imageSection(Ids.require(sectionId)).getId();
+        List<PlacedImage> placed = service.images(page.spexKey(), sectionKey);
 
         if (placed.isEmpty()) {
             final SpexDto spex = baseData.spexByKey(page.spexKey());
 
             if (spex.parentKey() != null) {
-                placed = service.images(spex.parentKey(), section);
+                placed = service.images(spex.parentKey(), sectionKey);
             }
         }
         return contentApi.pageImages(placed, imageService.byIds(placed.stream().map(PlacedImage::imageId).collect(Collectors.toSet())),

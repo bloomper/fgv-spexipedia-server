@@ -116,7 +116,7 @@ public class SampleDataImporter {
     private static final List<String> TABLES = List.of("article_editing", "article_link", "article_article_category", "article", "article_category_parent", "article_category",
             "revision", "redirect", "search_document", "number_character", "number_credit",
             "spex_number", "character_image", "spex_character", "scene", "revival_change", "spex_page_photo",
-            "spex_page_image", "spex_fact", "spex_page", "id_alias", "sync_consumer",
+            "spex_page_image", "spex_section", "spex_fact", "spex_page", "id_alias", "sync_consumer",
             "image", "audit_entry", "app_user");
     private static final String[][] ORIGINALS = {
             {"Dancing Queen", "ABBA", "Benny Andersson, Björn Ulvaeus"}, {"Waterloo", "ABBA", "Benny Andersson, Björn Ulvaeus"},
@@ -369,14 +369,14 @@ public class SampleDataImporter {
                     full ? "Västen till %s är broderad i guld på mörkgrönt, med %s som motiv.".formatted(spex.title(), spex.title().toLowerCase(Locale.ROOT)) : null,
                     full ? new CreditRef(spexare(index % SPEXARE.size()), null) : null, null));
             if (full) {
-                pageService.setImages(spex.id(), SpexPageService.SCENOGRAPHY, DefaultKinds.BACKDROP, List.of(
-                        placed(ImageKind.SCENOGRAPHY, "Fond: " + PLACES[index % PLACES.length], spex),
-                        placed(ImageKind.SCENOGRAPHY, "Fond: " + PLACES[(index + 1) % PLACES.length], spex)));
-                pageService.setImages(spex.id(), SpexPageService.SCENOGRAPHY, DefaultKinds.STAGE, List.of(placed(ImageKind.SCENOGRAPHY, "Scenbygget", spex)));
-                pageService.setImages(spex.id(), SpexPageService.SCENOGRAPHY, DefaultKinds.PROPS, List.of(placed(ImageKind.SCENOGRAPHY, "Kronan", spex),
-                        placed(ImageKind.SCENOGRAPHY, "Tronen", spex)));
-                pageService.setImages(spex.id(), SpexPageService.VEST, null, List.of(placed(ImageKind.VEST, "Västen, framsida", spex)));
-                pageService.setImages(spex.id(), SpexPageService.OTHER, DefaultKinds.OTHER_IMAGES, List.of(placed(ImageKind.OTHER, "Programbladet", spex)));
+                pageService.setImages(spex.id(), DefaultKinds.SCENOGRAPHY, DefaultKinds.BACKDROP, List.of(
+                        placed(ImageKind.SECTION, "Fond: " + PLACES[index % PLACES.length], spex),
+                        placed(ImageKind.SECTION, "Fond: " + PLACES[(index + 1) % PLACES.length], spex)));
+                pageService.setImages(spex.id(), DefaultKinds.SCENOGRAPHY, DefaultKinds.STAGE, List.of(placed(ImageKind.SECTION, "Scenbygget", spex)));
+                pageService.setImages(spex.id(), DefaultKinds.SCENOGRAPHY, DefaultKinds.PROPS, List.of(placed(ImageKind.SECTION, "Kronan", spex),
+                        placed(ImageKind.SECTION, "Tronen", spex)));
+                pageService.setImages(spex.id(), DefaultKinds.VEST, null, List.of(placed(ImageKind.SECTION, "Västen, framsida", spex)));
+                pageService.setImages(spex.id(), DefaultKinds.OTHER_IMAGES_SECTION, DefaultKinds.OTHER_IMAGES, List.of(placed(ImageKind.OTHER, "Programbladet", spex)));
                 pageService.setFacts(spex.id(), List.of(
                         new SpexPageService.FactInput(DefaultKinds.VENUE, index % 2 == 0 ? "Chalmers kårhus, RunAn" : "Lisebergsteatern"),
                         new SpexPageService.FactInput(DefaultKinds.PERFORMANCES, String.valueOf(8 + index % 7)),
@@ -463,14 +463,14 @@ public class SampleDataImporter {
                     final CharacterDto character = created.get(i);
 
                     if (i == 0) {
-                        contentService.setCharacterImages(character.id(), List.of(sketch(character, ImageKind.SKETCH, DefaultKinds.SKETCH, "Skiss"),
-                                sketch(character, ImageKind.MAKEUP, DefaultKinds.MAKEUP, "Sminkskiss"),
-                                sketch(character, ImageKind.COSTUME, DefaultKinds.COSTUME, "Kostymdocka")));
+                        contentService.setCharacterImages(character.id(), List.of(sketch(character, ImageKind.CHARACTER, DefaultKinds.SKETCH, "Skiss"),
+                                sketch(character, ImageKind.CHARACTER, DefaultKinds.MAKEUP, "Sminkskiss"),
+                                sketch(character, ImageKind.CHARACTER, DefaultKinds.COSTUME, "Kostymdocka")));
                     } else if (i <= 3) {
                         contentService.setCharacterImages(character.id(), (i + index) % 2 == 0
-                                ? List.of(sketch(character, ImageKind.SKETCH, DefaultKinds.SKETCH, "Skiss"),
-                                          sketch(character, ImageKind.MAKEUP, DefaultKinds.MAKEUP, "Sminkskiss"))
-                                : List.of(sketch(character, ImageKind.SKETCH, DefaultKinds.SKETCH, "Skiss")));
+                                ? List.of(sketch(character, ImageKind.CHARACTER, DefaultKinds.SKETCH, "Skiss"),
+                                          sketch(character, ImageKind.CHARACTER, DefaultKinds.MAKEUP, "Sminkskiss"))
+                                : List.of(sketch(character, ImageKind.CHARACTER, DefaultKinds.SKETCH, "Skiss")));
                     }
                 }
             }

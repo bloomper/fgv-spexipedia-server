@@ -30,5 +30,7 @@ public enum KindType {
     /** Image kinds, within a {@link KindUse}. */
     IMAGE,
     /** Facts on spex pages: venue, number of performances … */
-    FACT
+    FACT,
+    /** Sections of spex pages, each with a {@link SectionContent}; their order is the pages' default order. */
+    SECTION
 }

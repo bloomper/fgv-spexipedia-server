@@ -48,7 +48,7 @@ public class SpexCompletenessService {
     /** What the page can have. */
     public enum Item {
         POSTER, PREMIERE, INTRODUCTION, SHORT_DESCRIPTION, DESCRIPTION, SYNOPSIS, VEST_DESCRIPTION, VEST_WORN_BY, FACTS,
-        SCENOGRAPHY, VEST, REBUS, REBUS_SOLUTION, GROUP_PHOTOS, BOARD_PHOTOS, CHARACTERS, CHARACTER_DESCRIPTIONS,
+        IMAGES, VEST, REBUS, REBUS_SOLUTION, GROUP_PHOTOS, BOARD_PHOTOS, CHARACTERS, CHARACTER_DESCRIPTIONS,
         CHARACTER_IMAGES, SCENES, SCENE_PLACES, NUMBERS, NUMBER_ORIGINALS, NUMBER_CREDITS, NUMBER_CHARACTERS
     }
 
@@ -130,7 +130,10 @@ public class SpexCompletenessService {
         each("SELECT f.spex_id, COUNT(*) FROM spex_fact f JOIN kind k ON k.id = f.kind_id AND k.retired = 0 WHERE f.spex_id IN (:ids) AND %s GROUP BY f.spex_id"
                         .formatted(FILLED.formatted("f.value")), spexKeys,
                 rs -> with(counts, rs.getLong(1), c -> c.facts = rs.getInt(2)));
-        each("SELECT p.spex_id, p.section, COUNT(*) FROM spex_page_image p JOIN image i ON i.id = p.image_id AND i.trashed_at IS NULL WHERE p.spex_id IN (:ids) GROUP BY p.spex_id, p.section", spexKeys,
+        // By the sections' content: the image sections together (IMAGES), and the vest
+        each("""
+                        SELECT p.spex_id, s.content, COUNT(*) FROM spex_page_image p JOIN image i ON i.id = p.image_id AND i.trashed_at IS NULL
+                        JOIN kind s ON s.id = p.section_id AND s.retired = 0 WHERE p.spex_id IN (:ids) GROUP BY p.spex_id, s.content""", spexKeys,
                 rs -> with(counts, rs.getLong(1), c -> c.images.put(rs.getString(2), rs.getInt(3))));
         each("SELECT spex_id, section, COUNT(*) FROM spex_page_photo WHERE spex_id IN (:ids) AND character_id = 0 GROUP BY spex_id, section", spexKeys,
                 rs -> with(counts, rs.getLong(1), c -> c.photos.put(rs.getString(2), rs.getInt(3))));
@@ -210,7 +213,7 @@ public class SpexCompletenessService {
             sections.add(section(Section.MEDIA, photos));
         } else {
             final List<ItemDto> media = new ArrayList<>(List.of(
-                    new ItemDto(Item.SCENOGRAPHY, one(c.images.getOrDefault("SCENOGRAPHY", 0) > 0)),
+                    new ItemDto(Item.IMAGES, one(c.images.getOrDefault("IMAGES", 0) > 0)),
                     new ItemDto(Item.VEST, one(c.images.getOrDefault("VEST", 0) > 0)),
                     page(c, Item.REBUS), page(c, Item.REBUS_SOLUTION)));
 

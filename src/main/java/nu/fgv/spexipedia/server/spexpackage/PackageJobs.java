@@ -155,7 +155,9 @@ public class PackageJobs {
         final PackagePlan plan;
 
         try {
-            plan = PackagePlan.of(PackageSheets.read(store.spreadsheet(id), kinds), files, baseData.spexAll(true), baseData.categories(true));
+            plan = PackagePlan.of(PackageSheets.read(store.spreadsheet(id), kinds), files, baseData.spexAll(true), baseData.categories(true),
+                    folder -> kinds.match(nu.fgv.spexipedia.server.kind.KindType.SECTION, null, folder)
+                            .filter(section -> section.getContent() == nu.fgv.spexipedia.server.kind.SectionContent.IMAGES).isPresent());
         } catch (final IOException e) {
             throw new PackageException(PackageText.of("failed.spreadsheet", String.valueOf(e.getMessage())), e);
         }

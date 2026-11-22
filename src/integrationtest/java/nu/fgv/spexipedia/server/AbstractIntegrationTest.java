@@ -102,7 +102,7 @@ public abstract class AbstractIntegrationTest {
             "article_category_parent", "article_editing", "article_article_category", "article", "article_category",
             "revision", "redirect", "search_document", "number_character", "number_credit",
             "spex_number", "character_image", "spex_character", "scene", "revival_change", "spex_page_photo",
-            "spex_page_image", "spex_page", "spex", "spex_category", "task", "task_category", "id_alias", "sync_consumer",
+            "spex_page_image", "spex_section", "spex_page", "spex", "spex_category", "task", "task_category", "id_alias", "sync_consumer",
             "change_feed_entry", "image", "audit_entry", "app_user");
 
     @ServiceConnection

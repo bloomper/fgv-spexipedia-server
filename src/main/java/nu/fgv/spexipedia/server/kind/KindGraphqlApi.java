@@ -21,6 +21,7 @@ import nu.fgv.spexipedia.server.util.Ids;
 import nu.fgv.spexipedia.server.util.Locales;
 import org.jspecify.annotations.Nullable;
 import org.springframework.graphql.data.method.annotation.Argument;
+import org.springframework.graphql.data.method.annotation.BatchMapping;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.graphql.data.method.annotation.SchemaMapping;
@@ -48,8 +49,10 @@ public class KindGraphqlApi {
 
     @QueryMapping
     public List<Kind> kinds(@Argument final KindType type, @Argument final @Nullable KindUse use,
-                            @Argument final boolean includeRetired) {
-        return service.kinds(type, use, includeRetired);
+                            @Argument final @Nullable String sectionId, @Argument final boolean includeRetired) {
+        return sectionId == null ? service.kinds(type, use, includeRetired)
+                : type == KindType.IMAGE && use == KindUse.SECTION ? service.imageKinds(service.requireImageSection(Ids.require(sectionId)), includeRetired)
+                : List.of();
     }
 
     @MutationMapping
@@ -59,8 +62,8 @@ public class KindGraphqlApi {
 
     @MutationMapping
     public List<Kind> kindsReorder(@Argument final KindType type, @Argument final @Nullable KindUse use,
-                                   @Argument final List<String> ids) {
-        return service.reorder(type, use, ids.stream().map(Ids::require).toList());
+                                   @Argument final @Nullable String sectionId, @Argument final List<String> ids) {
+        return service.reorder(type, use, Ids.optional(sectionId), ids.stream().map(Ids::require).toList());
     }
 
     @MutationMapping
@@ -90,14 +93,41 @@ public class KindGraphqlApi {
         return kind.aliasList();
     }
 
+    @SchemaMapping(typeName = "Kind", field = "subtitle")
+    public @Nullable String subtitle(final Kind kind, final @Nullable Locale locale) {
+        return kind.subtitle(Locales.supported(locale));
+    }
+
+    @SchemaMapping(typeName = "Kind", field = "section")
+    public @Nullable Kind section(final Kind kind) {
+        return kind.getSectionKey() == null ? null : service.byKeys(List.of(kind.getSectionKey())).get(kind.getSectionKey());
+    }
+
+    /**
+     * The image kinds of an image section, retired ones too, as editors need them for images that keep theirs.
+     */
+    @BatchMapping(typeName = "Kind", field = "imageKinds")
+    public Map<Kind, List<Kind>> imageKinds(final List<Kind> kinds) {
+        final Map<Long, List<Kind>> byKey = service.imageKinds(kinds.stream()
+                .filter(kind -> kind.getContent() == SectionContent.IMAGES).map(Kind::getId).toList(), true);
+        final Map<Kind, List<Kind>> result = new java.util.LinkedHashMap<>();
+
+        kinds.forEach(kind -> result.put(kind, byKey.getOrDefault(kind.getId(), List.of())));
+        return result;
+    }
+
     @SuppressWarnings("unchecked")
     static KindInput kindInput(final Map<String, Object> input) {
         return new KindInput(
                 input.get("type") == null ? null : KindType.valueOf((String) input.get("type")),
                 input.get("use") == null ? null : KindUse.valueOf((String) input.get("use")),
+                Ids.optional((String) input.get("sectionId")),
+                input.get("content") == null ? null : SectionContent.valueOf((String) input.get("content")),
                 input.get("valueType") == null ? null : FactValueType.valueOf((String) input.get("valueType")),
                 (String) input.get("nameSv"),
                 (String) input.get("nameEn"),
-                (List<String>) input.get("aliases"));
+                (List<String>) input.get("aliases"),
+                (String) input.get("subtitleSv"),
+                (String) input.get("subtitleEn"));
     }
 }

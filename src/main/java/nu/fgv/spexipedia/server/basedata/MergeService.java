@@ -180,6 +180,7 @@ public class MergeService {
                 // The merged spex's page goes with it; the other's page is kept
                 jdbc.sql("DELETE FROM spex_page_image WHERE spex_id = :from").param("from", from).update();
                 jdbc.sql("DELETE FROM spex_page_photo WHERE spex_id = :from").param("from", from).update();
+                jdbc.sql("DELETE FROM spex_section WHERE spex_id = :from").param("from", from).update();
                 jdbc.sql("DELETE FROM spex_page WHERE spex_id = :from").param("from", from).update();
                 jdbc.sql("DELETE FROM revival_change WHERE revival_id = :from").param("from", from).update();
             }
