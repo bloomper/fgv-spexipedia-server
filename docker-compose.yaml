@@ -21,14 +21,14 @@ services:
     ports:
       - "127.0.0.1:3311:3306"
     volumes:
-      - fgv_spexipedia_mysql_data:/var/lib/mysql
-      - fgv_spexipedia_mysql_log:/var/log/mysql
+      - ./.docker/mysql/data:/var/lib/mysql
+      - ./.docker/mysql/log:/var/log/mysql
     secrets:
       - FGV_SPEXIPEDIA_MYSQL_ROOT_PASSWORD
       - FGV_SPEXIPEDIA_MYSQL_USER_PASSWORD
 
   # Serves the images under /media/ with long cache times; published on localhost:8089 for an API started from the IDE,
-  # which keeps the images in ./data/media too
+  # which keeps the images in ./data/media (set API_DATA=./data in .env so that this container serves them)
   spexipedia-media:
     image: 'nginx:1.30-alpine'
     restart: unless-stopped
@@ -43,7 +43,7 @@ services:
       - "127.0.0.1:8089:80"
     volumes:
       - ${SPEXIPEDIA_DEPLOY:-../fgv-spexipedia-deploy}/media/default.conf.template:/etc/nginx/templates/default.conf.template:ro
-      - ./data/media:/srv/media:ro
+      - ${API_DATA:-./.docker/api}/media:/srv/media:ro
     networks:
       - default
       - fgv
@@ -86,10 +86,10 @@ services:
       spexipedia-mysql:
         condition: service_healthy
     volumes:
-      - fgv_spexipedia_api_log:/data/log_data
-      - ./data/media:/data/media
-      - ./data/uploads:/data/uploads
-      - ./data/imports:/data/imports
+      - ${API_DATA:-./.docker/api}/log_data:/data/log_data
+      - ${API_DATA:-./.docker/api}/media:/data/media
+      - ${API_DATA:-./.docker/api}/uploads:/data/uploads
+      - ${API_DATA:-./.docker/api}/imports:/data/imports
     networks:
       - default
       - fgv
@@ -97,26 +97,6 @@ services:
       - source: FGV_SPEXIPEDIA_MYSQL_USER_PASSWORD
         target: MYSQL_API_USER_PASSWORD
       - API_KEYCLOAK_SERVICE_CLIENT_SECRET
-
-volumes:
-  fgv_spexipedia_mysql_data:
-    driver: local
-    driver_opts:
-      type: none
-      device: .docker/fgv-spexipedia-mysql/data
-      o: bind
-  fgv_spexipedia_mysql_log:
-    driver: local
-    driver_opts:
-      type: none
-      device: .docker/fgv-spexipedia-mysql/log
-      o: bind
-  fgv_spexipedia_api_log:
-    driver: local
-    driver_opts:
-      type: none
-      device: .docker/fgv-spexipedia-api/log_data
-      o: bind
 
 networks:
   fgv:
