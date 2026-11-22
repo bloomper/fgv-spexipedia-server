@@ -7,11 +7,11 @@ services:
     command: --log-error=/var/log/mysql/error.log
     environment:
       MYSQL_HOST: localhost
-      MYSQL_DATABASE: ${FGV_SPEXIPEDIA_MYSQL_DATABASE}
-      MYSQL_ROOT_USER: ${FGV_SPEXIPEDIA_MYSQL_ROOT_USER}
-      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/FGV_SPEXIPEDIA_MYSQL_ROOT_PASSWORD
-      MYSQL_USER: ${FGV_SPEXIPEDIA_MYSQL_USER}
-      MYSQL_PASSWORD_FILE: /run/secrets/FGV_SPEXIPEDIA_MYSQL_USER_PASSWORD
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_ROOT_USER: ${MYSQL_ROOT_USER}
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/MYSQL_ROOT_PASSWORD
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD_FILE: /run/secrets/MYSQL_USER_PASSWORD
     healthcheck:
       test: [ "CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent" ]
       interval: 10s
@@ -19,16 +19,16 @@ services:
       retries: 10
       start_period: 30s
     ports:
-      - "127.0.0.1:3311:3306"
+      - "127.0.0.1:3312:3306"
     volumes:
-      - fgv_spexipedia_mysql_data:/var/lib/mysql
-      - fgv_spexipedia_mysql_log:/var/log/mysql
+      - ./.docker/mysql/data:/var/lib/mysql
+      - ./.docker/mysql/log:/var/log/mysql
     secrets:
-      - FGV_SPEXIPEDIA_MYSQL_ROOT_PASSWORD
-      - FGV_SPEXIPEDIA_MYSQL_USER_PASSWORD
+      - MYSQL_ROOT_PASSWORD
+      - MYSQL_USER_PASSWORD
 
   # Serves the images under /media/ with long cache times; published on localhost:8089 for an API started from the IDE,
-  # which keeps the images in ./data/media too
+  # which keeps the images in ./data/media (set API_DATA=./data in .env so that this container serves them)
   spexipedia-media:
     image: 'nginx:1.30-alpine'
     restart: unless-stopped
@@ -43,7 +43,7 @@ services:
       - "127.0.0.1:8089:80"
     volumes:
       - ${SPEXIPEDIA_DEPLOY:-../fgv-spexipedia-deploy}/media/default.conf.template:/etc/nginx/templates/default.conf.template:ro
-      - ./data/media:/srv/media:ro
+      - ${API_DATA:-./.docker/api}/media:/srv/media:ro
     networks:
       - default
       - fgv
@@ -52,8 +52,8 @@ services:
     image: 'bloomper/fgv-spexipedia-server:develop'
     environment:
       SPRING_PROFILES_ACTIVE: local
-      SPRING_DATASOURCE_URL: jdbc:mysql://spexipedia-mysql/${FGV_SPEXIPEDIA_MYSQL_DATABASE}
-      SPRING_DATASOURCE_USERNAME: ${FGV_SPEXIPEDIA_MYSQL_USER}
+      SPRING_DATASOURCE_URL: jdbc:mysql://spexipedia-mysql/${MYSQL_DATABASE}
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
       SERVER_PORT: 8080
       MANAGEMENT_SERVER_PORT: 9000
       LOGGING_FILE_PATH: /data/log_data
@@ -63,6 +63,7 @@ services:
       API_WEB_URL: ${SPEXIPEDIA_WEB_ORIGIN:-http://localhost:3006}
       API_MEDIA_ROOT: /data/media
       API_UPLOADS_ROOT: /data/uploads
+      API_IMPORTS_ROOT: /data/imports
       API_MEDIA_BASE_URL: https://media.spexipedia.fgv.local.nu:8443/media
       API_SPEXREGISTER_GRAPHQL_URL: http://spexregister-api:8080/api/graphql
       API_SPEXGRAM_GRAPHQL_URL: http://spexgram-api:8080/api/graphql
@@ -85,36 +86,17 @@ services:
       spexipedia-mysql:
         condition: service_healthy
     volumes:
-      - fgv_spexipedia_api_log:/data/log_data
-      - ./data/media:/data/media
-      - ./data/uploads:/data/uploads
+      - ${API_DATA:-./.docker/api}/log_data:/data/log_data
+      - ${API_DATA:-./.docker/api}/media:/data/media
+      - ${API_DATA:-./.docker/api}/uploads:/data/uploads
+      - ${API_DATA:-./.docker/api}/imports:/data/imports
     networks:
       - default
       - fgv
     secrets:
-      - source: FGV_SPEXIPEDIA_MYSQL_USER_PASSWORD
+      - source: MYSQL_USER_PASSWORD
         target: MYSQL_API_USER_PASSWORD
       - API_KEYCLOAK_SERVICE_CLIENT_SECRET
-
-volumes:
-  fgv_spexipedia_mysql_data:
-    driver: local
-    driver_opts:
-      type: none
-      device: .docker/fgv-spexipedia-mysql/data
-      o: bind
-  fgv_spexipedia_mysql_log:
-    driver: local
-    driver_opts:
-      type: none
-      device: .docker/fgv-spexipedia-mysql/log
-      o: bind
-  fgv_spexipedia_api_log:
-    driver: local
-    driver_opts:
-      type: none
-      device: .docker/fgv-spexipedia-api/log_data
-      o: bind
 
 networks:
   fgv:
@@ -122,9 +104,9 @@ networks:
     external: true
 
 secrets:
-  FGV_SPEXIPEDIA_MYSQL_ROOT_PASSWORD:
-    file: .docker/secrets/FGV_SPEXIPEDIA_MYSQL_ROOT_PASSWORD
-  FGV_SPEXIPEDIA_MYSQL_USER_PASSWORD:
-    file: .docker/secrets/FGV_SPEXIPEDIA_MYSQL_USER_PASSWORD
+  MYSQL_ROOT_PASSWORD:
+    file: .docker/secrets/MYSQL_ROOT_PASSWORD
+  MYSQL_USER_PASSWORD:
+    file: .docker/secrets/MYSQL_USER_PASSWORD
   API_KEYCLOAK_SERVICE_CLIENT_SECRET:
     file: .docker/secrets/API_KEYCLOAK_SERVICE_CLIENT_SECRET

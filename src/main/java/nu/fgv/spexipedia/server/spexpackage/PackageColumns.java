@@ -17,9 +17,11 @@
 package nu.fgv.spexipedia.server.spexpackage;
 
 import nu.fgv.spexipedia.server.kind.KindService;
+import nu.fgv.spexipedia.server.util.Locales;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -38,6 +40,16 @@ public final class PackageColumns {
     public static final String SCENES = "Scener";
     public static final String NUMBERS = "Nummer";
     public static final String INSTRUCTIONS = "Instruktioner";
+    public static final String LISTS = "Listor";
+
+    /** The sheets by their Swedish name, with the names they are recognised by: Swedish first, then English. */
+    public static final Map<String, List<String>> SHEETS = ordered(
+            SPEX, List.of(SPEX, "Spex"),
+            CHARACTERS, List.of(CHARACTERS, "Characters"),
+            SCENES, List.of(SCENES, "Scenes"),
+            NUMBERS, List.of(NUMBERS, "Numbers"),
+            INSTRUCTIONS, List.of(INSTRUCTIONS, "Instructions"),
+            LISTS, List.of(LISTS, "Lists"));
 
     /** The rows of the Spex sheet, by field. */
     public static final Map<String, List<String>> SPEX_FIELDS = ordered(
@@ -48,7 +60,7 @@ public final class PackageColumns {
             "introduction", List.of("Introduktion", "Introduction"),
             "shortDescription", List.of("Kort beskrivning", "Short description", "Spexbeskrivning - kort"),
             "description", List.of("Beskrivning", "Description", "Spexbeskrivning"),
-            "synopsis", List.of("Synopsis", "Handling"),
+            "synopsis", List.of("Synopsis", "Synopsis", "Handling"),
             "premiere", List.of("Premiär", "Premiere"));
 
     public static final Map<String, List<String>> CHARACTER_COLUMNS = ordered(
@@ -69,7 +81,7 @@ public final class PackageColumns {
             "originalTitle", List.of("Originalsång", "Original song", "Orginalsång"),
             "originalArtist", List.of("Originalartist", "Original artist"),
             "fromWork", List.of("Ur", "From"),
-            "firstLine", List.of("Första strofen", "Första raden", "First line"),
+            "firstLine", List.of("Första strofen", "First line", "Första raden"),
             "characters", List.of("Karaktärer", "Characters"));
 
     /**
@@ -95,6 +107,11 @@ public final class PackageColumns {
     public static final List<String> IGNORED = List.of("Tillstånd", "Övrigt (mapp)");
 
     private PackageColumns() {
+    }
+
+    /** The name to write in the locale's language: the first for Swedish, the second for English. */
+    public static String name(final List<String> names, final Locale locale) {
+        return Locale.ENGLISH.equals(Locales.supported(locale)) && names.size() > 1 ? names.get(1) : names.getFirst();
     }
 
     /** The field the header names, or null. */

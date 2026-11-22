@@ -31,7 +31,7 @@ import java.util.List;
  * @author Anders Jacobsson
  * @since 1.0
  */
-public record PackageReport(List<AppReport> apps, List<String> unmatched, List<String> warnings) {
+public record PackageReport(List<AppReport> apps, List<PackageText> unmatched, List<PackageText> warnings) {
 
     /**
      * One application's part.
@@ -45,13 +45,13 @@ public record PackageReport(List<AppReport> apps, List<String> unmatched, List<S
      * @param webUrl    the application, for links to what was created
      */
     public record AppReport(String app, String status, int records, int files, int created, int updated, int unchanged,
-                            int kept, int failed, @Nullable String message, @Nullable String webUrl, List<Item> items) {
+                            int kept, int failed, @Nullable PackageText message, @Nullable String webUrl, List<Item> items) {
     }
 
     /**
      * One record's outcome: CREATED, UPDATED, UNCHANGED, KEPT or FAILED, with the application's message.
      */
-    public record Item(String kind, String sourceKey, @Nullable String id, String outcome, @Nullable String message,
-                       List<String> warnings) {
+    public record Item(String kind, String sourceKey, @Nullable String id, String outcome, @Nullable PackageText message,
+                       List<PackageText> warnings) {
     }
 }

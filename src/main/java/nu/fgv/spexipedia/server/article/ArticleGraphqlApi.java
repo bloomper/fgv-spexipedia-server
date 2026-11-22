@@ -97,14 +97,14 @@ public class ArticleGraphqlApi {
     }
 
     @QueryMapping
-    public Map<String, Object> recentChanges(@Argument final int page, @Argument final int size) {
+    public RevisionPageDto recentChanges(@Argument final int page, @Argument final int size) {
         callerService.current().requireUser();
 
         final Set<UUID> pages = pageService.isAuthor() ? null : pageService.publishedSpexIds();
         final Page<Revision> revisions = revisionService.visible(service.visibleIds(), pages, page, size);
 
-        return Map.of("entries", revisionService.toDtos(revisions.getContent()), "totalCount", (int) revisions.getTotalElements(),
-                "page", revisions.getNumber(), "size", revisions.getSize());
+        return new RevisionPageDto(revisionService.toDtos(revisions.getContent()), (int) revisions.getTotalElements(),
+                revisions.getNumber(), revisions.getSize());
     }
 
     /**
@@ -286,5 +286,8 @@ public class ArticleGraphqlApi {
     @SchemaMapping(typeName = "ArticleCategory")
     public List<ArticleCategoryDto> subcategories(final ArticleCategoryDto category) {
         return service.subcategories(category.key());
+    }
+
+    public record RevisionPageDto(List<RevisionDto> entries, int totalCount, int page, int size) {
     }
 }

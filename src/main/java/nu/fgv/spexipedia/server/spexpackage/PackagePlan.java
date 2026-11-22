@@ -110,12 +110,12 @@ public final class PackagePlan {
     private final ImportRecords.Batch spexipedia;
     private final Map<String, PackageFile> spexipediaFiles;
     private final Map<App, AppBatch> others;
-    private final List<String> unmatched;
-    private final List<String> warnings;
+    private final List<PackageText> unmatched;
+    private final List<PackageText> warnings;
 
     private PackagePlan(final String spexKey, final @Nullable UUID existingSpexId, final @Nullable UUID originalId,
                         final ImportRecords.Batch spexipedia, final Map<String, PackageFile> spexipediaFiles,
-                        final Map<App, AppBatch> others, final List<String> unmatched, final List<String> warnings) {
+                        final Map<App, AppBatch> others, final List<PackageText> unmatched, final List<PackageText> warnings) {
         this.spexKey = spexKey;
         this.existingSpexId = existingSpexId;
         this.originalId = originalId;
@@ -154,11 +154,11 @@ public final class PackagePlan {
         return others;
     }
 
-    public List<String> unmatched() {
+    public List<PackageText> unmatched() {
         return unmatched;
     }
 
-    public List<String> warnings() {
+    public List<PackageText> warnings() {
         return warnings;
     }
 
@@ -177,8 +177,8 @@ public final class PackagePlan {
         private final List<PackageFile> files;
         private final List<SpexDto> allSpex;
         private final List<SpexCategoryDto> categories;
-        private final List<String> unmatched = new ArrayList<>();
-        private final List<String> warnings = new ArrayList<>();
+        private final List<PackageText> unmatched = new ArrayList<>();
+        private final List<PackageText> warnings = new ArrayList<>();
         private final Map<String, PackageFile> spexipediaFiles = new LinkedHashMap<>();
         private final Map<App, AppBatch> others = new EnumMap<>(App.class);
         private final Map<Integer, String> numberKeys = new LinkedHashMap<>();
@@ -200,13 +200,13 @@ public final class PackagePlan {
             final @Nullable SpexDto parent = parentText == null ? null : original(parentText);
 
             if (parentText != null && parent == null) {
-                warnings.add("Spex: no original spex is called " + parentText);
+                warnings.add(PackageText.of("warning.parent", parentText));
             }
 
             final String title = parent != null ? parent.title() : content.title();
 
             if (year.isBlank() || title.isBlank() && parent == null) {
-                throw new IllegalArgumentException("The Spex sheet needs a title (or the original of a revival) and a year");
+                throw new PackageException(PackageText.of("failed.titleAndYear"));
             }
             spexKey = KindService.normalize(year + " " + title).replace(' ', '-') + (parent != null ? "-revival" : "");
             key = "package:" + spexKey;
@@ -219,7 +219,7 @@ public final class PackagePlan {
             final @Nullable String category = content.spex().get("category");
 
             if (category != null && categories.stream().noneMatch(c -> KindService.normalize(c.name()).equals(KindService.normalize(category)))) {
-                warnings.add("Spex: no category is called " + category);
+                warnings.add(PackageText.of("warning.category", category));
             }
 
             final ImportRecords.ImportSpex spexRecord = new ImportRecords.ImportSpex(key, existing.map(SpexDto::id).orElse(null),
@@ -355,7 +355,7 @@ public final class PackagePlan {
                 final FileRef ref = new FileRef(file.sha256(), file.name());
 
                 if (parts.size() == 1) {
-                    unmatched.add(file.path() + ": a file at the top of the zip goes nowhere; put it in a folder");
+                    unmatched.add(PackageText.of("unmatched.top", file.path()));
                     continue;
                 }
                 if (top == null) {
@@ -375,7 +375,7 @@ public final class PackagePlan {
                 switch (top) {
                     case "poster", "rebus", "vest", "images" -> {
                         if (!IMAGES.contains(extension)) {
-                            unmatched.add(file.path() + ": Spexipedia shows only images (jpg, png, gif, webp)");
+                            unmatched.add(PackageText.of("unmatched.notImage", file.path()));
                             continue;
                         }
                         spexipediaFiles.put(file.sha256(), file);
@@ -391,13 +391,13 @@ public final class PackagePlan {
                         } else if ("images".equals(top)) {
                             page.images.add(new ImportRecords.ImportPageImage("OTHER", parts.size() > 2 ? parts.get(1) : null, ref, null));
                         } else {
-                            unmatched.add(file.path() + ": the page has one poster");
+                            unmatched.add(PackageText.of("unmatched.onePoster", file.path()));
                             spexipediaFiles.remove(file.sha256());
                         }
                     }
                     case "scenography" -> {
                         if (!IMAGES.contains(extension)) {
-                            unmatched.add(file.path() + ": Spexipedia shows only images (jpg, png, gif, webp)");
+                            unmatched.add(PackageText.of("unmatched.notImage", file.path()));
                             continue;
                         }
                         spexipediaFiles.put(file.sha256(), file);
@@ -407,8 +407,9 @@ public final class PackagePlan {
                         final Optional<ImportRecords.ImportCharacter> character = parts.size() > 2 ? characterFor(characters, parts.get(1)) : Optional.empty();
 
                         if (character.isEmpty() || !IMAGES.contains(extension)) {
-                            unmatched.add(file.path() + (character.isEmpty() ? ": no character of the Karaktärer sheet is called "
-                                    + (parts.size() > 2 ? parts.get(1) : "that") : ": Spexipedia shows only images (jpg, png, gif, webp)"));
+                            unmatched.add(character.isEmpty() ? parts.size() > 2 ? PackageText.of("unmatched.noCharacter", file.path(), parts.get(1))
+                                    : PackageText.of("unmatched.characterFolder", file.path())
+                                    : PackageText.of("unmatched.notImage", file.path()));
                             continue;
                         }
                         spexipediaFiles.put(file.sha256(), file);
@@ -419,7 +420,8 @@ public final class PackagePlan {
                         final Optional<String> number = parts.size() > 2 ? numberFor(parts.get(1)) : Optional.empty();
 
                         if (number.isEmpty()) {
-                            unmatched.add(file.path() + ": no number of the Nummer sheet is " + (parts.size() > 2 ? parts.get(1) : "named"));
+                            unmatched.add(parts.size() > 2 ? PackageText.of("unmatched.noNumber", file.path(), parts.get(1))
+                                    : PackageText.of("unmatched.numberFolder", file.path()));
                             continue;
                         }
 
@@ -435,7 +437,7 @@ public final class PackagePlan {
                     }
                     case "recordings" -> {
                         if (!AUDIO.contains(extension)) {
-                            unmatched.add(file.path() + ": Spexify takes only sound files");
+                            unmatched.add(PackageText.of("unmatched.notAudio", file.path()));
                             continue;
                         }
 
@@ -456,7 +458,7 @@ public final class PackagePlan {
                     }
                     case "videos" -> {
                         if (!VIDEO.contains(extension)) {
-                            unmatched.add(file.path() + ": Spexflix takes only videos");
+                            unmatched.add(PackageText.of("unmatched.notVideo", file.path()));
                             continue;
                         }
                         spexflix.add("videos", record("sourceKey", key + ":video:" + KindService.normalize(file.path()).replace(' ', '-'),
@@ -466,7 +468,7 @@ public final class PackagePlan {
                     }
                     case "photos" -> {
                         if (!PHOTOS.contains(extension)) {
-                            unmatched.add(file.path() + ": Spexgram takes only photos and videos");
+                            unmatched.add(PackageText.of("unmatched.notPhoto", file.path()));
                             continue;
                         }
 
@@ -482,7 +484,7 @@ public final class PackagePlan {
                                 "albumSourceKey", album, "file", fileRef(file)));
                         spexgram.file(file);
                     }
-                    default -> unmatched.add(file.path() + ": goes nowhere");
+                    default -> unmatched.add(PackageText.of("unmatched.nowhere", file.path()));
                 }
             }
             archive.into(App.ARCHIVE);

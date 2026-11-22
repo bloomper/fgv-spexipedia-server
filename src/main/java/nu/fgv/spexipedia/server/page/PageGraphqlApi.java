@@ -190,7 +190,7 @@ public class PageGraphqlApi {
     }
 
     @SchemaMapping(typeName = "SpexPage")
-    public Map<String, @Nullable UUID> revisionIds(final SpexPageDto page) {
+    public SpexPageService.RevisionIdsDto revisionIds(final SpexPageDto page) {
         return service.revisionIds(page.spexId());
     }
 

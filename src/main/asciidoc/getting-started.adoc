@@ -60,7 +60,18 @@ $ docker compose up -d
 
 The API answers on ``https://api.spexipedia.fgv.local.nu:8443`` (through Caddy) and the images on
 ``https://media.spexipedia.fgv.local.nu:8443/media/`` (Caddy, from ``spexipedia-media`` on port 8089). To run the API from the IDE instead, stop ``spexipedia-api`` and start
-``SpexipediaApplication`` with the profile ``local``: it listens on port 8088 and uses MySQL on port 3311.
+``SpexipediaApplication`` with the profile ``local``: it listens on port 8088 and uses MySQL on port 3312.
+
+[[local_folders]]
+=== Local folders
+
+Docker Compose keeps everything on the host, under ``.docker``, one folder per service:
+
+* ``.docker/mysql``: the database and its error log
+* ``.docker/api``: the API's logs, media, unfinished uploads and imports
+* ``.docker/secrets``: the secrets, see <<configuration>>
+
+An API started from the IDE or with ``./gradlew bootRun`` keeps its files in ``./data`` instead. ``spexipedia-media`` serves the images from the API's ``media``. To let the containers see the files of an API started from the IDE, set ``API_DATA=./data`` in ``.env``.
 
 [[sample_data]]
 == Sample data

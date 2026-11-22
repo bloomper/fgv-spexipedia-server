@@ -17,6 +17,7 @@
 package nu.fgv.spexipedia.server.basedata;
 
 import nu.fgv.spexipedia.server.audit.AuditService;
+import nu.fgv.spexipedia.server.util.StoredText;
 import nu.fgv.spexipedia.server.basedata.BaseDataDtos.SpexCategoryDto;
 import nu.fgv.spexipedia.server.basedata.BaseDataDtos.SpexDto;
 import nu.fgv.spexipedia.server.basedata.BaseDataDtos.TaskCategoryDto;
@@ -296,7 +297,7 @@ public class BaseDataService {
         apply(category, name, firstYear, description);
         categoryRepository.save(category);
         changed(category);
-        auditService.record("CREATE", "SPEX_CATEGORY", category.getUuid(), "Skapade spexkategorin " + category.getName());
+        auditService.record("CREATE", "SPEX_CATEGORY", category.getUuid(), StoredText.of("audit.spexCategory.create", category.getName()));
         return BaseDataDtos.toDto(category);
     }
 
@@ -310,7 +311,7 @@ public class BaseDataService {
         changed(category);
         // Every spex of the category carries its name in the search index
         spexRepository.findAllOfCategory(category).forEach(spex -> events.publishEvent(new IndexEvent(SearchKind.SPEX, spex.getUuid())));
-        auditService.record("UPDATE", "SPEX_CATEGORY", id, "Ändrade spexkategorin " + category.getName());
+        auditService.record("UPDATE", "SPEX_CATEGORY", id, StoredText.of("audit.spexCategory.update", category.getName()));
         return BaseDataDtos.toDto(category);
     }
 
@@ -322,7 +323,8 @@ public class BaseDataService {
 
         category.setLogo(imageId == null ? null : imageService.requireUsable(imageId));
         changed(category);
-        auditService.record("UPDATE", "SPEX_CATEGORY", id, (imageId == null ? "Tog bort logotypen för " : "Bytte logotyp för ") + category.getName());
+        auditService.record("UPDATE", "SPEX_CATEGORY", id,
+                StoredText.of(imageId == null ? "audit.spexCategory.removeLogo" : "audit.spexCategory.replaceLogo", category.getName()));
         return BaseDataDtos.toDto(category);
     }
 
@@ -362,7 +364,7 @@ public class BaseDataService {
         spex.setSlug(slug(spex));
         spexRepository.save(spex);
         changed(spex);
-        auditService.record("CREATE", "SPEX", spex.getUuid(), "Skapade spexet " + spex.label());
+        auditService.record("CREATE", "SPEX", spex.getUuid(), StoredText.of("audit.spex.create", spex.label()));
         return BaseDataDtos.toDto(spex);
     }
 
@@ -379,7 +381,7 @@ public class BaseDataService {
         }
         requireFreeYear(spex);
         changedWithRevivals(spex);
-        auditService.record("UPDATE", "SPEX", id, "Ändrade spexet " + spex.label());
+        auditService.record("UPDATE", "SPEX", id, StoredText.of("audit.spex.update", spex.label()));
         return BaseDataDtos.toDto(spex);
     }
 
@@ -453,7 +455,7 @@ public class BaseDataService {
         revival.setSlug(slug(revival));
         spexRepository.save(revival);
         changed(revival);
-        auditService.record("CREATE", "SPEX", revival.getUuid(), "Skapade nyuppsättningen " + revival.label());
+        auditService.record("CREATE", "SPEX", revival.getUuid(), StoredText.of("audit.spex.createRevival", revival.label()));
         return BaseDataDtos.toDto(revival);
     }
 
@@ -466,7 +468,8 @@ public class BaseDataService {
         spex.setPoster(imageId == null ? null : imageService.requireUsable(imageId));
         // Revivals without a poster of their own show this one
         changedWithRevivals(spex);
-        auditService.record("UPDATE", "SPEX", id, (imageId == null ? "Tog bort affischen för " : "Bytte affisch för ") + spex.label());
+        auditService.record("UPDATE", "SPEX", id,
+                StoredText.of(imageId == null ? "audit.spex.removePoster" : "audit.spex.replacePoster", spex.label()));
         return BaseDataDtos.toDto(spex);
     }
 
@@ -527,7 +530,7 @@ public class BaseDataService {
         category.setInstruments(instruments);
         taskCategoryRepository.save(category);
         changed(category);
-        auditService.record("CREATE", "TASK_CATEGORY", category.getUuid(), "Skapade funktionskategorin " + category.getName());
+        auditService.record("CREATE", "TASK_CATEGORY", category.getUuid(), StoredText.of("audit.taskCategory.create", category.getName()));
         return BaseDataDtos.toDto(category);
     }
 
@@ -541,7 +544,7 @@ public class BaseDataService {
         category.setActorPresent(actorPresent);
         category.setInstruments(instruments);
         changed(category);
-        auditService.record("UPDATE", "TASK_CATEGORY", id, "Ändrade funktionskategorin " + category.getName());
+        auditService.record("UPDATE", "TASK_CATEGORY", id, StoredText.of("audit.taskCategory.update", category.getName()));
         return BaseDataDtos.toDto(category);
     }
 
@@ -557,7 +560,7 @@ public class BaseDataService {
         task.setBoard(board);
         taskRepository.save(task);
         changed(task);
-        auditService.record("CREATE", "TASK", task.getUuid(), "Skapade funktionen " + task.getName());
+        auditService.record("CREATE", "TASK", task.getUuid(), StoredText.of("audit.task.create", task.getName()));
         return BaseDataDtos.toDto(task);
     }
 
@@ -571,7 +574,7 @@ public class BaseDataService {
         task.setCategory(requireTaskCategory(categoryId));
         task.setBoard(board);
         changed(task);
-        auditService.record("UPDATE", "TASK", id, "Ändrade funktionen " + task.getName());
+        auditService.record("UPDATE", "TASK", id, StoredText.of("audit.task.update", task.getName()));
         return BaseDataDtos.toDto(task);
     }
 

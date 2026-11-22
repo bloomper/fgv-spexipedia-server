@@ -183,7 +183,7 @@ public class SpexipediaImport {
         }
         return kinds.match(type, use, cleaned).orElseGet(() -> {
             if (batch.createMissingKinds()) {
-                batch.warn("Ny sort: " + cleaned);
+                batch.warn("import.warning.newKind", cleaned);
                 return kinds.createForImport(type, use, cleaned);
             }
             throw new BadRequestException("error.kind.unknown", cleaned,
@@ -219,7 +219,7 @@ public class SpexipediaImport {
                     .filter(person -> person.name() != null && person.name().equalsIgnoreCase(name))
                     .toList();
         } catch (final RuntimeException e) {
-            batch.warn("Spexregistret svarade inte; " + name + " är olöst");
+            batch.warn("import.warning.spexregisterDown", name);
         }
         if (matches.size() == 1 && matches.getFirst().id() != null) {
             return new NumberCreditInput(kind.getUuid(), matches.getFirst().id(), null);
@@ -262,7 +262,7 @@ public class SpexipediaImport {
                         record.category() == null ? baseData.requireSpex(id).getCategory() == null ? null
                                 : baseData.requireSpex(id).getCategory().getUuid() : category(record.category()));
                 if (!spex.year().equals(record.year())) {
-                    batch.warn("Året ändrades från " + spex.year());
+                    batch.warn("import.warning.yearChanged", spex.year());
                 }
             }
 
@@ -504,7 +504,7 @@ public class SpexipediaImport {
             final List<UUID> characters = record.characters() == null ? null : record.characters().stream()
                     .map(Texts::clean).filter(Objects::nonNull)
                     .map(name -> content.characterByName(spexId, name).map(CharacterDto::id).orElseGet(() -> {
-                        batch.warn("Okänd roll: " + name);
+                        batch.warn("import.warning.unknownCharacter", name);
                         return null;
                     }))
                     .filter(Objects::nonNull)
@@ -592,7 +592,7 @@ public class SpexipediaImport {
                     final String address = addresses.get(matcher.group(1));
 
                     if (address == null) {
-                        batch.warn("Okänd bild: " + matcher.group(1));
+                        batch.warn("import.warning.unknownImage", matcher.group(1));
                     }
                     matcher.appendReplacement(replaced, Matcher.quoteReplacement("(" + (address == null ? "#" : address) + ")"));
                 }

@@ -18,6 +18,7 @@ package nu.fgv.spexipedia.server.spexpackage;
 
 import lombok.extern.slf4j.Slf4j;
 import nu.fgv.spexipedia.server.audit.AuditService;
+import nu.fgv.spexipedia.server.util.StoredText;
 import nu.fgv.spexipedia.server.basedata.BaseDataService;
 import nu.fgv.spexipedia.server.config.SpexipediaProperties;
 import nu.fgv.spexipedia.server.kind.KindService;
@@ -28,6 +29,7 @@ import nu.fgv.spexipedia.server.util.error.BadRequestException;
 import nu.fgv.spexipedia.server.util.error.ResourceNotFoundException;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.MessageSource;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,6 +56,7 @@ import java.util.concurrent.Executors;
 @Service
 public class PackageService {
 
+    private final MessageSource messages;
     private final SpexPackageRepository repository;
     private final PackageStore store;
     private final PackageJobs jobs;
@@ -70,7 +73,9 @@ public class PackageService {
     public PackageService(final SpexPackageRepository repository, final PackageStore store, final PackageJobs jobs,
                           final CallerService callerService, final KindService kinds, final BaseDataService baseData,
                           final AuditService auditService, final SpexipediaProperties properties, final JsonMapper jsonMapper,
-                          final Clock clock) {
+                          final Clock clock,
+                          final MessageSource messages) {
+        this.messages = messages;
         this.repository = repository;
         this.store = store;
         this.jobs = jobs;
@@ -85,10 +90,15 @@ public class PackageService {
 
     /** The template, made from the kinds and categories as they are now. EDITOR. */
     @Transactional(readOnly = true)
-    public byte[] template() throws IOException {
+    public byte[] template(final Locale locale) throws IOException {
         callerService.current().requireEditor();
         return PackageTemplate.create(baseData.categories(false), type -> kinds.kinds(type, null, false),
-                use -> kinds.kinds(KindType.IMAGE, use, false));
+                use -> kinds.kinds(KindType.IMAGE, use, false), messages, locale);
+    }
+
+    /** The template's file name in the locale's language. */
+    public String templateFileName(final Locale locale) {
+        return PackageTemplate.fileName(messages, locale);
     }
 
     /**
@@ -123,7 +133,7 @@ public class PackageService {
             throw new BadRequestException("error.package.unreadable");
         }
         repository.save(pkg);
-        auditService.record("CREATE", "SPEX_PACKAGE", pkg.getUuid(), "Laddade upp importen " + fileName);
+        auditService.record("CREATE", "SPEX_PACKAGE", pkg.getUuid(), StoredText.of("audit.spexPackage.upload", fileName));
         return pkg;
     }
 
@@ -187,7 +197,7 @@ public class PackageService {
         }
         repository.delete(pkg);
         store.delete(id);
-        auditService.record("DELETE", "SPEX_PACKAGE", id, "Tog bort importen " + pkg.getFileName());
+        auditService.record("DELETE", "SPEX_PACKAGE", id, StoredText.of("audit.spexPackage.delete", pkg.getFileName()));
     }
 
     public PackageReport report(final @Nullable String json) {
@@ -210,7 +220,7 @@ public class PackageService {
     public void failInterrupted() {
         repository.findByStateIn(List.of(PackageState.PREVIEWING, PackageState.APPLYING)).forEach(pkg -> {
             pkg.setState(PackageState.FAILED);
-            pkg.setMessage("Interrupted by a restart; start it again");
+            pkg.setMessage(PackageText.of("failed.restart").encode());
         });
     }
 
@@ -232,8 +242,8 @@ public class PackageService {
         pkg.setProgress(0);
         pkg.setMessage(null);
         repository.saveAndFlush(pkg);
-        auditService.record(apply ? "APPLY" : "PREVIEW", "SPEX_PACKAGE", id, (apply ? "Tillämpade" : "Förhandsgranskade")
-                + " importen " + pkg.getFileName());
+        auditService.record(apply ? "APPLY" : "PREVIEW", "SPEX_PACKAGE", id,
+                StoredText.of(apply ? "audit.spexPackage.apply" : "audit.spexPackage.preview", pkg.getFileName()));
         org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
                 new org.springframework.transaction.support.TransactionSynchronization() {
                     @Override

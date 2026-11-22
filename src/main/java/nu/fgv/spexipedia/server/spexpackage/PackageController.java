@@ -36,6 +36,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -62,11 +63,14 @@ public class PackageController {
     }
 
     @GetMapping("/template.xlsx")
-    public ResponseEntity<byte[]> template() throws IOException {
+    public ResponseEntity<byte[]> template(final Locale locale) throws IOException {
+        final byte[] template = service.template(locale);
+
         return ResponseEntity.ok()
                 .contentType(XLSX)
-                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename("Importmall.xlsx", StandardCharsets.UTF_8).build().toString())
-                .body(service.template());
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(service.templateFileName(locale), StandardCharsets.UTF_8).build().toString())
+                .body(template);
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

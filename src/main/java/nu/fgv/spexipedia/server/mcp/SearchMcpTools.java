@@ -23,6 +23,8 @@ import org.springframework.ai.mcp.annotation.McpTool.McpAnnotations;
 import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.stereotype.Component;
 
+import java.util.Locale;
+
 /**
  * The MCP tool for searching all of Spexipedia, as its search box does.
  *
@@ -46,6 +48,6 @@ public class SearchMcpTools {
     public McpToolSupport.ListResult<SearchService.Hit> search(
             @McpToolParam(description = "Words to search for") final String query,
             @McpToolParam(required = false, description = "1-50, default 20") final @Nullable Integer limit) {
-        return support.call(() -> new McpToolSupport.ListResult<>(searchService.search(query, limit == null ? 20 : Math.clamp(limit, 1, 50))));
+        return support.call(() -> new McpToolSupport.ListResult<>(searchService.search(query, limit == null ? 20 : Math.clamp(limit, 1, 50), Locale.ENGLISH)));
     }
 }

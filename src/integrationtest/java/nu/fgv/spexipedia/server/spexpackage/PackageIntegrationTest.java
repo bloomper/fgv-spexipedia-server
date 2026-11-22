@@ -17,11 +17,13 @@
 package nu.fgv.spexipedia.server.spexpackage;
 
 import nu.fgv.spexipedia.server.AbstractIntegrationTest;
+import nu.fgv.spexipedia.server.kind.KindService;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -34,11 +36,14 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -61,17 +66,20 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class PackageIntegrationTest extends AbstractIntegrationTest {
 
+    @Autowired
+    private KindService kindService;
+
     private static final String PACKAGE = """
             query($id: ID!) { spexPackage(id: $id) {
                 state progress message zipReceived spex { id title year }
                 preview { unmatched warnings apps { app status records files created failed message items { kind outcome message } } }
-                results { apps { app status created failed message } }
+                results { apps { app status created failed message items { kind message warnings } } }
             } }""";
 
     @Test
     void theTemplateHasAColumnPerCreditKindAndARowPerFactKind() throws Exception {
         final byte[] template = http().get().uri("/api/packages/template.xlsx").header(HttpHeaders.AUTHORIZATION, token(EDITOR))
-                .retrieve().body(byte[].class);
+                .header(HttpHeaders.ACCEPT_LANGUAGE, "sv").retrieve().body(byte[].class);
 
         try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(template))) {
             final Sheet numbers = workbook.getSheet("Nummer");
@@ -84,13 +92,56 @@ class PackageIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void theTemplateIsInTheDownloadersLanguageAndReadBackInEither() throws Exception {
+        for (final String[] language : new String[][]{{"sv", "Nummer", "Titel", "Musik", "År", "Importmall"}, {"en", "Numbers", "Title", "Music", "Year", "Import%20template"}}) {
+            final ResponseEntity<byte[]> response = http().get().uri("/api/packages/template.xlsx").header(HttpHeaders.AUTHORIZATION, token(EDITOR))
+                    .header(HttpHeaders.ACCEPT_LANGUAGE, language[0]).retrieve().toEntity(byte[].class);
+
+            assertThat(response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION)).contains(language[5]);
+
+            final Path file = Files.createTempFile("template", ".xlsx");
+
+            try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(Objects.requireNonNull(response.getBody())))) {
+                final Sheet numbers = workbook.getSheet(language[1]);
+                final Sheet spex = workbook.getSheet("Spex");
+
+                assertThat(cells(numbers, 0)).contains(language[2], language[3]);
+                // Filled in as a person would, and read back
+                spex.forEach(row -> {
+                    final String field = row.getCell(0).getStringCellValue();
+
+                    if (field.equals(language[2])) {
+                        row.createCell(1).setCellValue("Mallspexet");
+                    } else if (field.equals(language[4])) {
+                        row.createCell(1).setCellValue("2032");
+                    }
+                });
+                numbers.createRow(1).createCell(cells(numbers, 0).indexOf(language[2])).setCellValue("Ouvertyr");
+                try (var out = Files.newOutputStream(file)) {
+                    workbook.write(out);
+                }
+            }
+
+            final PackageSheets.Content content = PackageSheets.read(file, kindService);
+
+            assertThat(content.warnings()).isEmpty();
+            assertThat(content.title()).isEqualTo("Mallspexet");
+            assertThat(content.year()).isEqualTo("2032");
+            assertThat(content.numbers()).extracting(PackageSheets.NumberRow::title).containsExactly("Ouvertyr");
+            Files.delete(file);
+        }
+    }
+
+    @Test
     void aPackageIsUploadedInPartsPreviewedAndApplied() throws Exception {
         WIREMOCK.stubFor(head(urlMatching("/spexify/import/files/.*")).willReturn(aResponse().withStatus(200)));
         WIREMOCK.stubFor(post(urlEqualTo("/spexify/graphql")).withRequestBody(containing("importBatch")).willReturn(aResponse()
                 .withHeader("Content-Type", "application/json").withBody("""
                         {"data": {"importBatch": {"created": 2, "updated": 0, "unchanged": 0, "kept": 0, "failed": 0, "items": [
-                          {"kind": "ALBUM", "sourceKey": "a", "id": "019a0000-0000-7000-8000-000000000001", "outcome": "CREATED", "message": null, "warnings": []},
-                          {"kind": "TRACK", "sourceKey": "t", "id": "019a0000-0000-7000-8000-000000000002", "outcome": "CREATED", "message": null, "warnings": []}
+                          {"kind": "ALBUM", "sourceKey": "a", "id": "019a0000-0000-7000-8000-000000000001", "outcome": "CREATED",
+                           "messageSv": null, "messageEn": null, "warningsSv": ["Ny albumsort: Live"], "warningsEn": ["New album kind: Live"]},
+                          {"kind": "TRACK", "sourceKey": "t", "id": "019a0000-0000-7000-8000-000000000002", "outcome": "CREATED",
+                           "messageSv": null, "messageEn": null, "warningsSv": [], "warningsEn": []}
                         ]}}}""")));
 
         final byte[] zip = zip(Map.of(
@@ -113,14 +164,22 @@ class PackageIntegrationTest extends AbstractIntegrationTest {
                 .path("spexPackagePreview.state").entity(String.class).isEqualTo("PREVIEWING");
         await(id, "PREVIEWED");
 
-        graphQl(EDITOR).document(PACKAGE).variable("id", id).execute()
+        graphQl(EDITOR).mutate().header(HttpHeaders.ACCEPT_LANGUAGE, "sv").build().document(PACKAGE).variable("id", id).execute()
                 .path("spexPackage.preview.apps[0].app").entity(String.class).isEqualTo("SPEXIPEDIA")
                 .path("spexPackage.preview.apps[0].status").entity(String.class).isEqualTo("CHECKED")
                 .path("spexPackage.preview.apps[0].failed").entity(Integer.class).isEqualTo(0)
                 .path("spexPackage.preview.apps[?(@.app == 'ARCHIVE')].status").entityList(String.class).containsExactly("UNAVAILABLE")
                 .path("spexPackage.preview.apps[?(@.app == 'SPEXIFY')].status").entityList(String.class).containsExactly("DEFERRED")
-                .path("spexPackage.preview.unmatched").entityList(String.class).satisfies(u -> assertThat(u).anyMatch(s -> s.startsWith("Lös fil.txt")))
+                .path("spexPackage.preview.unmatched").entityList(String.class)
+                .contains("Lös fil.txt: en fil överst i zip-filen hamnar ingenstans. Lägg den i en mapp.")
+                .path("spexPackage.preview.apps[?(@.app == 'SPEXIFY')].message").entityList(String.class)
+                .containsExactly("Kontrolleras när importen tillämpas: den behöver spexet och numren som Spexipedia skapar.")
                 .path("spexPackage.spex").valueIsNull();
+        // The report is in the reader's language
+        graphQl(EDITOR).mutate().header(HttpHeaders.ACCEPT_LANGUAGE, "en").build().document(PACKAGE).variable("id", id).execute()
+                .path("spexPackage.preview.unmatched").entityList(String.class)
+                .contains("Lös fil.txt: a file at the top of the zip goes nowhere. Put it in a folder.")
+                .path("spexPackage.preview.apps[?(@.app == 'ARCHIVE')].message").entityList(String.class).containsExactly("Not in this environment.");
         // A dry run made nothing
         assertThat(jdbcClient.sql("SELECT COUNT(*) FROM spex WHERE title = 'Paketspexet'").query(Integer.class).single()).isZero();
 
@@ -133,6 +192,13 @@ class PackageIntegrationTest extends AbstractIntegrationTest {
                 .path("spexPackage.results.apps[0].status").entity(String.class).isEqualTo("APPLIED")
                 .path("spexPackage.results.apps[?(@.app == 'ARCHIVE')].status").entityList(String.class).containsExactly("UNAVAILABLE")
                 .path("spexPackage.results.apps[?(@.app == 'SPEXIFY')].status").entityList(String.class).containsExactly("APPLIED");
+        // Another application's warnings were asked for in both languages; the report shows the reader's
+        for (final String[] language : new String[][]{{"sv", "Ny albumsort: Live"}, {"en", "New album kind: Live"}}) {
+            graphQl(EDITOR).mutate().header(HttpHeaders.ACCEPT_LANGUAGE, language[0]).build().document(PACKAGE).variable("id", id).execute()
+                    .path("spexPackage.results.apps[?(@.app == 'SPEXIFY')].items[0].warnings[0]").entityList(String.class)
+                    .containsExactly(language[1]);
+        }
+        WIREMOCK.verify(postRequestedFor(urlEqualTo("/spexify/graphql")).withRequestBody(containing("message(locale: \\\"en\\\")")));
         assertThat(jdbcClient.sql("SELECT COUNT(*) FROM spex_number n JOIN spex s ON s.id = n.spex_id WHERE s.title = 'Paketspexet'")
                 .query(Integer.class).single()).isEqualTo(1);
         // Spexify got the spex' and the number's ids

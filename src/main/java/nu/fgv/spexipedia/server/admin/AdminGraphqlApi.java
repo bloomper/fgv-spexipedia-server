@@ -16,6 +16,9 @@
 
 package nu.fgv.spexipedia.server.admin;
 
+import java.util.Locale;
+import nu.fgv.spexipedia.server.util.StoredText;
+import org.springframework.context.MessageSource;
 import nu.fgv.spexipedia.server.article.ArticleDtos.ArticleDto;
 import nu.fgv.spexipedia.server.article.ArticleService;
 import nu.fgv.spexipedia.server.audit.AuditEntry;
@@ -47,6 +50,7 @@ import java.util.Map;
 @Controller
 public class AdminGraphqlApi {
 
+    private final MessageSource messages;
     private final AuditService auditService;
     private final SettingsService settingsService;
     private final ArticleService articleService;
@@ -56,7 +60,9 @@ public class AdminGraphqlApi {
 
     public AdminGraphqlApi(final AuditService auditService, final SettingsService settingsService,
                            final ArticleService articleService, final ImageService imageService,
-                           final RedirectService redirectService, final CallerService callerService) {
+                           final RedirectService redirectService, final CallerService callerService,
+                           final MessageSource messages) {
+        this.messages = messages;
         this.auditService = auditService;
         this.settingsService = settingsService;
         this.articleService = articleService;
@@ -66,20 +72,21 @@ public class AdminGraphqlApi {
     }
 
     @QueryMapping
-    public Map<String, Object> auditLog(@Argument final int page, @Argument final int size,
-                                        @Argument final @Nullable Map<String, Object> filter) {
+    public AuditPageDto auditLog(@Argument final int page, @Argument final int size,
+                                        @Argument final @Nullable Map<String, Object> filter,
+                                        final Locale locale) {
         final AuditFilter auditFilter = filter == null ? null : new AuditFilter((String) filter.get("entityType"),
                 (String) filter.get("action"), (String) filter.get("actorId"), (Instant) filter.get("from"),
                 (Instant) filter.get("to"), (String) filter.get("q"), (String) filter.get("entityId"));
         final Page<AuditEntry> entries = auditService.page(page, size, auditFilter);
 
-        return Map.of("entries", entries.getContent().stream().map(AdminGraphqlApi::toDto).toList(),
-                "totalCount", (int) entries.getTotalElements(), "page", entries.getNumber(), "size", entries.getSize());
+        return new AuditPageDto(entries.getContent().stream().map(entry -> toDto(entry, locale)).toList(),
+                (int) entries.getTotalElements(), entries.getNumber(), entries.getSize());
     }
 
-    private static AuditLogEntryDto toDto(final AuditEntry entry) {
+    private AuditLogEntryDto toDto(final AuditEntry entry, final Locale locale) {
         return new AuditLogEntryDto(String.valueOf(entry.getId()), entry.getAt(), entry.getActorSubject(), entry.getActorName(),
-                entry.getAction(), entry.getEntityType(), entry.getEntityId(), entry.getSummary());
+                entry.getAction(), entry.getEntityType(), entry.getEntityId(), StoredText.decode(entry.getSummary()).in(messages, locale));
     }
 
     @QueryMapping
@@ -129,6 +136,9 @@ public class AdminGraphqlApi {
     }
 
     public record AuditActorDto(String id, @Nullable String name) {
+    }
+
+    public record AuditPageDto(List<AuditLogEntryDto> entries, int totalCount, int page, int size) {
     }
 
     public record TrashDto(List<ArticleDto> articles, List<ImageDto> images) {

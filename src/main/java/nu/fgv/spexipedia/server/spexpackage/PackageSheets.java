@@ -50,7 +50,7 @@ public final class PackageSheets {
 
     /** What the spreadsheet holds. {@code facts} are by fact kind name; {@code credits} by credit kind name. */
     public record Content(Map<String, String> spex, Map<String, String> facts, List<CharacterRow> characters,
-                          List<SceneRow> scenes, List<NumberRow> numbers, List<String> warnings) {
+                          List<SceneRow> scenes, List<NumberRow> numbers, List<PackageText> warnings) {
 
         public String title() {
             return spex.getOrDefault("title", "").strip();
@@ -78,7 +78,7 @@ public final class PackageSheets {
 
     public static Content read(final Path xlsx, final KindService kinds) throws IOException {
         try (InputStream in = Files.newInputStream(xlsx); Workbook workbook = WorkbookFactory.create(in)) {
-            final List<String> warnings = new ArrayList<>();
+            final List<PackageText> warnings = new ArrayList<>();
             final Map<String, String> spex = new LinkedHashMap<>();
             final Map<String, String> facts = new LinkedHashMap<>();
 
@@ -106,7 +106,7 @@ public final class PackageSheets {
                             facts.put(fact.get().getNameSv(), value);
                         }
                     } else {
-                        warnings.add("Spex: no field or fact kind is called " + label);
+                        warnings.add(PackageText.of("warning.spexField", label));
                     }
                 }
             }
@@ -115,11 +115,11 @@ public final class PackageSheets {
         }
     }
 
-    private static List<CharacterRow> characters(final Workbook workbook, final List<String> warnings) {
+    private static List<CharacterRow> characters(final Workbook workbook, final List<PackageText> warnings) {
         final List<CharacterRow> characters = new ArrayList<>();
         final Table table = Table.of(rows(workbook, PackageColumns.CHARACTERS), PackageColumns.CHARACTER_COLUMNS);
 
-        table.unknown().forEach(header -> warnings.add(PackageColumns.CHARACTERS + ": no column is called " + header));
+        table.unknown().forEach(header -> warnings.add(PackageText.of("warning.column", sheetName(workbook, PackageColumns.CHARACTERS), header)));
         for (int r = 0; r < table.rows().size(); r++) {
             final Map<String, String> row = table.rows().get(r);
             final String name = row.getOrDefault("name", "");
@@ -131,11 +131,11 @@ public final class PackageSheets {
         return characters;
     }
 
-    private static List<SceneRow> scenes(final Workbook workbook, final List<String> warnings) {
+    private static List<SceneRow> scenes(final Workbook workbook, final List<PackageText> warnings) {
         final List<SceneRow> scenes = new ArrayList<>();
         final Table table = Table.of(rows(workbook, PackageColumns.SCENES), PackageColumns.SCENE_COLUMNS);
 
-        table.unknown().forEach(header -> warnings.add(PackageColumns.SCENES + ": no column is called " + header));
+        table.unknown().forEach(header -> warnings.add(PackageText.of("warning.column", sheetName(workbook, PackageColumns.SCENES), header)));
         for (int r = 0; r < table.rows().size(); r++) {
             final Map<String, String> row = table.rows().get(r);
             final String title = row.getOrDefault("title", "");
@@ -147,7 +147,7 @@ public final class PackageSheets {
         return scenes;
     }
 
-    private static List<NumberRow> numbers(final Workbook workbook, final KindService kinds, final List<String> warnings) {
+    private static List<NumberRow> numbers(final Workbook workbook, final KindService kinds, final List<PackageText> warnings) {
         final List<List<String>> rows = rows(workbook, PackageColumns.NUMBERS);
         final List<NumberRow> numbers = new ArrayList<>();
 
@@ -172,7 +172,7 @@ public final class PackageSheets {
                 if (credit.isPresent()) {
                     credits.put(c, credit.get().getNameSv());
                 } else if (!PackageColumns.ignored(name)) {
-                    warnings.add(PackageColumns.NUMBERS + ": no column or credit kind is called " + name);
+                    warnings.add(PackageText.of("warning.numberColumn", sheetName(workbook, PackageColumns.NUMBERS), name));
                 }
             }
         }
@@ -220,15 +220,27 @@ public final class PackageSheets {
                 .map(String::strip).filter(name -> !name.isEmpty() && !name.matches("[-?]+")).toList();
     }
 
-    private static List<List<String>> rows(final Workbook workbook, final String sheetName) {
-        Sheet sheet = null;
+    /** The sheet by any of its names (PackageColumns.SHEETS), or null. */
+    private static @Nullable Sheet sheet(final Workbook workbook, final String sheet) {
+        final List<String> names = PackageColumns.SHEETS.get(sheet).stream().map(KindService::normalize).toList();
 
         for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
-            if (KindService.normalize(workbook.getSheetName(i)).equals(KindService.normalize(sheetName))) {
-                sheet = workbook.getSheetAt(i);
+            if (names.contains(KindService.normalize(workbook.getSheetName(i)))) {
+                return workbook.getSheetAt(i);
             }
         }
+        return null;
+    }
 
+    /** The sheet's name as the file has it, for warnings. */
+    private static String sheetName(final Workbook workbook, final String sheet) {
+        final Sheet found = sheet(workbook, sheet);
+
+        return found == null ? sheet : found.getSheetName();
+    }
+
+    private static List<List<String>> rows(final Workbook workbook, final String sheetName) {
+        final Sheet sheet = sheet(workbook, sheetName);
         final List<List<String>> rows = new ArrayList<>();
 
         if (sheet == null) {
