@@ -17,6 +17,7 @@
 package nu.fgv.spexipedia.server.basedata;
 
 import nu.fgv.spexipedia.server.audit.AuditService;
+import nu.fgv.spexipedia.server.audit.AuditText;
 import nu.fgv.spexipedia.server.feed.ChangeFeedService;
 import nu.fgv.spexipedia.server.feed.ChangeType;
 import nu.fgv.spexipedia.server.feed.FeedRecords;
@@ -122,7 +123,7 @@ public class MergeService {
         feed.record(kind, uuid, retired ? ChangeType.RETIRE : ChangeType.UPSERT, null, snapshot(kind, key));
         index(kind, uuid);
         auditService.record(retired ? "RETIRE" : "UNRETIRE", kind.name(), uuid,
-                (retired ? "Deaktiverade " : "Aktiverade ") + label(kind, key));
+                AuditText.of(retired ? "audit.baseData.retire" : "audit.baseData.unretire", label(kind, key)));
         return true;
     }
 
@@ -143,7 +144,7 @@ public class MergeService {
 
         final UUID fromUuid = uuid(kind, from);
         final UUID intoUuid = uuid(kind, into);
-        final String summary = "Slog ihop %s med %s".formatted(label(kind, from), label(kind, into));
+        final AuditText summary = AuditText.of("audit.baseData.merge", label(kind, from), label(kind, into));
 
         if (kind == BaseDataKind.SPEX && jdbc.sql("SELECT COUNT(*) FROM spex WHERE id = :into AND parent_id = :from")
                 .param("into", into).param("from", from).query(Long.class).single() > 0) {
@@ -211,14 +212,14 @@ public class MergeService {
         }
     }
 
-    private String label(final BaseDataKind kind, final long key) {
-        return switch (kind) {
+    /** The record for the audit log: its kind in the reader's language, and its name. */
+    private AuditText label(final BaseDataKind kind, final long key) {
+        return AuditText.of("audit.baseData.kind." + kind.name(), switch (kind) {
             case SPEX -> baseData.requireSpexByKey(key).label();
-            case CHARACTER, NUMBER, SPEX_CATEGORY, TASK_CATEGORY -> "%s %s".formatted(kind.name().toLowerCase(java.util.Locale.ROOT).replace('_', ' '),
+            case CHARACTER, NUMBER, SPEX_CATEGORY, TASK_CATEGORY, TASK ->
                     jdbc.sql("SELECT %s FROM %s WHERE id = :id".formatted(kind == BaseDataKind.NUMBER ? "title" : "name", table(kind)))
-                            .param("id", key).query(String.class).single());
-            case TASK -> "funktion " + jdbc.sql("SELECT name FROM task WHERE id = :id").param("id", key).query(String.class).single();
-        };
+                            .param("id", key).query(String.class).single();
+        });
     }
 
     /**

@@ -18,6 +18,7 @@ package nu.fgv.spexipedia.server.spexpackage;
 
 import lombok.extern.slf4j.Slf4j;
 import nu.fgv.spexipedia.server.audit.AuditService;
+import nu.fgv.spexipedia.server.audit.AuditText;
 import nu.fgv.spexipedia.server.basedata.BaseDataService;
 import nu.fgv.spexipedia.server.config.SpexipediaProperties;
 import nu.fgv.spexipedia.server.kind.KindService;
@@ -123,7 +124,7 @@ public class PackageService {
             throw new BadRequestException("error.package.unreadable");
         }
         repository.save(pkg);
-        auditService.record("CREATE", "SPEX_PACKAGE", pkg.getUuid(), "Laddade upp importen " + fileName);
+        auditService.record("CREATE", "SPEX_PACKAGE", pkg.getUuid(), AuditText.of("audit.spexPackage.upload", fileName));
         return pkg;
     }
 
@@ -187,7 +188,7 @@ public class PackageService {
         }
         repository.delete(pkg);
         store.delete(id);
-        auditService.record("DELETE", "SPEX_PACKAGE", id, "Tog bort importen " + pkg.getFileName());
+        auditService.record("DELETE", "SPEX_PACKAGE", id, AuditText.of("audit.spexPackage.delete", pkg.getFileName()));
     }
 
     public PackageReport report(final @Nullable String json) {
@@ -232,8 +233,8 @@ public class PackageService {
         pkg.setProgress(0);
         pkg.setMessage(null);
         repository.saveAndFlush(pkg);
-        auditService.record(apply ? "APPLY" : "PREVIEW", "SPEX_PACKAGE", id, (apply ? "Tillämpade" : "Förhandsgranskade")
-                + " importen " + pkg.getFileName());
+        auditService.record(apply ? "APPLY" : "PREVIEW", "SPEX_PACKAGE", id,
+                AuditText.of(apply ? "audit.spexPackage.apply" : "audit.spexPackage.preview", pkg.getFileName()));
         org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
                 new org.springframework.transaction.support.TransactionSynchronization() {
                     @Override

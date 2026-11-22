@@ -17,6 +17,7 @@
 package nu.fgv.spexipedia.server.kind;
 
 import nu.fgv.spexipedia.server.audit.AuditService;
+import nu.fgv.spexipedia.server.audit.AuditText;
 import nu.fgv.spexipedia.server.basedata.BaseDataKind;
 import nu.fgv.spexipedia.server.feed.ChangeFeedService;
 import nu.fgv.spexipedia.server.feed.FeedRecords;
@@ -185,7 +186,7 @@ public class KindService {
         }
         repository.save(kind);
         auditService.record(id == null ? "CREATE" : "UPDATE", "KIND", kind.getUuid(),
-                (id == null ? "Skapade " : "Ändrade ") + "sorten " + kind.getNameSv() + " (" + kind.getType() + ")");
+                AuditText.of(id == null ? "audit.kind.create" : "audit.kind.update", name(kind), type(kind.getType())));
         return kind;
     }
 
@@ -205,7 +206,7 @@ public class KindService {
             kind.setValueType(FactValueType.TEXT);
         }
         repository.save(kind);
-        auditService.record("CREATE", "KIND", kind.getUuid(), "Skapade sorten " + kind.getNameSv() + " (" + type + ") vid import");
+        auditService.record("CREATE", "KIND", kind.getUuid(), AuditText.of("audit.kind.createForImport", name(kind), type(type)));
         return kind;
     }
 
@@ -260,7 +261,7 @@ public class KindService {
         for (int i = 0; i < ids.size(); i++) {
             byId.get(ids.get(i)).setPosition(i + 1);
         }
-        auditService.record("UPDATE", "KIND", ids.getFirst(), "Ändrade ordningen på sorterna (" + type + ")");
+        auditService.record("UPDATE", "KIND", ids.getFirst(), AuditText.of("audit.kind.reorder", type(type)));
         return kinds(type, use, true);
     }
 
@@ -274,7 +275,7 @@ public class KindService {
             throw new BadRequestException("error.kind.last");
         }
         kind.setRetired(retired);
-        auditService.record("UPDATE", "KIND", id, (retired ? "Deaktiverade " : "Aktiverade ") + "sorten " + kind.getNameSv());
+        auditService.record("UPDATE", "KIND", id, AuditText.of(retired ? "audit.kind.retire" : "audit.kind.unretire", name(kind)));
         return kind;
     }
 
@@ -308,7 +309,7 @@ public class KindService {
         into.setAliases(aliases(aliases));
         repository.delete(from);
         FeedRecords.numbers(jdbc, numbers).forEach(number -> feed.upsert(BaseDataKind.NUMBER, number.id(), number));
-        auditService.record("MERGE", "KIND", intoId, "Slog ihop sorten " + from.getNameSv() + " med " + into.getNameSv());
+        auditService.record("MERGE", "KIND", intoId, AuditText.of("audit.kind.merge", name(from), name(into)));
         return into;
     }
 
@@ -350,5 +351,14 @@ public class KindService {
 
     public record KindInput(@Nullable KindType type, @Nullable KindUse use, @Nullable FactValueType valueType,
                             String nameSv, String nameEn, @Nullable List<String> aliases) {
+    }
+
+    /** A kind's name for the audit log, in the reader's language. */
+    private static AuditText name(final Kind kind) {
+        return AuditText.of("audit.name", kind.getNameSv(), kind.getNameEn());
+    }
+
+    private static AuditText type(final KindType type) {
+        return AuditText.of("audit.kindType." + type.name());
     }
 }

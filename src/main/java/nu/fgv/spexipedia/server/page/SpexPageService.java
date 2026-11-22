@@ -17,6 +17,7 @@
 package nu.fgv.spexipedia.server.page;
 
 import nu.fgv.spexipedia.server.audit.AuditService;
+import nu.fgv.spexipedia.server.audit.AuditText;
 import nu.fgv.spexipedia.server.basedata.BaseDataService;
 import nu.fgv.spexipedia.server.basedata.Spex;
 import nu.fgv.spexipedia.server.content.ContentService;
@@ -231,7 +232,7 @@ public class SpexPageService {
         page.setVestWornBySpexare(wornBy == null ? null : wornBy.spexareId());
         page.setVestWornByName(wornBy == null ? null : wornBy.name());
         events.publishEvent(new IndexEvent(SearchKind.SPEX, spex.getUuid()));
-        auditService.record("UPDATE", "SPEX_PAGE", spex.getUuid(), "Ändrade sidan om " + spex.label());
+        auditService.record("UPDATE", "SPEX_PAGE", spex.getUuid(), AuditText.of("audit.spexPage.update", spex.label()));
         return toDto(page);
     }
 
@@ -277,8 +278,9 @@ public class SpexPageService {
                 .map(image -> new PlacedImage(imageService.requireUsable(image.imageId()).getId(), kindKey,
                         Texts.optional(image.caption(), 1000, "caption")))
                 .toList());
-        auditService.record("UPDATE", "SPEX_PAGE", spex.getUuid(), "Ändrade bilderna (" + (kind == null ? section : kind.getNameSv())
-                + ") på sidan om " + spex.label());
+        auditService.record("UPDATE", "SPEX_PAGE", spex.getUuid(),
+                AuditText.of("audit.spexPage.images", kind == null ? AuditText.of("audit.spexPage.section." + section)
+                : AuditText.of("audit.name", kind.getNameSv(), kind.getNameEn()), spex.label()));
         return toDto(pageOf(spex));
     }
 
@@ -302,7 +304,7 @@ public class SpexPageService {
             }
         }
         lists.setFacts(spex.getId(), List.copyOf(byKind.values()));
-        auditService.record("UPDATE", "SPEX_PAGE", spex.getUuid(), "Ändrade fakta på sidan om " + spex.label());
+        auditService.record("UPDATE", "SPEX_PAGE", spex.getUuid(), AuditText.of("audit.spexPage.facts", spex.label()));
         return toDto(pageOf(spex));
     }
 
@@ -330,7 +332,8 @@ public class SpexPageService {
             throw new BadRequestException("error.tooMany", 200);
         }
         lists.setPhotos(spex.getId(), section, characterKey == null ? 0 : characterKey, itemIds.stream().distinct().toList());
-        auditService.record("UPDATE", "SPEX_PAGE", spex.getUuid(), "Ändrade fotona (" + section + ") på sidan om " + spex.label());
+        auditService.record("UPDATE", "SPEX_PAGE", spex.getUuid(),
+                AuditText.of("audit.spexPage.photos", AuditText.of("audit.spexPage.section." + section), spex.label()));
         return toDto(pageOf(spex));
     }
 
@@ -350,7 +353,7 @@ public class SpexPageService {
 
         page.setRebus(rebusImageId == null ? null : imageService.requireUsable(rebusImageId));
         page.setRebusSolution(solutionImageId == null ? null : imageService.requireUsable(solutionImageId));
-        auditService.record("UPDATE", "SPEX_PAGE", spex.getUuid(), "Ändrade programrebusen på sidan om " + spex.label());
+        auditService.record("UPDATE", "SPEX_PAGE", spex.getUuid(), AuditText.of("audit.spexPage.rebus", spex.label()));
         return toDto(page);
     }
 
@@ -367,7 +370,7 @@ public class SpexPageService {
         page.setPublished(published);
         events.publishEvent(new IndexEvent(SearchKind.SPEX, spex.getUuid()));
         auditService.record(published ? "PUBLISH" : "UNPUBLISH", "SPEX_PAGE", spex.getUuid(),
-                (published ? "Publicerade sidan om " : "Avpublicerade sidan om ") + spex.label());
+                AuditText.of(published ? "audit.spexPage.publish" : "audit.spexPage.unpublish", spex.label()));
         return toDto(page);
     }
 

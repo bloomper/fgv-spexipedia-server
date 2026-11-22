@@ -17,6 +17,7 @@
 package nu.fgv.spexipedia.server.redirect;
 
 import nu.fgv.spexipedia.server.audit.AuditService;
+import nu.fgv.spexipedia.server.audit.AuditText;
 import nu.fgv.spexipedia.server.user.CallerService;
 import nu.fgv.spexipedia.server.util.Texts;
 import nu.fgv.spexipedia.server.util.Uuids;
@@ -97,14 +98,14 @@ public class RedirectService {
 
                 jdbc.sql("INSERT INTO redirect (uuid, old_title, normalized_title, target) VALUES (:u, :o, :n, :t)")
                         .param("u", uuid.toString()).param("o", title).param("n", normalize(title)).param("t", path).update();
-                auditService.record("CREATE", "REDIRECT", uuid, "Lade till omdirigeringen " + title + " → " + path);
+                auditService.record("CREATE", "REDIRECT", uuid, AuditText.of("audit.redirect.create", title, path));
                 return new RedirectDto(uuid, title, path);
             }
             if (jdbc.sql("UPDATE redirect SET old_title = :o, normalized_title = :n, target = :t WHERE uuid = :u")
                     .param("u", id.toString()).param("o", title).param("n", normalize(title)).param("t", path).update() == 0) {
                 throw new ResourceNotFoundException("error.notFound.Redirect", id);
             }
-            auditService.record("UPDATE", "REDIRECT", id, "Ändrade omdirigeringen " + title + " → " + path);
+            auditService.record("UPDATE", "REDIRECT", id, AuditText.of("audit.redirect.update", title, path));
             return new RedirectDto(id, title, path);
         } catch (final DuplicateKeyException e) {
             throw new BadRequestException("error.redirect.duplicate", title);
@@ -117,7 +118,7 @@ public class RedirectService {
         if (jdbc.sql("DELETE FROM redirect WHERE uuid = :u").param("u", id.toString()).update() == 0) {
             throw new ResourceNotFoundException("error.notFound.Redirect", id);
         }
-        auditService.record("DELETE", "REDIRECT", id, "Tog bort en omdirigering");
+        auditService.record("DELETE", "REDIRECT", id, AuditText.of("audit.redirect.delete"));
         return true;
     }
 
