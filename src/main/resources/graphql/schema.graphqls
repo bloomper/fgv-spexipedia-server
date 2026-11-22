@@ -227,6 +227,8 @@ type Mutation {
     kindRetire(id: ID!, retired: Boolean!): Kind!
     "ADMIN. Moves everything of a kind to another of the same type and use, keeps its names as aliases there, and deletes it."
     kindMerge(id: ID!, intoId: ID!): Kind!
+    "ADMIN. Deletes a kind nothing refers to (an image section with its image kinds); a kind in use is merged or retired instead. The sections with one kind each are never deleted, nor the last kind in use of a type."
+    kindDelete(id: ID!): Boolean!
     "ADMIN."
     redirectSave(input: RedirectInput!): Redirect!
     "ADMIN."

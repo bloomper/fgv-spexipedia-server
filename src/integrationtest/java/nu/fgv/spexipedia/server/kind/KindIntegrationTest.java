@@ -152,4 +152,36 @@ class KindIntegrationTest extends AbstractIntegrationTest {
         expectError(graphQl(ADMIN).document("mutation($id: ID!) { kindRetire(id: $id, retired: true) { retired } }")
                 .variable("id", media.getLast()).execute(), "BAD_REQUEST");
     }
+
+    @Test
+    void onlyAKindNothingRefersToIsDeleted() {
+        final String delete = "mutation($id: ID!) { kindDelete(id: $id) }";
+        final String spex = createSpex("1986", "Napoleon", null);
+        final String polka = graphQl(ADMIN).document(SAVE).variable("type", "NUMBER").variable("n", "Polka").execute()
+                .path("kindSave.id").entity(String.class).get();
+        final String dance = graphQl(ADMIN).document(SAVE).variable("type", "NUMBER").variable("n", "Dans").execute()
+                .path("kindSave.id").entity(String.class).get();
+
+        graphQl(EDITOR).document("mutation($s: ID!, $k: ID) { numberCreate(spexId: $s, input: {act: 1, title: \"Dansen\", kindId: $k}) { id } }")
+                .variable("s", spex).variable("k", dance).execute().path("numberCreate.id").hasValue();
+        expectError(graphQl(EDITOR).document(delete).variable("id", polka).execute(), "FORBIDDEN");
+        graphQl(ADMIN).document(delete).variable("id", polka).execute().path("kindDelete").entity(Boolean.class).isEqualTo(true);
+        graphQl(null).document("{ kinds(type: NUMBER) { nameSv } }").execute()
+                .path("kinds[*].nameSv").entityList(String.class).doesNotContain("Polka");
+        // In use: merged or retired instead
+        expectError(graphQl(ADMIN).document(delete).variable("id", dance).execute(), "BAD_REQUEST");
+        // The sections with one kind each
+        expectError(graphQl(ADMIN).document(delete).variable("id", "01900000-0000-7000-8000-000000000701").execute(), "BAD_REQUEST");
+    }
+
+    @Test
+    void aDeletedImageSectionTakesItsImageKindsAlong() {
+        final String costumes = graphQl(ADMIN).document("mutation { kindSave(input: {type: SECTION, content: IMAGES, nameSv: \"Kostymer\", nameEn: \"Costumes\"}) { id } }")
+                .execute().path("kindSave.id").entity(String.class).get();
+
+        graphQl(ADMIN).document("mutation($id: ID!) { kindDelete(id: $id) }").variable("id", costumes).execute()
+                .path("kindDelete").entity(Boolean.class).isEqualTo(true);
+        graphQl(null).document("{ kinds(type: SECTION) { nameSv } }").execute()
+                .path("kinds[*].nameSv").entityList(String.class).doesNotContain("Kostymer");
+    }
 }

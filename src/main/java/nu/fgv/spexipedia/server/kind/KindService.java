@@ -44,7 +44,7 @@ import java.util.stream.Collectors;
 
 /**
  * The kinds admins keep (spec 4.6). Anyone reads them; ADMIN changes them. A kind in use is retired or merged into
- * another of the same group, never deleted. The import finds kinds by name or alias ({@link #match}).
+ * another of the same group; only a kind nothing refers to is deleted. The import finds kinds by name or alias ({@link #match}).
  *
  * <p>A group is a type of kinds, for image kinds also their use, and for image kinds of an image section that section
  * (a section kind of content {@link SectionContent#IMAGES}). Section kinds have a content: the contents with one kind
@@ -491,6 +491,56 @@ public class KindService {
         FeedRecords.numbers(jdbc, numbers).forEach(number -> feed.upsert(BaseDataKind.NUMBER, number.id(), number));
         auditService.record("MERGE", "KIND", intoId, StoredText.of("audit.kind.merge", name(from), name(into)));
         return into;
+    }
+
+    /**
+     * Deletes a kind that nothing refers to: one made by mistake, or one whose records are gone. A kind in use is
+     * merged or retired instead; the last kind of a group in use stays (it is the default), and the sections of a
+     * content with one kind are never deleted. An image section goes with its image kinds, which no image may have,
+     * and with the places pages keep for it in their own order; a section of another application that a page shows
+     * stays.
+     */
+    @Transactional
+    public void delete(final UUID id) {
+        callerService.current().requireAdmin();
+
+        final Kind kind = repository.findByUuid(id).orElseThrow(() -> new ResourceNotFoundException(Kind.class, id));
+
+        if (kind.getType() == KindType.SECTION) {
+            if (kind.getContent() == null || kind.getContent().single()) {
+                throw new BadRequestException("error.kind.content");
+            }
+            if (count("SELECT COUNT(*) FROM spex_section WHERE kind_id = :id AND (ref_id IS NOT NULL OR title IS NOT NULL)", kind) > 0
+                    || count("SELECT COUNT(*) FROM spex_page_image WHERE section_id = :id", kind) > 0) {
+                throw new BadRequestException("error.kind.inUse", kind.getNameSv());
+            }
+            final List<Kind> imageKinds = group(KindType.IMAGE, KindUse.SECTION, kind.getId(), true);
+
+            for (final Kind imageKind : imageKinds) {
+                requireUnused(imageKind);
+            }
+            jdbc.sql("DELETE FROM spex_section WHERE kind_id = :id").param("id", kind.getId()).update();
+            repository.deleteAll(imageKinds);
+        } else {
+            if (!kind.isRetired() && groupOf(kind, false).stream().allMatch(other -> other.getId().equals(kind.getId()))) {
+                throw new BadRequestException("error.kind.lastDeleted");
+            }
+            requireUnused(kind);
+        }
+        repository.delete(kind);
+        auditService.record("DELETE", "KIND", id, StoredText.of("audit.kind.delete", name(kind), type(kind.getType())));
+    }
+
+    private void requireUnused(final Kind kind) {
+        for (final Reference reference : REFERENCES.get(kind.getType())) {
+            if (count("SELECT COUNT(*) FROM " + reference.table() + " WHERE kind_id = :id", kind) > 0) {
+                throw new BadRequestException("error.kind.inUse", kind.getNameSv());
+            }
+        }
+    }
+
+    private long count(final String sql, final Kind kind) {
+        return jdbc.sql(sql).param("id", kind.getId()).query(Long.class).single();
     }
 
     /**
