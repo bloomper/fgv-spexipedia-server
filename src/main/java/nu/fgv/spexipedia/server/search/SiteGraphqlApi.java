@@ -26,7 +26,9 @@ import nu.fgv.spexipedia.server.people.PersonDto;
 import nu.fgv.spexipedia.server.redirect.RedirectService;
 import nu.fgv.spexipedia.server.revision.RevisionDto;
 import nu.fgv.spexipedia.server.settings.SettingsService;
+import nu.fgv.spexipedia.server.util.Locales;
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.MessageSource;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.stereotype.Controller;
@@ -53,6 +55,7 @@ import java.util.stream.Collectors;
 @Controller
 public class SiteGraphqlApi {
 
+    private final MessageSource messages;
     private final SearchService searchService;
     private final SettingsService settingsService;
     private final BaseDataService baseData;
@@ -66,7 +69,9 @@ public class SiteGraphqlApi {
     public SiteGraphqlApi(final SearchService searchService, final SettingsService settingsService, final BaseDataService baseData,
                           final SpexPageService pageService,
                           final ArticleGraphqlApi articleApi, final RedirectService redirectService,
-                          final PeopleService peopleService, final Clock clock) {
+                          final PeopleService peopleService, final Clock clock,
+                          final MessageSource messages) {
+        this.messages = messages;
         this.searchService = searchService;
         this.settingsService = settingsService;
         this.baseData = baseData;
@@ -87,12 +92,12 @@ public class SiteGraphqlApi {
         final Map<Integer, List<SpexDto>> decades = new TreeMap<>(spex.stream()
                 .collect(Collectors.groupingBy(s -> Integer.parseInt(s.year()) / 10 * 10)));
 
-        return new StartPageDto(settingsService.welcome(locale), spexOfTheYear, thisDay(),
+        return new StartPageDto(settingsService.welcome(locale), spexOfTheYear, thisDay(locale),
                 articleApi.latest(10),
                 decades.entrySet().stream().map(entry -> new DecadeDto(entry.getKey(), entry.getValue())).toList());
     }
 
-    private List<ThisDayDto> thisDay() {
+    private List<ThisDayDto> thisDay(final Locale locale) {
         final LocalDate today = LocalDate.now(clock);
         final MonthDay day = MonthDay.from(today);
         final List<ThisDayDto> entries = new ArrayList<>();
@@ -103,7 +108,8 @@ public class SiteGraphqlApi {
             if (MonthDay.from(premiere).equals(day) && premiere.isBefore(today)) {
                 final SpexDto spex = baseData.spexByKey(page.spexKey());
 
-                entries.add(new ThisDayDto(premiere.toString(), "Premiär för " + spex.label(), spex));
+                entries.add(new ThisDayDto(premiere.toString(),
+                        messages.getMessage("site.thisDay.premiere", new Object[]{spex.label()}, Locales.supported(locale)), spex));
             }
         }
         entries.sort(Comparator.comparing(ThisDayDto::date).reversed());
@@ -111,8 +117,8 @@ public class SiteGraphqlApi {
     }
 
     @QueryMapping
-    public List<SearchService.Hit> search(@Argument final String q, @Argument final int limit) {
-        return searchService.search(q, limit);
+    public List<SearchService.Hit> search(@Argument final String q, @Argument final int limit, final Locale locale) {
+        return searchService.search(q, limit, locale);
     }
 
     @QueryMapping

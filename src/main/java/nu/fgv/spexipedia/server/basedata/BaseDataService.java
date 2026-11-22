@@ -17,7 +17,7 @@
 package nu.fgv.spexipedia.server.basedata;
 
 import nu.fgv.spexipedia.server.audit.AuditService;
-import nu.fgv.spexipedia.server.audit.AuditText;
+import nu.fgv.spexipedia.server.util.StoredText;
 import nu.fgv.spexipedia.server.basedata.BaseDataDtos.SpexCategoryDto;
 import nu.fgv.spexipedia.server.basedata.BaseDataDtos.SpexDto;
 import nu.fgv.spexipedia.server.basedata.BaseDataDtos.TaskCategoryDto;
@@ -297,7 +297,7 @@ public class BaseDataService {
         apply(category, name, firstYear, description);
         categoryRepository.save(category);
         changed(category);
-        auditService.record("CREATE", "SPEX_CATEGORY", category.getUuid(), AuditText.of("audit.spexCategory.create", category.getName()));
+        auditService.record("CREATE", "SPEX_CATEGORY", category.getUuid(), StoredText.of("audit.spexCategory.create", category.getName()));
         return BaseDataDtos.toDto(category);
     }
 
@@ -311,7 +311,7 @@ public class BaseDataService {
         changed(category);
         // Every spex of the category carries its name in the search index
         spexRepository.findAllOfCategory(category).forEach(spex -> events.publishEvent(new IndexEvent(SearchKind.SPEX, spex.getUuid())));
-        auditService.record("UPDATE", "SPEX_CATEGORY", id, AuditText.of("audit.spexCategory.update", category.getName()));
+        auditService.record("UPDATE", "SPEX_CATEGORY", id, StoredText.of("audit.spexCategory.update", category.getName()));
         return BaseDataDtos.toDto(category);
     }
 
@@ -324,7 +324,7 @@ public class BaseDataService {
         category.setLogo(imageId == null ? null : imageService.requireUsable(imageId));
         changed(category);
         auditService.record("UPDATE", "SPEX_CATEGORY", id,
-                AuditText.of(imageId == null ? "audit.spexCategory.removeLogo" : "audit.spexCategory.replaceLogo", category.getName()));
+                StoredText.of(imageId == null ? "audit.spexCategory.removeLogo" : "audit.spexCategory.replaceLogo", category.getName()));
         return BaseDataDtos.toDto(category);
     }
 
@@ -364,7 +364,7 @@ public class BaseDataService {
         spex.setSlug(slug(spex));
         spexRepository.save(spex);
         changed(spex);
-        auditService.record("CREATE", "SPEX", spex.getUuid(), AuditText.of("audit.spex.create", spex.label()));
+        auditService.record("CREATE", "SPEX", spex.getUuid(), StoredText.of("audit.spex.create", spex.label()));
         return BaseDataDtos.toDto(spex);
     }
 
@@ -381,7 +381,7 @@ public class BaseDataService {
         }
         requireFreeYear(spex);
         changedWithRevivals(spex);
-        auditService.record("UPDATE", "SPEX", id, AuditText.of("audit.spex.update", spex.label()));
+        auditService.record("UPDATE", "SPEX", id, StoredText.of("audit.spex.update", spex.label()));
         return BaseDataDtos.toDto(spex);
     }
 
@@ -455,7 +455,7 @@ public class BaseDataService {
         revival.setSlug(slug(revival));
         spexRepository.save(revival);
         changed(revival);
-        auditService.record("CREATE", "SPEX", revival.getUuid(), AuditText.of("audit.spex.createRevival", revival.label()));
+        auditService.record("CREATE", "SPEX", revival.getUuid(), StoredText.of("audit.spex.createRevival", revival.label()));
         return BaseDataDtos.toDto(revival);
     }
 
@@ -469,7 +469,7 @@ public class BaseDataService {
         // Revivals without a poster of their own show this one
         changedWithRevivals(spex);
         auditService.record("UPDATE", "SPEX", id,
-                AuditText.of(imageId == null ? "audit.spex.removePoster" : "audit.spex.replacePoster", spex.label()));
+                StoredText.of(imageId == null ? "audit.spex.removePoster" : "audit.spex.replacePoster", spex.label()));
         return BaseDataDtos.toDto(spex);
     }
 
@@ -530,7 +530,7 @@ public class BaseDataService {
         category.setInstruments(instruments);
         taskCategoryRepository.save(category);
         changed(category);
-        auditService.record("CREATE", "TASK_CATEGORY", category.getUuid(), AuditText.of("audit.taskCategory.create", category.getName()));
+        auditService.record("CREATE", "TASK_CATEGORY", category.getUuid(), StoredText.of("audit.taskCategory.create", category.getName()));
         return BaseDataDtos.toDto(category);
     }
 
@@ -544,7 +544,7 @@ public class BaseDataService {
         category.setActorPresent(actorPresent);
         category.setInstruments(instruments);
         changed(category);
-        auditService.record("UPDATE", "TASK_CATEGORY", id, AuditText.of("audit.taskCategory.update", category.getName()));
+        auditService.record("UPDATE", "TASK_CATEGORY", id, StoredText.of("audit.taskCategory.update", category.getName()));
         return BaseDataDtos.toDto(category);
     }
 
@@ -560,7 +560,7 @@ public class BaseDataService {
         task.setBoard(board);
         taskRepository.save(task);
         changed(task);
-        auditService.record("CREATE", "TASK", task.getUuid(), AuditText.of("audit.task.create", task.getName()));
+        auditService.record("CREATE", "TASK", task.getUuid(), StoredText.of("audit.task.create", task.getName()));
         return BaseDataDtos.toDto(task);
     }
 
@@ -574,7 +574,7 @@ public class BaseDataService {
         task.setCategory(requireTaskCategory(categoryId));
         task.setBoard(board);
         changed(task);
-        auditService.record("UPDATE", "TASK", id, AuditText.of("audit.task.update", task.getName()));
+        auditService.record("UPDATE", "TASK", id, StoredText.of("audit.task.update", task.getName()));
         return BaseDataDtos.toDto(task);
     }
 

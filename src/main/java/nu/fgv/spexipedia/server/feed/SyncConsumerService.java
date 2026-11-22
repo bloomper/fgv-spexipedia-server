@@ -17,7 +17,7 @@
 package nu.fgv.spexipedia.server.feed;
 
 import nu.fgv.spexipedia.server.audit.AuditService;
-import nu.fgv.spexipedia.server.audit.AuditText;
+import nu.fgv.spexipedia.server.util.StoredText;
 import nu.fgv.spexipedia.server.config.SpexipediaProperties;
 import nu.fgv.spexipedia.server.user.CallerService;
 import nu.fgv.spexipedia.server.util.Texts;
@@ -139,7 +139,7 @@ public class SyncConsumerService {
         consumer.setEnabled(enabled);
         repository.save(consumer);
         auditService.record(id == null ? "CREATE" : "UPDATE", "SYNC_CONSUMER", consumer.getUuid(),
-                AuditText.of("audit.syncConsumer.save", consumer.getName()));
+                StoredText.of("audit.syncConsumer.save", consumer.getName()));
         return toDto(consumer);
     }
 
@@ -167,7 +167,7 @@ public class SyncConsumerService {
         final SyncConsumer consumer = repository.findByUuid(id).orElseThrow(() -> new ResourceNotFoundException(SyncConsumer.class, id));
 
         repository.delete(consumer);
-        auditService.record("DELETE", "SYNC_CONSUMER", id, AuditText.of("audit.syncConsumer.delete", consumer.getName()));
+        auditService.record("DELETE", "SYNC_CONSUMER", id, StoredText.of("audit.syncConsumer.delete", consumer.getName()));
         return true;
     }
 

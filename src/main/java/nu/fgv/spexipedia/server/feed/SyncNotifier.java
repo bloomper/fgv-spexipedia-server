@@ -18,6 +18,8 @@ package nu.fgv.spexipedia.server.feed;
 
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
+import nu.fgv.spexipedia.server.util.StoredText;
+import nu.fgv.spexipedia.server.util.TextException;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
@@ -106,7 +108,7 @@ public class SyncNotifier {
             try {
                 // The token goes to the other applications' APIs only (see SyncConsumerService.mayNotify)
                 if (!consumers.mayNotify(consumer.getNotifyUrl())) {
-                    throw new IllegalStateException("Not one of the applications' addresses: " + consumer.getNotifyUrl());
+                    throw new TextException(StoredText.of("feed.notify.notAllowed", consumer.getNotifyUrl()));
                 }
                 serviceRestClient.post()
                         .uri(consumer.getNotifyUrl())
@@ -116,14 +118,14 @@ public class SyncNotifier {
                         .toBodilessEntity();
             } catch (final RuntimeException e) {
                 // Unreachable consumers, refused calls and a token Keycloak would not give alike
-                error = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+                error = TextException.text(e).encode(MAX_ERROR);
                 // Told once per new failure: the job tries every minute
                 if (!error.equals(consumer.getLastError())) {
-                    log.warn("Could not notify {}: {}", consumer.getName(), error);
+                    log.warn("Could not notify {}: {}", consumer.getName(), e.toString());
                 }
             }
 
-            final String failure = error == null ? null : error.substring(0, Math.min(error.length(), MAX_ERROR));
+            final String failure = error;
 
             jdbc.sql("""
                             UPDATE sync_consumer SET last_notified_at = :at, last_error = :error,

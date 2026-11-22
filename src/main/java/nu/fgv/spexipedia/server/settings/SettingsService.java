@@ -17,7 +17,7 @@
 package nu.fgv.spexipedia.server.settings;
 
 import nu.fgv.spexipedia.server.audit.AuditService;
-import nu.fgv.spexipedia.server.audit.AuditText;
+import nu.fgv.spexipedia.server.util.StoredText;
 import nu.fgv.spexipedia.server.user.Caller;
 import nu.fgv.spexipedia.server.user.CallerService;
 import nu.fgv.spexipedia.server.util.Locales;
@@ -109,7 +109,7 @@ public class SettingsService {
         settings.setLastModifiedBy(by);
         settings.setLastModifiedAt(clock.instant());
         repository.save(settings);
-        auditService.record("UPDATE", "SETTINGS", null, AuditText.of("audit.settings.update"));
+        auditService.record("UPDATE", "SETTINGS", null, StoredText.of("audit.settings.update"));
         return toDto(settings);
     }
 

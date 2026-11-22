@@ -17,7 +17,9 @@
 package nu.fgv.spexipedia.server.feed;
 
 import nu.fgv.spexipedia.server.util.Ids;
+import nu.fgv.spexipedia.server.util.StoredText;
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.MessageSource;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
@@ -25,6 +27,7 @@ import org.springframework.graphql.data.method.annotation.SchemaMapping;
 import org.springframework.stereotype.Controller;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -36,12 +39,20 @@ import java.util.Map;
 @Controller
 public class FeedGraphqlApi {
 
+    private final MessageSource messages;
     private final ChangeFeedService feed;
     private final SyncConsumerService consumers;
 
-    public FeedGraphqlApi(final ChangeFeedService feed, final SyncConsumerService consumers) {
+    public FeedGraphqlApi(final ChangeFeedService feed, final SyncConsumerService consumers, final MessageSource messages) {
         this.feed = feed;
         this.consumers = consumers;
+        this.messages = messages;
+    }
+
+    /** Why the latest notification failed, in the reader's language. */
+    @SchemaMapping(typeName = "SyncConsumer", field = "lastError")
+    public @Nullable String lastError(final SyncConsumerService.SyncConsumerDto consumer, final Locale locale) {
+        return consumer.lastError() == null ? null : StoredText.decode(consumer.lastError()).in(messages, locale);
     }
 
     @QueryMapping

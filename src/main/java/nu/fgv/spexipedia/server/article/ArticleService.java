@@ -18,7 +18,7 @@ package nu.fgv.spexipedia.server.article;
 
 import java.util.LinkedHashMap;
 import java.util.ArrayList;
-import nu.fgv.spexipedia.server.audit.AuditText;
+import nu.fgv.spexipedia.server.util.StoredText;
 import nu.fgv.spexipedia.server.basedata.BaseDataService;
 import nu.fgv.spexipedia.server.redirect.RedirectService;
 import nu.fgv.spexipedia.server.article.ArticleDtos.ArticleCategoryDto;
@@ -251,8 +251,8 @@ public class ArticleService {
             siblings.get(i).setPosition(i + 1);
         }
         auditService.record("UPDATE", "ARTICLE", id,
-                parent == null ? AuditText.of("audit.article.moveToTop", article.getTitle())
-                        : AuditText.of("audit.article.moveUnder", article.getTitle(), parent.getTitle()));
+                parent == null ? StoredText.of("audit.article.moveToTop", article.getTitle())
+                        : StoredText.of("audit.article.moveUnder", article.getTitle(), parent.getTitle()));
         return toDto(article);
     }
 
@@ -274,7 +274,7 @@ public class ArticleService {
             byId.get(ids.get(i)).setPosition(i + 1);
         }
         auditService.record("UPDATE", "ARTICLE", parentId,
-                parent == null ? AuditText.of("audit.article.reorderTop") : AuditText.of("audit.article.reorderUnder", parent.getTitle()));
+                parent == null ? StoredText.of("audit.article.reorderTop") : StoredText.of("audit.article.reorderUnder", parent.getTitle()));
         return children(parent == null ? null : parent.getId());
     }
 
@@ -444,9 +444,9 @@ public class ArticleService {
         updateLinks(article);
         titleChanged(article, null);
         revisionService.record(RevisionTarget.ARTICLE, article.getUuid(), null, article.getTitle(), article.getBody(),
-                Objects.requireNonNullElse(Texts.clean(input.comment()), "Skapade artikeln"));
+                Objects.requireNonNullElse(Texts.clean(input.comment()), StoredText.of("revision.comment.created").encode(500)));
         events.publishEvent(new IndexEvent(SearchKind.ARTICLE, article.getUuid()));
-        auditService.record("CREATE", "ARTICLE", article.getUuid(), AuditText.of("audit.article.create", article.getTitle()));
+        auditService.record("CREATE", "ARTICLE", article.getUuid(), StoredText.of("audit.article.create", article.getTitle()));
         return toDto(article);
     }
 
@@ -485,7 +485,7 @@ public class ArticleService {
         }
         stopEditing(article, caller);
         events.publishEvent(new IndexEvent(SearchKind.ARTICLE, article.getUuid()));
-        auditService.record("UPDATE", "ARTICLE", article.getUuid(), AuditText.of("audit.article.update", article.getTitle()));
+        auditService.record("UPDATE", "ARTICLE", article.getUuid(), StoredText.of("audit.article.update", article.getTitle()));
         return toDto(article);
     }
 
@@ -536,9 +536,9 @@ public class ArticleService {
             renamed(article, titleBefore);
         }
         revisionService.record(RevisionTarget.ARTICLE, article.getUuid(), null, article.getTitle(), article.getBody(),
-                "Återställde versionen från " + revision.getCreatedAt());
+                StoredText.of("revision.comment.restored", revision.getCreatedAt()).encode(500));
         events.publishEvent(new IndexEvent(SearchKind.ARTICLE, article.getUuid()));
-        auditService.record("RESTORE", "ARTICLE", article.getUuid(), AuditText.of("audit.article.restoreRevision", article.getTitle()));
+        auditService.record("RESTORE", "ARTICLE", article.getUuid(), StoredText.of("audit.article.restoreRevision", article.getTitle()));
         return toDto(article);
     }
 
@@ -551,7 +551,7 @@ public class ArticleService {
         article.setPublished(published);
         events.publishEvent(new IndexEvent(SearchKind.ARTICLE, article.getUuid()));
         auditService.record(published ? "PUBLISH" : "UNPUBLISH", "ARTICLE", id,
-                AuditText.of(published ? "audit.article.publish" : "audit.article.unpublish", article.getTitle()));
+                StoredText.of(published ? "audit.article.publish" : "audit.article.unpublish", article.getTitle()));
         return toDto(article);
     }
 
@@ -588,7 +588,7 @@ public class ArticleService {
         }
         article.setTrashedAt(clock.instant());
         events.publishEvent(new IndexEvent(SearchKind.ARTICLE, article.getUuid()));
-        auditService.record("TRASH", "ARTICLE", id, AuditText.of("audit.article.trash", article.getTitle()));
+        auditService.record("TRASH", "ARTICLE", id, StoredText.of("audit.article.trash", article.getTitle()));
         return true;
     }
 
@@ -601,7 +601,7 @@ public class ArticleService {
 
         article.setTrashedAt(null);
         events.publishEvent(new IndexEvent(SearchKind.ARTICLE, article.getUuid()));
-        auditService.record("RESTORE", "ARTICLE", id, AuditText.of("audit.article.restore", article.getTitle()));
+        auditService.record("RESTORE", "ARTICLE", id, StoredText.of("audit.article.restore", article.getTitle()));
         return toDto(article);
     }
 
@@ -625,7 +625,7 @@ public class ArticleService {
             repository.delete(article);
             events.publishEvent(new IndexEvent(SearchKind.ARTICLE, article.getUuid()));
         }
-        auditService.record("DELETE", "TRASH", null, AuditText.of("audit.trash.empty", trashed.size()));
+        auditService.record("DELETE", "TRASH", null, StoredText.of("audit.trash.empty", trashed.size()));
         return trashed.size();
     }
 
@@ -758,7 +758,7 @@ public class ArticleService {
         category.setSlug(Slugs.unique(category.getName(), "kategori", categoryRepository::existsBySlug));
         categoryRepository.save(category);
         setParents(category, parentIds);
-        auditService.record("CREATE", "ARTICLE_CATEGORY", category.getUuid(), AuditText.of("audit.articleCategory.create", category.getName()));
+        auditService.record("CREATE", "ARTICLE_CATEGORY", category.getUuid(), StoredText.of("audit.articleCategory.create", category.getName()));
         return toDto(category, 0);
     }
 
@@ -781,7 +781,7 @@ public class ArticleService {
         category.setName(Texts.required(name, 255, "name"));
         category.setDescription(Texts.optional(description, 10_000, "description"));
         setParents(category, parentIds);
-        auditService.record("UPDATE", "ARTICLE_CATEGORY", id, AuditText.of("audit.articleCategory.update", category.getName()));
+        auditService.record("UPDATE", "ARTICLE_CATEGORY", id, StoredText.of("audit.articleCategory.update", category.getName()));
         return toDto(category, counts().getOrDefault(category.getId(), 0));
     }
 
@@ -866,7 +866,7 @@ public class ArticleService {
         jdbc.sql("DELETE FROM revision WHERE target = 'ARTICLE' AND target_id = :id").param("id", article.getUuid().toString()).update();
         repository.delete(article);
         events.publishEvent(new IndexEvent(SearchKind.ARTICLE, article.getUuid()));
-        auditService.record("DELETE", "ARTICLE", id, AuditText.of("audit.article.forgetImported", article.getTitle()));
+        auditService.record("DELETE", "ARTICLE", id, StoredText.of("audit.article.forgetImported", article.getTitle()));
         return true;
     }
 

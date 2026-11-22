@@ -119,7 +119,7 @@ public final class PackageSheets {
         final List<CharacterRow> characters = new ArrayList<>();
         final Table table = Table.of(rows(workbook, PackageColumns.CHARACTERS), PackageColumns.CHARACTER_COLUMNS);
 
-        table.unknown().forEach(header -> warnings.add(PackageText.of("warning.column", PackageColumns.CHARACTERS, header)));
+        table.unknown().forEach(header -> warnings.add(PackageText.of("warning.column", sheetName(workbook, PackageColumns.CHARACTERS), header)));
         for (int r = 0; r < table.rows().size(); r++) {
             final Map<String, String> row = table.rows().get(r);
             final String name = row.getOrDefault("name", "");
@@ -135,7 +135,7 @@ public final class PackageSheets {
         final List<SceneRow> scenes = new ArrayList<>();
         final Table table = Table.of(rows(workbook, PackageColumns.SCENES), PackageColumns.SCENE_COLUMNS);
 
-        table.unknown().forEach(header -> warnings.add(PackageText.of("warning.column", PackageColumns.SCENES, header)));
+        table.unknown().forEach(header -> warnings.add(PackageText.of("warning.column", sheetName(workbook, PackageColumns.SCENES), header)));
         for (int r = 0; r < table.rows().size(); r++) {
             final Map<String, String> row = table.rows().get(r);
             final String title = row.getOrDefault("title", "");
@@ -172,7 +172,7 @@ public final class PackageSheets {
                 if (credit.isPresent()) {
                     credits.put(c, credit.get().getNameSv());
                 } else if (!PackageColumns.ignored(name)) {
-                    warnings.add(PackageText.of("warning.numberColumn", PackageColumns.NUMBERS, name));
+                    warnings.add(PackageText.of("warning.numberColumn", sheetName(workbook, PackageColumns.NUMBERS), name));
                 }
             }
         }
@@ -220,15 +220,27 @@ public final class PackageSheets {
                 .map(String::strip).filter(name -> !name.isEmpty() && !name.matches("[-?]+")).toList();
     }
 
-    private static List<List<String>> rows(final Workbook workbook, final String sheetName) {
-        Sheet sheet = null;
+    /** The sheet by any of its names (PackageColumns.SHEETS), or null. */
+    private static @Nullable Sheet sheet(final Workbook workbook, final String sheet) {
+        final List<String> names = PackageColumns.SHEETS.get(sheet).stream().map(KindService::normalize).toList();
 
         for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
-            if (KindService.normalize(workbook.getSheetName(i)).equals(KindService.normalize(sheetName))) {
-                sheet = workbook.getSheetAt(i);
+            if (names.contains(KindService.normalize(workbook.getSheetName(i)))) {
+                return workbook.getSheetAt(i);
             }
         }
+        return null;
+    }
 
+    /** The sheet's name as the file has it, for warnings. */
+    private static String sheetName(final Workbook workbook, final String sheet) {
+        final Sheet found = sheet(workbook, sheet);
+
+        return found == null ? sheet : found.getSheetName();
+    }
+
+    private static List<List<String>> rows(final Workbook workbook, final String sheetName) {
+        final Sheet sheet = sheet(workbook, sheetName);
         final List<List<String>> rows = new ArrayList<>();
 
         if (sheet == null) {

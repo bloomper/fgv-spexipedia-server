@@ -17,11 +17,13 @@
 package nu.fgv.spexipedia.server.spexpackage;
 
 import nu.fgv.spexipedia.server.AbstractIntegrationTest;
+import nu.fgv.spexipedia.server.kind.KindService;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -34,11 +36,14 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -61,6 +66,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class PackageIntegrationTest extends AbstractIntegrationTest {
 
+    @Autowired
+    private KindService kindService;
+
     private static final String PACKAGE = """
             query($id: ID!) { spexPackage(id: $id) {
                 state progress message zipReceived spex { id title year }
@@ -71,7 +79,7 @@ class PackageIntegrationTest extends AbstractIntegrationTest {
     @Test
     void theTemplateHasAColumnPerCreditKindAndARowPerFactKind() throws Exception {
         final byte[] template = http().get().uri("/api/packages/template.xlsx").header(HttpHeaders.AUTHORIZATION, token(EDITOR))
-                .retrieve().body(byte[].class);
+                .header(HttpHeaders.ACCEPT_LANGUAGE, "sv").retrieve().body(byte[].class);
 
         try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(template))) {
             final Sheet numbers = workbook.getSheet("Nummer");
@@ -81,6 +89,47 @@ class PackageIntegrationTest extends AbstractIntegrationTest {
         }
         assertThatThrownBy(() -> http().get().uri("/api/packages/template.xlsx").header(HttpHeaders.AUTHORIZATION, token(MEMBER))
                 .retrieve().body(byte[].class)).isInstanceOf(HttpClientErrorException.class);
+    }
+
+    @Test
+    void theTemplateIsInTheDownloadersLanguageAndReadBackInEither() throws Exception {
+        for (final String[] language : new String[][]{{"sv", "Nummer", "Titel", "Musik", "År", "Importmall"}, {"en", "Numbers", "Title", "Music", "Year", "Import%20template"}}) {
+            final ResponseEntity<byte[]> response = http().get().uri("/api/packages/template.xlsx").header(HttpHeaders.AUTHORIZATION, token(EDITOR))
+                    .header(HttpHeaders.ACCEPT_LANGUAGE, language[0]).retrieve().toEntity(byte[].class);
+
+            assertThat(response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION)).contains(language[5]);
+
+            final Path file = Files.createTempFile("template", ".xlsx");
+
+            try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(Objects.requireNonNull(response.getBody())))) {
+                final Sheet numbers = workbook.getSheet(language[1]);
+                final Sheet spex = workbook.getSheet("Spex");
+
+                assertThat(cells(numbers, 0)).contains(language[2], language[3]);
+                // Filled in as a person would, and read back
+                spex.forEach(row -> {
+                    final String field = row.getCell(0).getStringCellValue();
+
+                    if (field.equals(language[2])) {
+                        row.createCell(1).setCellValue("Mallspexet");
+                    } else if (field.equals(language[4])) {
+                        row.createCell(1).setCellValue("2032");
+                    }
+                });
+                numbers.createRow(1).createCell(cells(numbers, 0).indexOf(language[2])).setCellValue("Ouvertyr");
+                try (var out = Files.newOutputStream(file)) {
+                    workbook.write(out);
+                }
+            }
+
+            final PackageSheets.Content content = PackageSheets.read(file, kindService);
+
+            assertThat(content.warnings()).isEmpty();
+            assertThat(content.title()).isEqualTo("Mallspexet");
+            assertThat(content.year()).isEqualTo("2032");
+            assertThat(content.numbers()).extracting(PackageSheets.NumberRow::title).containsExactly("Ouvertyr");
+            Files.delete(file);
+        }
     }
 
     @Test

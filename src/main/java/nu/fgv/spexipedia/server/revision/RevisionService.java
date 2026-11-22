@@ -17,7 +17,7 @@
 package nu.fgv.spexipedia.server.revision;
 
 import nu.fgv.spexipedia.server.audit.AuditService;
-import nu.fgv.spexipedia.server.audit.AuditText;
+import nu.fgv.spexipedia.server.util.StoredText;
 import nu.fgv.spexipedia.server.user.Caller;
 import nu.fgv.spexipedia.server.user.CallerService;
 import nu.fgv.spexipedia.server.util.Uuids;
@@ -127,7 +127,7 @@ public class RevisionService {
         revision.setHidden(hidden);
         revision.setHiddenBy(hidden ? caller.subject() : null);
         auditService.record(hidden ? "HIDE" : "SHOW", "REVISION", id,
-                AuditText.of(hidden ? "audit.revision.hide" : "audit.revision.show", revision.getTitle()));
+                StoredText.of(hidden ? "audit.revision.hide" : "audit.revision.show", revision.getTitle()));
         return toDtos(List.of(revision)).getFirst();
     }
 

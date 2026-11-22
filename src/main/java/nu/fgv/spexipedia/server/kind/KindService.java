@@ -17,7 +17,7 @@
 package nu.fgv.spexipedia.server.kind;
 
 import nu.fgv.spexipedia.server.audit.AuditService;
-import nu.fgv.spexipedia.server.audit.AuditText;
+import nu.fgv.spexipedia.server.util.StoredText;
 import nu.fgv.spexipedia.server.basedata.BaseDataKind;
 import nu.fgv.spexipedia.server.feed.ChangeFeedService;
 import nu.fgv.spexipedia.server.feed.FeedRecords;
@@ -186,7 +186,7 @@ public class KindService {
         }
         repository.save(kind);
         auditService.record(id == null ? "CREATE" : "UPDATE", "KIND", kind.getUuid(),
-                AuditText.of(id == null ? "audit.kind.create" : "audit.kind.update", name(kind), type(kind.getType())));
+                StoredText.of(id == null ? "audit.kind.create" : "audit.kind.update", name(kind), type(kind.getType())));
         return kind;
     }
 
@@ -206,7 +206,7 @@ public class KindService {
             kind.setValueType(FactValueType.TEXT);
         }
         repository.save(kind);
-        auditService.record("CREATE", "KIND", kind.getUuid(), AuditText.of("audit.kind.createForImport", name(kind), type(type)));
+        auditService.record("CREATE", "KIND", kind.getUuid(), StoredText.of("audit.kind.createForImport", name(kind), type(type)));
         return kind;
     }
 
@@ -261,7 +261,7 @@ public class KindService {
         for (int i = 0; i < ids.size(); i++) {
             byId.get(ids.get(i)).setPosition(i + 1);
         }
-        auditService.record("UPDATE", "KIND", ids.getFirst(), AuditText.of("audit.kind.reorder", type(type)));
+        auditService.record("UPDATE", "KIND", ids.getFirst(), StoredText.of("audit.kind.reorder", type(type)));
         return kinds(type, use, true);
     }
 
@@ -275,7 +275,7 @@ public class KindService {
             throw new BadRequestException("error.kind.last");
         }
         kind.setRetired(retired);
-        auditService.record("UPDATE", "KIND", id, AuditText.of(retired ? "audit.kind.retire" : "audit.kind.unretire", name(kind)));
+        auditService.record("UPDATE", "KIND", id, StoredText.of(retired ? "audit.kind.retire" : "audit.kind.unretire", name(kind)));
         return kind;
     }
 
@@ -309,7 +309,7 @@ public class KindService {
         into.setAliases(aliases(aliases));
         repository.delete(from);
         FeedRecords.numbers(jdbc, numbers).forEach(number -> feed.upsert(BaseDataKind.NUMBER, number.id(), number));
-        auditService.record("MERGE", "KIND", intoId, AuditText.of("audit.kind.merge", name(from), name(into)));
+        auditService.record("MERGE", "KIND", intoId, StoredText.of("audit.kind.merge", name(from), name(into)));
         return into;
     }
 
@@ -354,11 +354,11 @@ public class KindService {
     }
 
     /** A kind's name for the audit log, in the reader's language. */
-    private static AuditText name(final Kind kind) {
-        return AuditText.of("audit.name", kind.getNameSv(), kind.getNameEn());
+    private static StoredText name(final Kind kind) {
+        return StoredText.of("audit.name", kind.getNameSv(), kind.getNameEn());
     }
 
-    private static AuditText type(final KindType type) {
-        return AuditText.of("audit.kindType." + type.name());
+    private static StoredText type(final KindType type) {
+        return StoredText.of("audit.kindType." + type.name());
     }
 }

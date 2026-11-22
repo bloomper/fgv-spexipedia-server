@@ -29,17 +29,20 @@ import nu.fgv.spexipedia.server.revision.RevisionService;
 import nu.fgv.spexipedia.server.revision.RevisionTarget;
 import nu.fgv.spexipedia.server.user.CallerService;
 import nu.fgv.spexipedia.server.util.Ids;
+import nu.fgv.spexipedia.server.util.StoredText;
 import nu.fgv.spexipedia.server.util.error.BadRequestException;
 import nu.fgv.spexipedia.server.util.error.ResourceNotFoundException;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpTool.McpAnnotations;
 import org.springframework.ai.mcp.annotation.McpToolParam;
+import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -57,6 +60,7 @@ import java.util.UUID;
 @Component
 public class ArticleMcpTools {
 
+    private final MessageSource messages;
     private final ArticleService articles;
     private final RevisionService revisions;
     private final SpexPageService pages;
@@ -64,7 +68,8 @@ public class ArticleMcpTools {
     private final McpToolSupport support;
 
     public ArticleMcpTools(final ArticleService articles, final RevisionService revisions, final SpexPageService pages,
-                           final CallerService callerService, final McpToolSupport support) {
+                           final CallerService callerService, final McpToolSupport support, final MessageSource messages) {
+        this.messages = messages;
         this.articles = articles;
         this.revisions = revisions;
         this.pages = pages;
@@ -162,7 +167,7 @@ public class ArticleMcpTools {
             final Set<UUID> visiblePages = pages.isAuthor() ? null : pages.publishedSpexIds();
             final Page<Revision> found = revisions.visible(articles.visibleIds(), visiblePages, page == null ? 0 : page, size == null ? 50 : size);
 
-            return new McpRecentChanges(revisions.toDtos(found.getContent()).stream().map(McpRevision::of).toList(),
+            return new McpRecentChanges(revisions.toDtos(found.getContent()).stream().map(revision -> McpRevision.of(revision, messages)).toList(),
                     (int) found.getTotalElements(), found.getNumber(), found.getSize());
         });
     }
@@ -226,9 +231,9 @@ public class ArticleMcpTools {
     public record McpRevision(UUID id, RevisionTarget target, UUID targetId, String targetTitle, @Nullable String field,
                               @Nullable String comment, boolean hidden, @Nullable String authorName, Instant createdAt) {
 
-        static McpRevision of(final RevisionDto revision) {
+        static McpRevision of(final RevisionDto revision, final MessageSource messages) {
             return new McpRevision(revision.id(), revision.target(), revision.targetId(), revision.targetTitle(), revision.field(),
-                    revision.comment(), revision.hidden(), revision.authorName(), revision.createdAt());
+                    revision.comment() == null ? null : StoredText.decode(revision.comment()).in(messages, Locale.ENGLISH), revision.hidden(), revision.authorName(), revision.createdAt());
         }
     }
 

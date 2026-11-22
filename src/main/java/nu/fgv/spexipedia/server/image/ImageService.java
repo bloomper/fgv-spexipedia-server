@@ -18,7 +18,7 @@ package nu.fgv.spexipedia.server.image;
 
 import lombok.extern.slf4j.Slf4j;
 import nu.fgv.spexipedia.server.audit.AuditService;
-import nu.fgv.spexipedia.server.audit.AuditText;
+import nu.fgv.spexipedia.server.util.StoredText;
 import nu.fgv.spexipedia.server.config.SpexipediaProperties;
 import nu.fgv.spexipedia.server.user.Caller;
 import nu.fgv.spexipedia.server.user.CallerService;
@@ -116,7 +116,7 @@ public class ImageService {
 
         final Image image = store(content, fileName, kind);
 
-        auditService.record("UPLOAD", "IMAGE", image.getUuid(), AuditText.of("audit.image.upload", image.getOriginalFileName()));
+        auditService.record("UPLOAD", "IMAGE", image.getUuid(), StoredText.of("audit.image.upload", image.getOriginalFileName()));
         return toDto(image, true);
     }
 
@@ -131,7 +131,7 @@ public class ImageService {
             try (InputStream in = Files.newInputStream(file)) {
                 final Image image = store(in, fileName, kind);
 
-                auditService.record("UPLOAD", "IMAGE", image.getUuid(), AuditText.of("audit.image.import", image.getOriginalFileName()));
+                auditService.record("UPLOAD", "IMAGE", image.getUuid(), StoredText.of("audit.image.import", image.getOriginalFileName()));
                 return image;
             } catch (final IOException e) {
                 throw new UncheckedIOException(e);
@@ -290,7 +290,7 @@ public class ImageService {
 
         image.setCaption(Texts.optional(caption, MAX_CAPTION, "caption"));
         image.setAlt(Texts.optional(alt, MAX_CAPTION, "alt"));
-        auditService.record("UPDATE", "IMAGE", id, AuditText.of("audit.image.caption", image.getOriginalFileName()));
+        auditService.record("UPDATE", "IMAGE", id, StoredText.of("audit.image.caption", image.getOriginalFileName()));
         return toDto(repository.save(image), true);
     }
 
@@ -303,7 +303,7 @@ public class ImageService {
         if (image.getTrashedAt() == null) {
             image.setTrashedAt(clock.instant());
             storage.moveToTrash(id);
-            auditService.record("TRASH", "IMAGE", id, AuditText.of("audit.image.trash", image.getOriginalFileName()));
+            auditService.record("TRASH", "IMAGE", id, StoredText.of("audit.image.trash", image.getOriginalFileName()));
         }
         return true;
     }
@@ -317,7 +317,7 @@ public class ImageService {
         if (image.getTrashedAt() != null) {
             image.setTrashedAt(null);
             storage.restoreFromTrash(id);
-            auditService.record("RESTORE", "IMAGE", id, AuditText.of("audit.image.restore", image.getOriginalFileName()));
+            auditService.record("RESTORE", "IMAGE", id, StoredText.of("audit.image.restore", image.getOriginalFileName()));
         }
         return toDto(image, true);
     }

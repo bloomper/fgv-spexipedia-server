@@ -17,7 +17,7 @@
 package nu.fgv.spexipedia.server.content;
 
 import nu.fgv.spexipedia.server.audit.AuditService;
-import nu.fgv.spexipedia.server.audit.AuditText;
+import nu.fgv.spexipedia.server.util.StoredText;
 import nu.fgv.spexipedia.server.basedata.BaseDataKind;
 import nu.fgv.spexipedia.server.basedata.BaseDataService;
 import nu.fgv.spexipedia.server.basedata.IdAlias;
@@ -211,7 +211,7 @@ public class ContentService {
         applyCharacter(character, name, description);
         characterRepository.save(character);
         changed(character);
-        auditService.record("CREATE", "CHARACTER", character.getUuid(), AuditText.of("audit.character.create", character.getName(), spex.label()));
+        auditService.record("CREATE", "CHARACTER", character.getUuid(), StoredText.of("audit.character.create", character.getName(), spex.label()));
         return ContentDtos.toDto(character);
     }
 
@@ -230,7 +230,7 @@ public class ContentService {
         applyCharacter(character, name, description);
         changed(character);
         auditService.record("UPDATE", "CHARACTER", character.getUuid(),
-                AuditText.of("audit.character.update", character.getName(), character.getSpex().label()));
+                StoredText.of("audit.character.update", character.getName(), character.getSpex().label()));
         return ContentDtos.toDto(character);
     }
 
@@ -253,7 +253,7 @@ public class ContentService {
         feed.record(BaseDataKind.CHARACTER, character.getUuid(), ChangeType.RETIRE, null, feedRecord(character));
         characterRepository.delete(character);
         events.publishEvent(new IndexEvent(SearchKind.CHARACTER, character.getUuid()));
-        auditService.record("DELETE", "CHARACTER", id, AuditText.of("audit.character.delete", character.getName(), character.getSpex().label()));
+        auditService.record("DELETE", "CHARACTER", id, StoredText.of("audit.character.delete", character.getName(), character.getSpex().label()));
         return true;
     }
 
@@ -278,7 +278,7 @@ public class ContentService {
             characterRepository.save(character);
             changed(character);
         }
-        auditService.record("CREATE", "CHARACTER", spex.getUuid(), AuditText.of("audit.character.paste", spex.label()));
+        auditService.record("CREATE", "CHARACTER", spex.getUuid(), StoredText.of("audit.character.paste", spex.label()));
         return characters(spex.getId());
     }
 
@@ -301,7 +301,7 @@ public class ContentService {
                 changed(character);
             }
         }
-        auditService.record("UPDATE", "CHARACTER", spex.getUuid(), AuditText.of("audit.character.reorder", spex.label()));
+        auditService.record("UPDATE", "CHARACTER", spex.getUuid(), StoredText.of("audit.character.reorder", spex.label()));
         return characters(spex.getId());
     }
 
@@ -324,7 +324,7 @@ public class ContentService {
                     Texts.optional(image.caption(), 1000, "caption")));
         }
         lists.setCharacterImages(character.getId(), placed);
-        auditService.record("UPDATE", "CHARACTER", id, AuditText.of("audit.character.images", character.getName(), character.getSpex().label()));
+        auditService.record("UPDATE", "CHARACTER", id, StoredText.of("audit.character.images", character.getName(), character.getSpex().label()));
         return ContentDtos.toDto(character);
     }
 
@@ -397,7 +397,7 @@ public class ContentService {
         scene.setPosition(sceneRepository.maxPosition(spex) + 1);
         applyScene(scene, input);
         sceneRepository.save(scene);
-        auditService.record("CREATE", "SCENE", scene.getUuid(), AuditText.of("audit.scene.create", scene.getTitle(), spex.label()));
+        auditService.record("CREATE", "SCENE", scene.getUuid(), StoredText.of("audit.scene.create", scene.getTitle(), spex.label()));
         return ContentDtos.toDto(scene);
     }
 
@@ -408,7 +408,7 @@ public class ContentService {
         final Scene scene = requireScene(id);
 
         applyScene(scene, input);
-        auditService.record("UPDATE", "SCENE", id, AuditText.of("audit.scene.update", scene.getTitle(), scene.getSpex().label()));
+        auditService.record("UPDATE", "SCENE", id, StoredText.of("audit.scene.update", scene.getTitle(), scene.getSpex().label()));
         return ContentDtos.toDto(scene);
     }
 
@@ -419,7 +419,7 @@ public class ContentService {
         final Scene scene = requireScene(id);
 
         sceneRepository.delete(scene);
-        auditService.record("DELETE", "SCENE", id, AuditText.of("audit.scene.delete", scene.getTitle(), scene.getSpex().label()));
+        auditService.record("DELETE", "SCENE", id, StoredText.of("audit.scene.delete", scene.getTitle(), scene.getSpex().label()));
         return true;
     }
 
@@ -469,7 +469,7 @@ public class ContentService {
             applyScene(scene, new SceneInput(Math.clamp(act, 1, 9), parts[0], parts.length > 1 ? parts[1] : null, false));
             previous = sceneRepository.save(scene);
         }
-        auditService.record("CREATE", "SCENE", spex.getUuid(), AuditText.of("audit.scene.paste", spex.label()));
+        auditService.record("CREATE", "SCENE", spex.getUuid(), StoredText.of("audit.scene.paste", spex.label()));
         return scenes(spex.getId());
     }
 
@@ -488,7 +488,7 @@ public class ContentService {
             scene.setAct(Math.clamp(order.get(i).act(), 1, 9));
             scene.setPosition(i + 1);
         }
-        auditService.record("UPDATE", "SCENE", spex.getUuid(), AuditText.of("audit.scene.reorder", spex.label()));
+        auditService.record("UPDATE", "SCENE", spex.getUuid(), StoredText.of("audit.scene.reorder", spex.label()));
         return scenes(spex.getId());
     }
 
@@ -579,7 +579,7 @@ public class ContentService {
         numberRepository.save(number);
         applyNumberLists(number, input);
         changed(number);
-        auditService.record("CREATE", "NUMBER", number.getUuid(), AuditText.of("audit.number.create", number.getTitle(), spex.label()));
+        auditService.record("CREATE", "NUMBER", number.getUuid(), StoredText.of("audit.number.create", number.getTitle(), spex.label()));
         return ContentDtos.toDto(number);
     }
 
@@ -592,7 +592,7 @@ public class ContentService {
         applyNumber(number, input, number.getKind());
         applyNumberLists(number, input);
         changed(number);
-        auditService.record("UPDATE", "NUMBER", number.getUuid(), AuditText.of("audit.number.update", number.getTitle(), number.getSpex().label()));
+        auditService.record("UPDATE", "NUMBER", number.getUuid(), StoredText.of("audit.number.update", number.getTitle(), number.getSpex().label()));
         return ContentDtos.toDto(number);
     }
 
@@ -610,7 +610,7 @@ public class ContentService {
         feed.record(BaseDataKind.NUMBER, number.getUuid(), ChangeType.RETIRE, null, feedRecord(number));
         numberRepository.delete(number);
         events.publishEvent(new IndexEvent(SearchKind.NUMBER, number.getUuid()));
-        auditService.record("DELETE", "NUMBER", id, AuditText.of("audit.number.delete", number.getTitle(), number.getSpex().label()));
+        auditService.record("DELETE", "NUMBER", id, StoredText.of("audit.number.delete", number.getTitle(), number.getSpex().label()));
         return true;
     }
 
@@ -709,7 +709,7 @@ public class ContentService {
             numberRepository.save(number);
             changed(number);
         }
-        auditService.record("CREATE", "NUMBER", spex.getUuid(), AuditText.of("audit.number.paste", spex.label()));
+        auditService.record("CREATE", "NUMBER", spex.getUuid(), StoredText.of("audit.number.paste", spex.label()));
         return numbers(spex.getId());
     }
 
@@ -732,7 +732,7 @@ public class ContentService {
                 changed(number);
             }
         }
-        auditService.record("UPDATE", "NUMBER", spex.getUuid(), AuditText.of("audit.number.reorder", spex.label()));
+        auditService.record("UPDATE", "NUMBER", spex.getUuid(), StoredText.of("audit.number.reorder", spex.label()));
         return numbers(spex.getId());
     }
 
@@ -774,7 +774,7 @@ public class ContentService {
             throw new ResourceNotFoundException(Credit.class, numberId);
         }
         auditService.record("UPDATE", "NUMBER", number.getUuid(),
-                AuditText.of("audit.number.resolveCredit", number.getTitle(), number.getSpex().label()));
+                StoredText.of("audit.number.resolveCredit", number.getTitle(), number.getSpex().label()));
         return ContentDtos.toDto(number);
     }
 
@@ -921,7 +921,7 @@ public class ContentService {
             }
         }
         lists.setRevivalChanges(revival.getId(), kind, changes);
-        auditService.record("UPDATE", "SPEX", revivalId, AuditText.of("audit.spex.revivalChanges", revival.label()));
+        auditService.record("UPDATE", "SPEX", revivalId, StoredText.of("audit.spex.revivalChanges", revival.label()));
     }
 
     // Helpers ----------------------------------------------------------------------------------------------------------

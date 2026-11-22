@@ -21,7 +21,9 @@ import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import nu.fgv.spexipedia.server.revision.MarkdownRenderer;
 import nu.fgv.spexipedia.server.user.Caller;
 import nu.fgv.spexipedia.server.user.CallerService;
+import nu.fgv.spexipedia.server.util.Locales;
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.MessageSource;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -31,7 +33,9 @@ import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
@@ -53,8 +57,11 @@ public class SearchService {
     private final JdbcClient jdbc;
     private final CallerService callerService;
     private final MarkdownRenderer markdown;
+    private final MessageSource messages;
 
-    public SearchService(final JdbcClient jdbc, final CallerService callerService, final MarkdownRenderer markdown) {
+    public SearchService(final JdbcClient jdbc, final CallerService callerService, final MarkdownRenderer markdown,
+                         final MessageSource messages) {
+        this.messages = messages;
         this.jdbc = jdbc;
         this.callerService = callerService;
         this.markdown = markdown;
@@ -147,8 +154,9 @@ public class SearchService {
                     .query((rs, _) -> new Object[]{rs.getLong(1), rs.getObject(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6)})
                     .optional()
                     .flatMap(row -> spexPart((Long) row[0]).map(part -> new Document(kind, id, part.label(),
-                            join(row[1] == null ? null : "Nyuppsättning", (String) row[2]),
-                            join((String) row[3], markdown.plain((String) row[4]), markdown.plain((String) row[5])),
+                            (String) row[2],
+                            // A revival is found by the word in either language; the hit says it in the reader's (search)
+                            join(row[1] == null ? null : revivalWords(), (String) row[3], markdown.plain((String) row[4]), markdown.plain((String) row[5])),
                             "/spex/" + part.slug(), part.visibility())));
             case CHARACTER -> jdbc.sql("SELECT spex_id, name, description, retired FROM spex_character WHERE uuid = :id")
                     .param("id", uuid)
@@ -183,7 +191,7 @@ public class SearchService {
      * Records matching every word (a word also matches words starting with it), the best first.
      */
     @Transactional(readOnly = true)
-    public List<Hit> search(final String q, final int limit) {
+    public List<Hit> search(final String q, final int limit, final Locale locale) {
         final Optional<Caller> caller = callerService.currentIfAny().filter(Caller::isUser);
         final List<String> visibilities = caller.map(c -> c.isAuthor() ? List.of("PUBLIC", "MEMBERS", "HIDDEN") : List.of("PUBLIC", "MEMBERS"))
                 .orElse(List.of("PUBLIC"));
@@ -230,8 +238,30 @@ public class SearchService {
         for (final Object param : params) {
             statement = statement.param(param);
         }
-        return statement.query((rs, _) -> new Hit(SearchKind.valueOf(rs.getString(1)), UUID.fromString(rs.getString(2)),
+        final List<Hit> hits = statement.query((rs, _) -> new Hit(SearchKind.valueOf(rs.getString(1)), UUID.fromString(rs.getString(2)),
                 rs.getString(3), rs.getString(4), rs.getString(5))).list();
+
+        return revivalsSaid(hits, locale);
+    }
+
+    /** A revival's hit says so, in the reader's language, before its category. */
+    private List<Hit> revivalsSaid(final List<Hit> hits, final Locale locale) {
+        final List<String> spex = hits.stream().filter(hit -> hit.kind() == SearchKind.SPEX).map(hit -> hit.id().toString()).toList();
+
+        if (spex.isEmpty()) {
+            return hits;
+        }
+
+        final Set<String> revivals = new HashSet<>(jdbc.sql("SELECT uuid FROM spex WHERE parent_id IS NOT NULL AND uuid IN (:ids)")
+                .param("ids", spex).query(String.class).list());
+        final String revival = messages.getMessage("search.revival", null, Locales.supported(locale));
+
+        return hits.stream().map(hit -> hit.kind() == SearchKind.SPEX && revivals.contains(hit.id().toString())
+                ? new Hit(hit.kind(), hit.id(), hit.title(), join(revival, hit.context()), hit.path()) : hit).toList();
+    }
+
+    private String revivalWords() {
+        return messages.getMessage("search.revival", null, Locales.SWEDISH) + " " + messages.getMessage("search.revival", null, Locale.ENGLISH);
     }
 
     /**
