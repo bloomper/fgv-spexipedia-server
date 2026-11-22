@@ -81,6 +81,27 @@ public class AppsClient {
                 }
             }""";
 
+    private static final String SPEXGRAM_ALBUM = """
+            query Album($id: ID!) { album(id: $id) { id title visibility items(page: 0, size: 100) { items { %s } } } }""".formatted(ITEM_FIELDS);
+    private static final String SPEXIFY_ALBUM = """
+            query Album($id: ID!) {
+                spexipediaAlbum(id: $id) {
+                    id title year kindNameSv kindNameEn mediumNameSv mediumNameEn catalogueNumber released recorded conductor
+                    spexId coverUrl backCoverUrl tracks { id side discNumber trackNumber title numberId hasAudio audioUrl }
+                }
+            }""";
+    private static final String SPEXFLIX_VIDEO = """
+            query Video($id: ID!) {
+                spexipediaVideo(id: $id) {
+                    id title year durationMs posterUrl chapters { title startSeconds }
+                    playback { masterUrl thumbnailsUrl expiresAt subtitles { language label url } }
+                }
+            }""";
+    private static final String ARCHIVE_DOCUMENT = """
+            query Document($id: ID!) {
+                spexipediaDocument(id: $id) { id title year spexId kindNameSv kindNameEn files { id title pages previewUrl } }
+            }""";
+
     private final Map<App, HttpSyncGraphQlClient> service = new EnumMap<>(App.class);
     private final @Nullable HttpSyncGraphQlClient spexgramAnonymous;
     private final Map<App, String> webs = new EnumMap<>(App.class);
@@ -179,6 +200,44 @@ public class AppsClient {
                 Map.of("spexIds", strings(spexIds), "numberIds", strings(numberIds)));
     }
 
+    /**
+     * A Spexgram album with its items (at most 100): as visitors see it (members false), or with members' items too.
+     * Empty when it is not found or Spexgram cannot be reached.
+     */
+    @Cacheable(cacheNames = CacheConfig.PHOTOS, key = "'album:' + #id + ':' + #members")
+    public Optional<SpexgramAlbum> spexgramAlbum(final UUID id, final boolean members) {
+        return callOne(members ? service.get(App.SPEXGRAM) : spexgramAnonymous, App.SPEXGRAM, SPEXGRAM_ALBUM, "album",
+                SpexgramAlbum.class, Map.of("id", id.toString()));
+    }
+
+    /**
+     * A published Spexify album with its covers and listed tracks, with signed links to the tracks' audio, for a
+     * section of a spex page (spec 4.2.1).
+     */
+    @Cacheable(cacheNames = CacheConfig.LINKS, key = "'spexifyAlbum:' + #id")
+    public Optional<DiscographyAlbum> spexifyAlbum(final UUID id) {
+        return callOne(service.get(App.SPEXIFY), App.SPEXIFY, SPEXIFY_ALBUM, "spexipediaAlbum", DiscographyAlbum.class,
+                Map.of("id", id.toString()));
+    }
+
+    /**
+     * A published, ready Spexflix video with its poster, chapters and signed playback addresses.
+     */
+    @Cacheable(cacheNames = CacheConfig.LINKS, key = "'spexflixVideo:' + #id")
+    public Optional<SpexflixVideo> spexflixVideo(final UUID id) {
+        return callOne(service.get(App.SPEXFLIX), App.SPEXFLIX, SPEXFLIX_VIDEO, "spexipediaVideo", SpexflixVideo.class,
+                Map.of("id", id.toString()));
+    }
+
+    /**
+     * A published Spexarkivet document with signed links to the first-page previews of its open files.
+     */
+    @Cacheable(cacheNames = CacheConfig.LINKS, key = "'archiveDocument:' + #id")
+    public Optional<ArchiveDocumentDetail> archiveDocument(final UUID id) {
+        return callOne(service.get(App.ARCHIVE), App.ARCHIVE, ARCHIVE_DOCUMENT, "spexipediaDocument", ArchiveDocumentDetail.class,
+                Map.of("id", id.toString()));
+    }
+
     @CacheEvict(cacheNames = {CacheConfig.LINKS, CacheConfig.PHOTOS}, allEntries = true)
     public void clearCaches() {
         log.info("Cleared the caches of links and photos");
@@ -266,8 +325,39 @@ public class AppsClient {
                                @Nullable List<ArchiveBook> books) {
     }
 
+    /**
+     * @param audioUrl a signed link to the audio, from {@code spexipediaAlbum} only
+     */
     public record DiscographyTrack(UUID id, @Nullable String side, int discNumber, int trackNumber, String title,
-                                   @Nullable UUID numberId, boolean hasAudio) {
+                                   @Nullable UUID numberId, boolean hasAudio, @Nullable String audioUrl) {
+
+        public DiscographyTrack(final UUID id, final @Nullable String side, final int discNumber, final int trackNumber,
+                                final String title, final @Nullable UUID numberId, final boolean hasAudio) {
+            this(id, side, discNumber, trackNumber, title, numberId, hasAudio, null);
+        }
+    }
+
+    public record SpexflixSubtitle(String language, String label, String url) {
+    }
+
+    public record SpexflixPlayback(String masterUrl, @Nullable String thumbnailsUrl, @Nullable List<SpexflixSubtitle> subtitles,
+                                   String expiresAt) {
+    }
+
+    public record SpexflixVideoChapter(String title, int startSeconds) {
+    }
+
+    public record SpexflixVideo(UUID id, String title, @Nullable Integer year, @Nullable Double durationMs,
+                                @Nullable String posterUrl, @Nullable List<SpexflixVideoChapter> chapters,
+                                @Nullable SpexflixPlayback playback) {
+    }
+
+    public record ArchivePreview(UUID id, String title, @Nullable Integer pages, @Nullable String previewUrl) {
+    }
+
+    public record ArchiveDocumentDetail(UUID id, String title, @Nullable String year, @Nullable UUID spexId,
+                                        @Nullable String kindNameSv, @Nullable String kindNameEn,
+                                        @Nullable List<ArchivePreview> files) {
     }
 
     public record DiscographyAlbum(UUID id, String title, @Nullable Integer year, String kindNameSv, String kindNameEn,

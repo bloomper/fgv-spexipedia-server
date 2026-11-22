@@ -45,8 +45,8 @@ type Query {
     number(id: ID!): Number
     "Anyone. Numbers by id, in the given order; unknown ids are left out. At most 500."
     numbersByIds(ids: [ID!]!): [Number!]!
-    "Anyone. The kinds admins keep (spec 4.6) of a type, in order; use only for IMAGE kinds. Retired ones only with includeRetired."
-    kinds(type: KindType!, use: KindUse, includeRetired: Boolean! = false): [Kind!]!
+    "Anyone. The kinds admins keep (spec 4.6) of a type, in order; use only for IMAGE kinds, and sectionId (an image section) for those of use SECTION. The order of the SECTION kinds is the pages' default order. Retired ones only with includeRetired."
+    kinds(type: KindType!, use: KindUse, sectionId: ID, includeRetired: Boolean! = false): [Kind!]!
     "EDITOR. Credits that an import brought as names nobody has resolved yet (spec 5.3), oldest numbers first."
     unresolvedCredits(limit: Int! = 100): UnresolvedCredits!
 
@@ -172,8 +172,10 @@ type Mutation {
 
     "AUTHOR. The texts of a spex page; every changed text is a revision. Refused with CONFLICT when baseRevisionIds no longer match the texts' latest revisions."
     spexPageUpdate(spexId: ID!, input: SpexPageInput!): SpexPage!
-    "AUTHOR. Images of a section of the page, in order, with captions: SCENOGRAPHY and OTHER per image kind of that use (the first when kindId is left out), VEST without a kind."
-    spexPageSetImages(spexId: ID!, section: ImageSection!, kindId: ID, images: [ImageRefInput!]!): SpexPage!
+    "AUTHOR. Images of a section of the page, in order, with captions: sectionId is a section kind of content IMAGES, whose images are per image kind of that section (the first when kindId is left out), or VEST, without a kind."
+    spexPageSetImages(spexId: ID!, sectionId: ID!, kindId: ID, images: [ImageRefInput!]!): SpexPage!
+    "AUTHOR. The spex' own order of the sections of its page (spec 4.2), with the sections of the other applications it shows; an empty list goes back to the default order (a revival to its original's). At most 100."
+    spexSetSections(spexId: ID!, sections: [PageSectionInput!]!): Spex!
     "AUTHOR. The facts of the spex (spec 4.2), at most one per fact kind; replaces the earlier ones. Empty values are left out."
     spexPageSetFacts(spexId: ID!, facts: [FactInput!]!): SpexPage!
     "AUTHOR. Photos from Spexgram for a section, in order: the group photo, the board, or an actor's photos (characterId)."
@@ -217,10 +219,10 @@ type Mutation {
     "ADMIN. Deletes everything in the trash for good."
     trashEmpty: Int!
 
-    "ADMIN. A new kind (no id; type, and use for IMAGE kinds) or changes to one; type and use never change."
+    "ADMIN. A new kind (no id; type, use for IMAGE kinds and sectionId for those of use SECTION, content for SECTION kinds) or changes to one; type, use, section and content never change. A new image section gets an image kind of its own name."
     kindSave(id: ID, input: KindInput!): Kind!
-    "ADMIN. Every kind of a type and use, in the new order."
-    kindsReorder(type: KindType!, use: KindUse, ids: [ID!]!): [Kind!]!
+    "ADMIN. Every kind of a type and use (and image section), in the new order."
+    kindsReorder(type: KindType!, use: KindUse, sectionId: ID, ids: [ID!]!): [Kind!]!
     "ADMIN. A retired kind stays on old records but is not offered for new ones; the last kind in use cannot be retired."
     kindRetire(id: ID!, retired: Boolean!): Kind!
     "ADMIN. Moves everything of a kind to another of the same type and use, keeps its names as aliases there, and deletes it."
@@ -350,6 +352,10 @@ type Spex {
     completeness: Completeness
     "Links to the other applications that have something about the spex, for the viewer: Spexgram's public albums for everyone; the rest only for users with access to that application."
     links: [AppLink!]!
+    "The sections of the page in order (spec 4.2): the spex' own list, else (a revival) its original's, with the section kinds it does not name by the default order. Retired kinds are left out; hidden sections only for AUTHOR with includeHidden. Sections without content are in the list; the page leaves them out."
+    sections(includeHidden: Boolean! = false): [PageSection!]!
+    "Where the order of the sections comes from."
+    sectionOrder: SectionOrder!
     createdAt: Instant!
     lastModifiedAt: Instant
 }
@@ -554,13 +560,47 @@ enum KindType {
     CREDIT
     IMAGE
     FACT
+    "Sections of spex pages; their order is the pages' default order."
+    SECTION
 }
 
 "Where image kinds are used; other types of kinds have none."
 enum KindUse {
     CHARACTER
-    SCENOGRAPHY
-    PAGE
+    "An image section's own image kinds (Kind.section)."
+    SECTION
+}
+
+"What a section of a spex page shows (spec 4.2). Each content but IMAGES and those of other applications has one section kind."
+enum SectionContent {
+    GROUP
+    CHARACTERS
+    IMAGES
+    MANUSCRIPT
+    MUSIC
+    RECORDS
+    REBUS
+    VEST
+    BOARD
+    TASKS
+    LINKS
+    "A video in Spexflix (spec 4.2.1)."
+    SPEXFLIX_VIDEO
+    "An album in Spexgram, or some of its items."
+    SPEXGRAM
+    "An album in Spexify."
+    SPEXIFY_ALBUM
+    "A document in Spexarkivet."
+    ARCHIVE_DOCUMENT
+}
+
+enum SectionOrder {
+    "The section kinds' order."
+    DEFAULT
+    "The spex' own list."
+    OWN
+    "A revival without a list of its own shows its original's."
+    ORIGINAL
 }
 
 enum FactValueType {
@@ -574,6 +614,12 @@ type Kind {
     id: ID!
     type: KindType!
     use: KindUse
+    "For image kinds of use SECTION: their image section."
+    section: Kind
+    "For section kinds."
+    content: SectionContent
+    "For section kinds of content IMAGES: their image kinds, retired ones too."
+    imageKinds: [Kind!]!
     "For fact kinds."
     valueType: FactValueType
     "In the request's language."
@@ -581,6 +627,10 @@ type Kind {
     nameSv: String!
     nameEn: String!
     aliases: [String!]!
+    "For section kinds: the line under the heading, in the request's language."
+    subtitle: String
+    subtitleSv: String
+    subtitleEn: String
     position: Int!
     retired: Boolean!
 }
@@ -590,11 +640,132 @@ input KindInput {
     type: KindType
     "For a new image kind only."
     use: KindUse
+    "For a new image kind of use SECTION only: its image section."
+    sectionId: ID
+    "For a new section kind only: IMAGES or a content of another application."
+    content: SectionContent
     "For fact kinds; TEXT when left out."
     valueType: FactValueType
     nameSv: String!
     nameEn: String!
     aliases: [String!]
+    "For section kinds."
+    subtitleSv: String
+    subtitleEn: String
+}
+
+"A section of a spex page (spec 4.2), in the page's order."
+type PageSection {
+    "The section's id in the spex' list; its kind's id for a section by the default order."
+    id: ID!
+    kind: Kind!
+    content: SectionContent!
+    "The heading: the section's own, else its kind's name."
+    title: String!
+    "The section's own heading, for editing."
+    ownTitle: String
+    "The kind's subtitle."
+    subtitle: String
+    "Only for AUTHOR, who sees hidden sections."
+    hidden: Boolean!
+    "IMAGES and VEST: the images, by image kind; a revival without its own shows its original's."
+    images: [PageImage!]!
+    "Sections of the other applications: the id of the video, album or document there."
+    refId: ID
+    "SPEXGRAM: the picked items of the album; empty for the whole album."
+    itemIds: [ID!]!
+    "SPEXFLIX_VIDEO: where the video starts, in seconds."
+    startSeconds: Int
+    "SPEXFLIX_VIDEO, for logged-in users; null when it is not found, not published or Spexflix is unavailable."
+    video: EmbeddedVideo
+    "SPEXGRAM, for logged-in users, as photos from Spexgram are shown (spec 5.4)."
+    photos: EmbeddedPhotos
+    "SPEXIFY_ALBUM, for everyone, as records are; its tracks play only for users with access to Spexify."
+    record: Record
+    "ARCHIVE_DOCUMENT, for logged-in users."
+    document: EmbeddedDocument
+}
+
+input PageSectionInput {
+    "A section's id from Spex.sections, to keep it; left out for a new one."
+    id: ID
+    "A section kind."
+    kindId: ID!
+    hidden: Boolean! = false
+    "The section's own heading."
+    title: String
+    "Sections of the other applications: the id of the video, album or document there."
+    refId: ID
+    "SPEXGRAM: picked items of the album; the whole album when left out. At most 100."
+    itemIds: [ID!]
+    "SPEXFLIX_VIDEO."
+    startSeconds: Int
+}
+
+"A Spexflix video in a section. Users without access to Spexflix get its title only."
+type EmbeddedVideo {
+    id: ID!
+    title: String!
+    year: Int
+    durationSeconds: Int
+    "Whether the viewer may watch it."
+    access: Boolean!
+    "In Spexflix."
+    url: String
+    posterUrl: String
+    startSeconds: Int
+    chapters: [VideoChapter!]!
+    "Signed addresses on Spexflix's media hostname, valid for the video's length plus a margin."
+    playback: VideoPlayback
+}
+
+type VideoChapter {
+    title: String!
+    startSeconds: Int!
+}
+
+type VideoPlayback {
+    "HLS."
+    masterUrl: String!
+    thumbnailsUrl: String
+    subtitles: [VideoSubtitle!]!
+    expiresAt: String!
+}
+
+type VideoSubtitle {
+    language: String!
+    label: String!
+    url: String!
+}
+
+"A Spexgram album, or some of its items, in a section."
+type EmbeddedPhotos {
+    albumId: ID!
+    title: String!
+    "In Spexgram."
+    url: String
+    photos: PhotoSet!
+}
+
+"A Spexarkivet document in a section. Users without access to Spexarkivet get its kind and title only."
+type EmbeddedDocument {
+    id: ID!
+    title: String!
+    year: String
+    "The document's kind, in the request's language."
+    kindName: String
+    access: Boolean!
+    "In Spexarkivet."
+    url: String
+    files: [DocumentPreview!]!
+}
+
+type DocumentPreview {
+    id: ID!
+    title: String!
+    pages: Int
+    "A signed link to an image of the first page; null without a preview."
+    previewUrl: String
 }
 
 """
@@ -638,6 +809,8 @@ type RecordTrack {
     hasAudio: Boolean!
     "Plays it in Spexify, for users with access there."
     url: String
+    "A signed link to the audio, for the page's own player: only in a section that shows the record (PageSection.record), for users with access to Spexify."
+    audioUrl: String
 }
 
 "A book a number is in: a book of Spexarkivet (spec 4.4), edited there."
@@ -685,8 +858,8 @@ type SpexPage {
     vestDescriptionHtml: String
     "Who wore the vest."
     vestWornBy: Credit
-    "The images of a section: for SCENOGRAPHY and OTHER in the order of their kinds; a revival without its own shows its parent's."
-    images(section: ImageSection!): [PageImage!]!
+    "The images of a section (a section kind of content IMAGES or VEST), in the order of their kinds; a revival without its own shows its parent's."
+    images(sectionId: ID!): [PageImage!]!
     "Facts in the order of their kinds (spec 4.2); a revival without its own shows its parent's."
     facts: [Fact!]!
     "Photos from Spexgram of a section: GROUP or BOARD."
@@ -762,7 +935,8 @@ enum CompletenessItemName {
     VEST_DESCRIPTION
     VEST_WORN_BY
     FACTS
-    SCENOGRAPHY
+    "Images in the image sections."
+    IMAGES
     VEST
     REBUS
     REBUS_SOLUTION
@@ -777,15 +951,6 @@ enum CompletenessItemName {
     NUMBER_ORIGINALS
     NUMBER_CREDITS
     NUMBER_CHARACTERS
-}
-
-enum ImageSection {
-    "Grouped by image kinds for scenography."
-    SCENOGRAPHY
-    "Without kinds."
-    VEST
-    "Grouped by image kinds for the page."
-    OTHER
 }
 
 type Fact {
@@ -808,12 +973,11 @@ enum PhotoSection {
 enum ImageKind {
     POSTER
     LOGO
-    SKETCH
-    MAKEUP
-    COSTUME
-    SCENOGRAPHY
+    "A character's images."
+    CHARACTER
+    "Images of an image section or the vest."
+    SECTION
     REBUS
-    VEST
     COVER
     ARTICLE
     OTHER
@@ -1384,9 +1548,9 @@ input ImportFactInput {
 }
 
 input ImportPageImageInput {
-    "SCENOGRAPHY, VEST or OTHER."
+    "An image section (a section kind of content IMAGES) or the vest's, by name or alias."
     section: String!
-    "An image kind of the section's use; the first when left out."
+    "An image kind of the image section by name or alias; the first when left out. Not for the vest."
     kind: String
     file: ImportFileInput!
     caption: String

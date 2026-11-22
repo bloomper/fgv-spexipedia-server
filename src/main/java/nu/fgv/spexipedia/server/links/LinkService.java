@@ -231,9 +231,103 @@ public class LinkService {
                         nonNull(album.tracks()).stream()
                                 .map(track -> new LinkDtos.RecordTrackDto(track.id(), track.side(), track.discNumber(), track.trackNumber(),
                                         track.title(), track.numberId(), track.hasAudio(), spexify && track.hasAudio()
-                                        ? link(App.SPEXIFY, "/albums/" + album.id() + "?track=" + track.id()).orElse(null) : null))
+                                        ? link(App.SPEXIFY, "/albums/" + album.id() + "?track=" + track.id()).orElse(null) : null, null))
                                 .toList()))
                 .toList();
+    }
+
+    // Sections that show material of the other applications (spec 4.2.1) -------------------------------------------
+
+    /**
+     * A Spexflix video for a section: to users with access to Spexflix with its poster, chapters and playback; to other
+     * logged-in users only its title; to visitors nothing. Empty also when it is not found or Spexflix cannot be
+     * reached.
+     */
+    public Optional<LinkDtos.EmbeddedVideoDto> video(final UUID videoId, final @Nullable Integer startSeconds) {
+        if (member().isEmpty()) {
+            return Optional.empty();
+        }
+
+        final boolean spexflix = access(App.SPEXFLIX);
+
+        return client.spexflixVideo(videoId).map(video -> {
+            final Integer duration = video.durationMs() == null ? null : (int) Math.round(video.durationMs() / 1000);
+            final AppsClient.SpexflixPlayback playback = video.playback();
+
+            return new LinkDtos.EmbeddedVideoDto(video.id(), video.title(), video.year(), duration, spexflix,
+                    spexflix ? link(App.SPEXFLIX, "/videos/" + video.id()).orElse(null) : null,
+                    spexflix ? video.posterUrl() : null, startSeconds,
+                    spexflix ? nonNull(video.chapters()).stream().map(c -> new LinkDtos.VideoChapterDto(c.title(), c.startSeconds())).toList() : List.of(),
+                    spexflix && playback != null ? new LinkDtos.VideoPlaybackDto(playback.masterUrl(), playback.thumbnailsUrl(),
+                            nonNull(playback.subtitles()).stream().map(sub -> new LinkDtos.VideoSubtitleDto(sub.language(), sub.label(), sub.url())).toList(),
+                            playback.expiresAt()) : null);
+        });
+    }
+
+    /**
+     * A Spexgram album for a section, or the picked items of it in their order: as photos from Spexgram are shown
+     * (spec 5.4), public items to logged-in users, members' ones to users with access to Spexgram, and nothing to
+     * visitors.
+     */
+    public Optional<LinkDtos.EmbeddedPhotosDto> album(final UUID albumId, final List<UUID> itemIds) {
+        final Optional<Caller> member = member();
+
+        if (member.isEmpty()) {
+            return Optional.empty();
+        }
+
+        final boolean spexgram = access(App.SPEXGRAM);
+
+        return client.spexgramAlbum(albumId, true).map(album -> {
+            final List<SpexgramItem> items = album.items() == null || album.items().items() == null ? List.of()
+                    : album.items().items().stream().filter(item -> item.media() != null).toList();
+            final Map<UUID, SpexgramItem> byId = items.stream().collect(java.util.stream.Collectors.toMap(SpexgramItem::id, item -> item, (a, _) -> a));
+            final List<SpexgramItem> chosen = itemIds.isEmpty() ? items : itemIds.stream().map(byId::get).filter(java.util.Objects::nonNull).toList();
+            final List<PhotoDto> photos = chosen.stream().filter(item -> spexgram || item.isPublic()).map(this::photo).toList();
+            final boolean author = member.get().isAuthor();
+
+            return new LinkDtos.EmbeddedPhotosDto(album.id(), album.title(),
+                    link(App.SPEXGRAM, "/albums/" + album.id()).orElse(null),
+                    new PhotoSetDto(photos, spexgram ? 0 : chosen.size() - photos.size(), true, author ? itemIds : List.of()));
+        });
+    }
+
+    /**
+     * A Spexify album for a section: shown to everyone, as the records are (spec 4.4); its tracks play, and link to
+     * Spexify, only for users with access there.
+     */
+    public Optional<LinkDtos.RecordDto> record(final UUID albumId) {
+        final boolean spexify = access(App.SPEXIFY);
+
+        return client.spexifyAlbum(albumId).map(album -> new LinkDtos.RecordDto(album.id(), album.title(), album.year(),
+                album.kindNameSv(), album.kindNameEn(), album.mediumNameSv(), album.mediumNameEn(), album.catalogueNumber(),
+                album.released(), album.recorded(), album.conductor(), album.spexId(), album.coverUrl(), album.backCoverUrl(),
+                spexify ? link(App.SPEXIFY, "/albums/" + album.id()).orElse(null) : null,
+                nonNull(album.tracks()).stream()
+                        .map(track -> new LinkDtos.RecordTrackDto(track.id(), track.side(), track.discNumber(), track.trackNumber(),
+                                track.title(), track.numberId(), track.hasAudio(),
+                                spexify && track.hasAudio() ? link(App.SPEXIFY, "/albums/" + album.id() + "?track=" + track.id()).orElse(null) : null,
+                                spexify && track.hasAudio() ? track.audioUrl() : null))
+                        .toList()));
+    }
+
+    /**
+     * A Spexarkivet document for a section: to users with access to Spexarkivet with its files' first pages; to other
+     * logged-in users only its kind and title; to visitors nothing.
+     */
+    public Optional<LinkDtos.EmbeddedDocumentDto> document(final UUID documentId) {
+        if (member().isEmpty()) {
+            return Optional.empty();
+        }
+
+        final boolean archive = access(App.ARCHIVE);
+
+        return client.archiveDocument(documentId).map(document -> new LinkDtos.EmbeddedDocumentDto(document.id(), document.title(),
+                document.year(), english() ? document.kindNameEn() : document.kindNameSv(), archive,
+                archive ? link(App.ARCHIVE, "/manuscripts/" + document.id()).orElse(null) : null,
+                archive ? nonNull(document.files()).stream()
+                        .map(file -> new LinkDtos.DocumentPreviewDto(file.id(), file.title(), file.pages(), file.previewUrl())).toList()
+                        : List.of()));
     }
 
     /**

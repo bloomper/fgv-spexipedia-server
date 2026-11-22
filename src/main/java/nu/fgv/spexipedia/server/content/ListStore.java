@@ -202,18 +202,20 @@ public class ListStore {
     }
 
     /**
-     * Replaces the images of a page section's group: for SCENOGRAPHY and OTHER one group per image kind, for VEST one
+     * Replaces the images of a page section's group: for an image section one group per image kind, for the vest one
      * group (kindId null).
+     *
+     * @param sectionKey the section kind: an image section, or the vest's
      */
     @Transactional(propagation = Propagation.MANDATORY)
-    public void setPageImages(final long spexId, final String section, final @Nullable Long kindId, final List<PlacedImage> images) {
+    public void setPageImages(final long spexId, final long sectionKey, final @Nullable Long kindId, final List<PlacedImage> images) {
         final long kind = kindId == null ? 0 : kindId;
 
-        jdbc.sql("DELETE FROM spex_page_image WHERE spex_id = :s AND section = :sec AND kind_id = :k")
-                .param("s", spexId).param("sec", section).param("k", kind).update();
+        jdbc.sql("DELETE FROM spex_page_image WHERE spex_id = :s AND section_id = :sec AND kind_id = :k")
+                .param("s", spexId).param("sec", sectionKey).param("k", kind).update();
         for (int i = 0; i < images.size(); i++) {
-            jdbc.sql("INSERT INTO spex_page_image (spex_id, section, kind_id, position, image_id, caption) VALUES (:s, :sec, :k, :p, :i, :cap)")
-                    .param("s", spexId).param("sec", section).param("k", kind).param("p", i).param("i", images.get(i).imageId())
+            jdbc.sql("INSERT INTO spex_page_image (spex_id, section_id, kind_id, position, image_id, caption) VALUES (:s, :sec, :k, :p, :i, :cap)")
+                    .param("s", spexId).param("sec", sectionKey).param("k", kind).param("p", i).param("i", images.get(i).imageId())
                     .param("cap", images.get(i).caption())
                     .update();
         }
@@ -222,11 +224,11 @@ public class ListStore {
     /**
      * The images of a page section, in the order of their kinds and then their positions; kindId is null for the vest.
      */
-    public List<PlacedImage> pageImages(final long spexId, final String section) {
+    public List<PlacedImage> pageImages(final long spexId, final long sectionKey) {
         return jdbc.sql("""
                         SELECT i.image_id, i.kind_id, i.caption FROM spex_page_image i LEFT JOIN kind k ON k.id = i.kind_id
-                        WHERE i.spex_id = :s AND i.section = :sec ORDER BY COALESCE(k.position, 0), i.position""")
-                .param("s", spexId).param("sec", section)
+                        WHERE i.spex_id = :s AND i.section_id = :sec ORDER BY COALESCE(k.position, 0), i.position""")
+                .param("s", spexId).param("sec", sectionKey)
                 .query((rs, _) -> new PlacedImage(rs.getLong(1), rs.getLong(2) == 0 ? null : rs.getLong(2), rs.getString(3)))
                 .list();
     }

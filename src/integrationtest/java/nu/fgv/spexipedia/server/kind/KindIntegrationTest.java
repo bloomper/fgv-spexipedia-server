@@ -34,7 +34,7 @@ class KindIntegrationTest extends AbstractIntegrationTest {
     void anyoneReadsKindsAndOnlyAdminsChangeThem() {
         graphQl(null).document("{ kinds(type: NUMBER) { nameSv } }").execute()
                 .path("kinds[0].nameSv").entity(String.class).isEqualTo("Sång");
-        graphQl(null).document("{ kinds(type: IMAGE, use: SCENOGRAPHY) { nameSv } }").execute()
+        graphQl(null).document("{ kinds(type: IMAGE, use: SECTION, sectionId: \"01900000-0000-7000-8000-000000000703\") { nameSv } }").execute()
                 .path("kinds[*].nameSv").entityList(String.class).containsExactly("Fond", "Scen", "Rekvisita");
         expectError(graphQl(EDITOR).document(SAVE).variable("type", "NUMBER").variable("n", "Polka").execute(), "FORBIDDEN");
         graphQl(ADMIN).document(SAVE).variable("type", "NUMBER").variable("n", "Polka").execute()
@@ -43,7 +43,7 @@ class KindIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void kindsAreNamedInTheRequestsLanguage() {
-        final String query = "{ kinds(type: IMAGE, use: SCENOGRAPHY) { name } }";
+        final String query = "{ kinds(type: IMAGE, use: SECTION, sectionId: \"01900000-0000-7000-8000-000000000703\") { name } }";
 
         graphQl(null).mutate().header(HttpHeaders.ACCEPT_LANGUAGE, "sv").build().document(query).execute()
                 .path("kinds[*].name").entityList(String.class).containsExactly("Fond", "Scen", "Rekvisita");
@@ -98,13 +98,13 @@ class KindIntegrationTest extends AbstractIntegrationTest {
     @Test
     void aMergedImageKindPutsItsImagesAfterTheOthersOnAPage() throws Exception {
         final String spex = createSpex("1984", "Lasse-Maja", null);
-        final String kind = "mutation($n: String!) { kindSave(input: {type: IMAGE, use: PAGE, nameSv: $n, nameEn: $n}) { id } }";
+        final String kind = "mutation($n: String!) { kindSave(input: {type: IMAGE, use: SECTION, sectionId: \"01900000-0000-7000-8000-000000000711\", nameSv: $n, nameEn: $n}) { id } }";
         final String sketches = graphQl(ADMIN).document(kind).variable("n", "Skisser").execute().path("kindSave.id").entity(String.class).get();
         final String drawings = graphQl(ADMIN).document(kind).variable("n", "Teckningar").execute().path("kindSave.id").entity(String.class).get();
         final String sketch = upload("skiss.png");
         final String first = upload("teckning-1.png");
         final String second = upload("teckning-2.png");
-        final String set = "mutation($s: ID!, $k: ID!, $images: [ImageRefInput!]!) { spexPageSetImages(spexId: $s, section: OTHER, kindId: $k, images: $images) { published } }";
+        final String set = "mutation($s: ID!, $k: ID!, $images: [ImageRefInput!]!) { spexPageSetImages(spexId: $s, sectionId: \"01900000-0000-7000-8000-000000000711\", kindId: $k, images: $images) { published } }";
 
         graphQl(AUTHOR).document(set).variable("s", spex).variable("k", sketches).variable("images", List.of(Map.of("imageId", sketch))).execute()
                 .path("spexPageSetImages.published").hasValue();
@@ -115,7 +115,7 @@ class KindIntegrationTest extends AbstractIntegrationTest {
         graphQl(ADMIN).document("mutation($id: ID!, $into: ID!) { kindMerge(id: $id, intoId: $into) { id } }")
                 .variable("id", sketches).variable("into", drawings).execute().path("kindMerge.id").entity(String.class).isEqualTo(drawings);
 
-        graphQl(AUTHOR).document("query($id: ID!) { spex(id: $id) { page { images(section: OTHER) { image { id } kind { id } } } } }")
+        graphQl(AUTHOR).document("query($id: ID!) { spex(id: $id) { page { images(sectionId: \"01900000-0000-7000-8000-000000000711\") { image { id } kind { id } } } } }")
                 .variable("id", spex).execute()
                 .path("spex.page.images[*].image.id").entityList(String.class).containsExactly(first, second, sketch)
                 .path("spex.page.images[*].kind.id").entityList(String.class).containsExactly(drawings, drawings, drawings);

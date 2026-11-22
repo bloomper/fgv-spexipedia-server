@@ -71,10 +71,52 @@ public final class LinkDtos {
 
     /**
      * A track of a record: {@code numberId} is the number it is a recording of; {@code url} plays it in Spexify for users
-     * with access, when it has audio.
+     * with access, when it has audio; {@code audioUrl}, a signed link to the audio, only in a section that shows the
+     * record (spec 4.2.1), for the same users.
      */
     public record RecordTrackDto(UUID id, @Nullable String side, int discNumber, int position, String title,
-                                 @Nullable UUID numberId, boolean hasAudio, @Nullable String url) {
+                                 @Nullable UUID numberId, boolean hasAudio, @Nullable String url, @Nullable String audioUrl) {
+    }
+
+    /**
+     * A Spexflix video shown in a section of a spex page (spec 4.2.1). Without access to Spexflix, only that it is there:
+     * no poster, chapters or playback.
+     *
+     * @param url Spexflix's page of the video, for users with access there
+     */
+    public record EmbeddedVideoDto(UUID id, String title, @Nullable Integer year, @Nullable Integer durationSeconds,
+                                   boolean access, @Nullable String url, @Nullable String posterUrl,
+                                   @Nullable Integer startSeconds, List<VideoChapterDto> chapters,
+                                   @Nullable VideoPlaybackDto playback) {
+    }
+
+    public record VideoChapterDto(String title, int startSeconds) {
+    }
+
+    public record VideoPlaybackDto(String masterUrl, @Nullable String thumbnailsUrl, List<VideoSubtitleDto> subtitles,
+                                   String expiresAt) {
+    }
+
+    public record VideoSubtitleDto(String language, String label, String url) {
+    }
+
+    /**
+     * A Spexgram album, or some of its items, shown in a section: the photos as {@link PhotoSetDto} says.
+     */
+    public record EmbeddedPhotosDto(UUID albumId, String title, @Nullable String url, PhotoSetDto photos) {
+    }
+
+    /**
+     * A Spexarkivet document shown in a section. Without access to Spexarkivet, only that it is there: no files.
+     */
+    public record EmbeddedDocumentDto(UUID id, String title, @Nullable String year, @Nullable String kindName,
+                                      boolean access, @Nullable String url, List<DocumentPreviewDto> files) {
+    }
+
+    /**
+     * @param previewUrl a signed link to the first page, as an image; null when the file has none
+     */
+    public record DocumentPreviewDto(UUID id, String title, @Nullable Integer pages, @Nullable String previewUrl) {
     }
 
     /**

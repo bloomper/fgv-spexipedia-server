@@ -158,12 +158,12 @@ class ImportIntegrationTest extends AbstractIntegrationTest {
                 .variable("input", Map.of("pages", List.of(Map.of("sourceKey", "test:page/1984", "spexId", spex,
                         "introduction", "Ett spex om en tjuv.", "poster", Map.of("sha256", sha, "name", "affisch.png"),
                         "facts", List.of(Map.of("kind", "lokal", "value", "RunAn")),
-                        "images", List.of(Map.of("section", "SCENOGRAPHY", "kind", "fonder", "file", Map.of("sha256", sha), "caption", "Fonden"))))))
+                        "images", List.of(Map.of("section", "Scenografi", "kind", "fonder", "file", Map.of("sha256", sha), "caption", "Fonden"))))))
                 .variable("dryRun", false).execute()
                 .path("importBatch.created").entity(Integer.class).isEqualTo(1);
         graphQl(EDITOR).document("""
                         query($id: ID!) { spex(id: $id) { poster { width } page { introduction facts { kind { nameSv } value }
-                            images(section: SCENOGRAPHY) { kind { nameSv } caption } } } }""")
+                            images(sectionId: "01900000-0000-7000-8000-000000000703") { kind { nameSv } caption } } } }""")
                 .variable("id", spex).execute()
                 .path("spex.poster.width").entity(Integer.class).isEqualTo(600)
                 .path("spex.page.facts[0].kind.nameSv").entity(String.class).isEqualTo("Spelplats")

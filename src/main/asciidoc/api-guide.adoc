@@ -14,8 +14,8 @@ upload.
 [[uploads]]
 == Image uploads
 
-`POST /api/images`, `multipart/form-data` with the part `file` and the parameter `kind` (`POSTER`, `LOGO`, `SKETCH`,
-`MAKEUP`, `COSTUME`, `SCENOGRAPHY`, `REBUS`, `VEST`, `COVER`, `ARTICLE` or `OTHER`), with an access token holding
+`POST /api/images`, `multipart/form-data` with the part `file` and the parameter `kind` (`POSTER`, `LOGO`, `CHARACTER`,
+`SECTION` for images of an image section or the vest, `REBUS`, `COVER`, `ARTICLE` or `OTHER`), with an access token holding
 `AUTHOR` on `fgv-spexipedia`. JPEG, PNG, WebP, TIFF and HEIC up to 50 MB are accepted. The answer is the image as JSON
 (`id`, `width`, `height`, `thumbnailUrl`, `pageUrl`, `fullUrl`, `pageJpegUrl`, ...); it is placed on a page with the
 GraphQL API.

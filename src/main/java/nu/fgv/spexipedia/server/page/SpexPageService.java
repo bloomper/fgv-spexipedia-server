@@ -29,7 +29,7 @@ import nu.fgv.spexipedia.server.kind.FactValueType;
 import nu.fgv.spexipedia.server.kind.Kind;
 import nu.fgv.spexipedia.server.kind.KindService;
 import nu.fgv.spexipedia.server.kind.KindType;
-import nu.fgv.spexipedia.server.kind.KindUse;
+import nu.fgv.spexipedia.server.kind.SectionContent;
 import nu.fgv.spexipedia.server.revision.Revision;
 import nu.fgv.spexipedia.server.revision.RevisionDto;
 import nu.fgv.spexipedia.server.revision.RevisionService;
@@ -41,6 +41,7 @@ import nu.fgv.spexipedia.server.user.CallerService;
 import nu.fgv.spexipedia.server.util.Texts;
 import nu.fgv.spexipedia.server.util.error.BadRequestException;
 import nu.fgv.spexipedia.server.util.error.ConflictException;
+import nu.fgv.spexipedia.server.util.error.ResourceNotFoundException;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -73,9 +74,6 @@ public class SpexPageService {
     public static final String INTRODUCTION = "INTRODUCTION";
     public static final String DESCRIPTION = "DESCRIPTION";
     public static final String SYNOPSIS = "SYNOPSIS";
-    public static final String SCENOGRAPHY = "SCENOGRAPHY";
-    public static final String VEST = "VEST";
-    public static final String OTHER = "OTHER";
 
     private final SpexPageRepository repository;
     private final BaseDataService baseData;
@@ -247,41 +245,51 @@ public class SpexPageService {
     }
 
     /**
-     * AUTHOR. The images of a section's group, in order, with captions: SCENOGRAPHY and OTHER per image kind of that use
-     * (the first kind when none is given), VEST without kinds.
+     * AUTHOR. The images of a section's group, in order, with captions: an image section's per image kind of that
+     * section (the first kind when none is given), the vest's without kinds.
+     *
+     * @param sectionId a section kind of content IMAGES or VEST
      */
     @Transactional
-    public SpexPageDto setImages(final UUID spexId, final String section, final @Nullable UUID kindId,
+    public SpexPageDto setImages(final UUID spexId, final UUID sectionId, final @Nullable UUID kindId,
                                  final List<ContentService.ImageRef> images) {
         callerService.current().requireAuthor();
 
         final Spex spex = baseData.requireSpex(spexId);
-        final KindUse use = switch (section) {
-            case SCENOGRAPHY -> KindUse.SCENOGRAPHY;
-            case OTHER -> KindUse.PAGE;
-            case VEST -> null;
-            default -> throw new BadRequestException("error.field.invalid", "section");
-        };
+        final Kind section = imageSection(sectionId);
         Kind kind = null;
 
-        if (use != null) {
+        if (section.getContent() == SectionContent.IMAGES) {
             kind = kindId == null
-                    ? kindService.first(KindType.IMAGE, use).orElseThrow(() -> new BadRequestException("error.field.invalid", "kindId"))
-                    : kindService.require(kindId, KindType.IMAGE, use, null);
+                    ? kindService.firstImageKind(section).orElseThrow(() -> new BadRequestException("error.field.invalid", "kindId"))
+                    : kindService.requireImageKind(kindId, section, null);
         } else if (kindId != null) {
             throw new BadRequestException("error.field.invalid", "kindId");
         }
 
         final Long kindKey = kind == null ? null : kind.getId();
 
-        lists.setPageImages(spex.getId(), section, kindKey, images.stream()
+        lists.setPageImages(spex.getId(), section.getId(), kindKey, images.stream()
                 .map(image -> new PlacedImage(imageService.requireUsable(image.imageId()).getId(), kindKey,
                         Texts.optional(image.caption(), 1000, "caption")))
                 .toList());
-        auditService.record("UPDATE", "SPEX_PAGE", spex.getUuid(),
-                StoredText.of("audit.spexPage.images", kind == null ? StoredText.of("audit.spexPage.section." + section)
-                : StoredText.of("audit.name", kind.getNameSv(), kind.getNameEn()), spex.label()));
+        auditService.record("UPDATE", "SPEX_PAGE", spex.getUuid(), StoredText.of("audit.spexPage.images",
+                StoredText.of("audit.name", (kind == null ? section : kind).getNameSv(), (kind == null ? section : kind).getNameEn()),
+                spex.label()));
         return toDto(pageOf(spex));
+    }
+
+    /**
+     * A section kind whose sections show images uploaded to Spexipedia: an image section or the vest.
+     */
+    public Kind imageSection(final UUID sectionId) {
+        final Kind section = kindService.kind(sectionId).orElseThrow(() -> new ResourceNotFoundException(Kind.class, sectionId));
+
+        if (section.getType() != KindType.SECTION
+                || (section.getContent() != SectionContent.IMAGES && section.getContent() != SectionContent.VEST)) {
+            throw new BadRequestException("error.kind.wrongType", section.getNameSv());
+        }
+        return section;
     }
 
     /**
@@ -312,8 +320,8 @@ public class SpexPageService {
         return lists.facts(spexKey);
     }
 
-    public List<PlacedImage> images(final long spexKey, final String section) {
-        return lists.pageImages(spexKey, section);
+    public List<PlacedImage> images(final long spexKey, final long sectionKey) {
+        return lists.pageImages(spexKey, sectionKey);
     }
 
     /**

@@ -20,6 +20,7 @@ import nu.fgv.spexipedia.server.basedata.BaseDataDtos.SpexCategoryDto;
 import nu.fgv.spexipedia.server.kind.Kind;
 import nu.fgv.spexipedia.server.kind.KindType;
 import nu.fgv.spexipedia.server.kind.KindUse;
+import nu.fgv.spexipedia.server.kind.SectionContent;
 import nu.fgv.spexipedia.server.util.Locales;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.DataValidation;
@@ -92,7 +93,8 @@ public final class PackageTemplate {
             list(workbook, lists, 1, "Nummertyper", numberKinds);
             list(workbook, lists, 2, "JaNej", List.of(text("package.template.yes"), text("package.template.no")));
 
-            instructions(workbook.createSheet(sheet(PackageColumns.INSTRUCTIONS)), bold, creditKinds, imageKinds);
+            instructions(workbook.createSheet(sheet(PackageColumns.INSTRUCTIONS)), bold, creditKinds, imageKinds,
+                    kinds.apply(KindType.SECTION).stream().filter(kind -> kind.getContent() == SectionContent.IMAGES).toList());
 
             // Spex: a field and its value per row, then a row per fact kind
             final Sheet spex = workbook.createSheet(sheet(PackageColumns.SPEX));
@@ -143,7 +145,7 @@ public final class PackageTemplate {
     }
 
     private void instructions(final Sheet sheet, final CellStyle bold, final List<String> creditKinds,
-                              final Function<KindUse, List<Kind>> imageKinds) {
+                              final Function<KindUse, List<Kind>> imageKinds, final List<Kind> imageSections) {
         final List<String[]> lines = new ArrayList<>();
 
         lines.add(new String[]{text("package.template.title"), ""});
@@ -157,11 +159,11 @@ public final class PackageTemplate {
         lines.add(new String[]{folder("rebus") + "/, " + folder("rebus") + "/" + PackageColumns.name(PackageColumns.SOLUTION, locale) + "/",
                 text("package.template.folder.rebus")});
         lines.add(new String[]{folder("vest") + "/", text("package.template.folder.vest")});
-        lines.add(new String[]{folder("scenography") + "/" + placeholder("imageKind") + "/",
-                text("package.template.folder.scenography", String.join(", ", names(imageKinds.apply(KindUse.SCENOGRAPHY))))});
+        // Image sections are data (spec 4.2): a folder per section, by its name, with a folder per image kind
+        lines.add(new String[]{placeholder("imageSection") + "/" + placeholder("imageKind") + "/",
+                text("package.template.folder.imageSections", String.join(", ", names(imageSections)))});
         lines.add(new String[]{folder("characters") + "/" + placeholder("character") + "/" + placeholder("imageKind") + "/",
                 text("package.template.folder.characters", String.join(", ", names(imageKinds.apply(KindUse.CHARACTER))))});
-        lines.add(new String[]{folder("images") + "/", text("package.template.folder.images")});
         lines.add(new String[]{text("package.template.folder.documentsPath"), text("package.template.folder.documents")});
         lines.add(new String[]{folder("arrangements") + "/" + placeholder("number") + "/", text("package.template.folder.arrangements")});
         lines.add(new String[]{folder("recordings") + "/", text("package.template.folder.recordings")});

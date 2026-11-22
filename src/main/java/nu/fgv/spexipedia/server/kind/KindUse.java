@@ -17,14 +17,14 @@
 package nu.fgv.spexipedia.server.kind;
 
 /**
- * Where image kinds are used: the groups of a character's images, of the scenography, and of a page's other images.
- * Other types of kinds have none.
+ * Where image kinds are used: the groups of a character's images, and of the images of an image section of spex pages
+ * (a section kind of content {@link SectionContent#IMAGES}), which each have kinds of their own. Other types of kinds
+ * have none.
  *
  * @author Anders Jacobsson
  * @since 1.0
  */
 public enum KindUse {
     CHARACTER,
-    SCENOGRAPHY,
-    PAGE
+    SECTION
 }

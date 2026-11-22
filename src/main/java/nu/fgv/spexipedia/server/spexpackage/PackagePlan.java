@@ -165,10 +165,12 @@ public final class PackagePlan {
     /**
      * The plan for the content and the zip's files. {@code spex} and {@code categories} are Spexipedia's, to find
      * the spex the package adds to and a revival's original.
+     *
+     * @param imageSection whether a top folder names an image section (by its names and aliases), whose images it holds
      */
     public static PackagePlan of(final Content content, final List<PackageFile> files, final List<SpexDto> spex,
-                                 final List<SpexCategoryDto> categories) {
-        return new Builder(content, files, spex, categories).build();
+                                 final List<SpexCategoryDto> categories, final java.util.function.Predicate<String> imageSection) {
+        return new Builder(content, files, spex, categories, imageSection).build();
     }
 
     private static final class Builder {
@@ -177,6 +179,7 @@ public final class PackagePlan {
         private final List<PackageFile> files;
         private final List<SpexDto> allSpex;
         private final List<SpexCategoryDto> categories;
+        private final java.util.function.Predicate<String> imageSection;
         private final List<PackageText> unmatched = new ArrayList<>();
         private final List<PackageText> warnings = new ArrayList<>();
         private final Map<String, PackageFile> spexipediaFiles = new LinkedHashMap<>();
@@ -186,7 +189,9 @@ public final class PackagePlan {
         private String key = "";
         private String display = "";
 
-        Builder(final Content content, final List<PackageFile> files, final List<SpexDto> spex, final List<SpexCategoryDto> categories) {
+        Builder(final Content content, final List<PackageFile> files, final List<SpexDto> spex, final List<SpexCategoryDto> categories,
+                final java.util.function.Predicate<String> imageSection) {
+            this.imageSection = imageSection;
             this.content = content;
             this.files = files;
             this.allSpex = spex;
@@ -358,6 +363,16 @@ public final class PackagePlan {
                     unmatched.add(PackageText.of("unmatched.top", file.path()));
                     continue;
                 }
+                if (top == null && imageSection.test(parts.getFirst())) {
+                    // An image section, e.g. Scenografi/Fond/: the section and the image kind by name
+                    if (!IMAGES.contains(extension)) {
+                        unmatched.add(PackageText.of("unmatched.notImage", file.path()));
+                        continue;
+                    }
+                    spexipediaFiles.put(file.sha256(), file);
+                    page.images.add(new ImportRecords.ImportPageImage(parts.getFirst(), parts.size() > 2 ? parts.get(1) : null, ref, null));
+                    continue;
+                }
                 if (top == null) {
                     // A document kind of Spexarkivet: one document of the kind, its files one version
                     final String kind = parts.getFirst();
@@ -373,7 +388,7 @@ public final class PackagePlan {
                     continue;
                 }
                 switch (top) {
-                    case "poster", "rebus", "vest", "images" -> {
+                    case "poster", "rebus", "vest" -> {
                         if (!IMAGES.contains(extension)) {
                             unmatched.add(PackageText.of("unmatched.notImage", file.path()));
                             continue;
@@ -388,20 +403,10 @@ public final class PackagePlan {
                             page.rebus = ref;
                         } else if ("vest".equals(top)) {
                             page.images.add(new ImportRecords.ImportPageImage("VEST", null, ref, null));
-                        } else if ("images".equals(top)) {
-                            page.images.add(new ImportRecords.ImportPageImage("OTHER", parts.size() > 2 ? parts.get(1) : null, ref, null));
                         } else {
                             unmatched.add(PackageText.of("unmatched.onePoster", file.path()));
                             spexipediaFiles.remove(file.sha256());
                         }
-                    }
-                    case "scenography" -> {
-                        if (!IMAGES.contains(extension)) {
-                            unmatched.add(PackageText.of("unmatched.notImage", file.path()));
-                            continue;
-                        }
-                        spexipediaFiles.put(file.sha256(), file);
-                        page.images.add(new ImportRecords.ImportPageImage("SCENOGRAPHY", parts.size() > 2 ? parts.get(1) : null, ref, null));
                     }
                     case "characters" -> {
                         final Optional<ImportRecords.ImportCharacter> character = parts.size() > 2 ? characterFor(characters, parts.get(1)) : Optional.empty();
