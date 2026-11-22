@@ -19,7 +19,7 @@ services:
       retries: 10
       start_period: 30s
     ports:
-      - "127.0.0.1:3311:3306"
+      - "127.0.0.1:3312:3306"
     volumes:
       - ./.docker/mysql/data:/var/lib/mysql
       - ./.docker/mysql/log:/var/log/mysql
