@@ -63,6 +63,7 @@ services:
       API_WEB_URL: ${SPEXIPEDIA_WEB_ORIGIN:-http://localhost:3006}
       API_MEDIA_ROOT: /data/media
       API_UPLOADS_ROOT: /data/uploads
+      API_IMPORTS_ROOT: /data/imports
       API_MEDIA_BASE_URL: https://media.spexipedia.fgv.local.nu:8443/media
       API_SPEXREGISTER_GRAPHQL_URL: http://spexregister-api:8080/api/graphql
       API_SPEXGRAM_GRAPHQL_URL: http://spexgram-api:8080/api/graphql
@@ -88,6 +89,7 @@ services:
       - fgv_spexipedia_api_log:/data/log_data
       - ./data/media:/data/media
       - ./data/uploads:/data/uploads
+      - ./data/imports:/data/imports
     networks:
       - default
       - fgv
