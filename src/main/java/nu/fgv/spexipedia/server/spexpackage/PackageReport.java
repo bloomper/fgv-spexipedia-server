@@ -27,7 +27,6 @@ import java.util.List;
  * @param apps      per application, Spexipedia first
  * @param unmatched files of the zip and rows of the spreadsheet that go nowhere, and why
  * @param warnings  what the author should know, e.g. a field the template does not have
- *
  * @author Anders Jacobsson
  * @since 1.0
  */
@@ -36,22 +35,24 @@ public record PackageReport(List<AppReport> apps, List<PackageText> unmatched, L
     /**
      * One application's part.
      *
-     * @param app       SPEXIPEDIA, ARCHIVE, SPEXIFY, SPEXFLIX or SPEXGRAM
-     * @param status    CHECKED (a dry run), APPLIED, DEFERRED (checked when applied: it needs the new spex),
-     *                  UNAVAILABLE (not configured or not answering) or FAILED
-     * @param records   how many records the package has for it
-     * @param files     how many files go to it
-     * @param message   why it is deferred, unavailable or failed
-     * @param webUrl    the application, for links to what was created
+     * @param app     SPEXIPEDIA, ARCHIVE, SPEXIFY, SPEXFLIX or SPEXGRAM
+     * @param status  CHECKED (a dry run), APPLIED, DEFERRED (checked when applied: it needs the new spex),
+     *                UNAVAILABLE (not configured or not answering) or FAILED
+     * @param records how many records the package has for it
+     * @param files   how many files go to it
+     * @param message why it is deferred, unavailable or failed
+     * @param webUrl  the application, for links to what was created
      */
     public record AppReport(String app, String status, int records, int files, int created, int updated, int unchanged,
-                            int kept, int failed, @Nullable PackageText message, @Nullable String webUrl, List<Item> items) {
+                            int kept, int failed, @Nullable PackageText message, @Nullable String webUrl,
+                            List<Item> items) {
     }
 
     /**
      * One record's outcome: CREATED, UPDATED, UNCHANGED, KEPT or FAILED, with the application's message.
      */
-    public record Item(String kind, String sourceKey, @Nullable String id, String outcome, @Nullable PackageText message,
+    public record Item(String kind, String sourceKey, @Nullable String id, String outcome,
+                       @Nullable PackageText message,
                        List<PackageText> warnings) {
     }
 }

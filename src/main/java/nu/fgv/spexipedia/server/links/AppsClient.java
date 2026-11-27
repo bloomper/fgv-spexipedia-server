@@ -283,7 +283,8 @@ public class AppsClient {
     public record Media(String thumbnailUrl, String previewUrl, @Nullable String videoUrl) {
     }
 
-    public record SpexgramItem(UUID id, @Nullable String type, @Nullable String caption, @Nullable Integer width, @Nullable Integer height,
+    public record SpexgramItem(UUID id, @Nullable String type, @Nullable String caption, @Nullable Integer width,
+                               @Nullable Integer height,
                                @Nullable String effectiveVisibility, @Nullable Media media) {
         public boolean isPublic() {
             return "PUBLIC".equals(effectiveVisibility);
@@ -312,16 +313,20 @@ public class AppsClient {
     }
 
     public record ArchiveBook(UUID id, String title, @Nullable Integer volume, @Nullable String publishedYear,
-                              String kindNameSv, String kindNameEn, @Nullable UUID spexId, @Nullable List<ArchiveBookSong> songs) {
+                              String kindNameSv, String kindNameEn, @Nullable UUID spexId,
+                              @Nullable List<ArchiveBookSong> songs) {
     }
 
-    public record SpexflixChapter(UUID trackId, UUID videoId, String videoTitle, String chapterTitle, int startSeconds) {
+    public record SpexflixChapter(UUID trackId, UUID videoId, String videoTitle, String chapterTitle,
+                                  int startSeconds) {
     }
 
-    public record ArchiveDocument(UUID id, String title, @Nullable UUID spexId, @Nullable String kindNameSv, @Nullable String kindNameEn) {
+    public record ArchiveDocument(UUID id, String title, @Nullable UUID spexId, @Nullable String kindNameSv,
+                                  @Nullable String kindNameEn) {
     }
 
-    public record ArchiveLinks(@Nullable List<ArchiveDocument> manuscripts, @Nullable List<ArchiveArrangement> arrangements,
+    public record ArchiveLinks(@Nullable List<ArchiveDocument> manuscripts,
+                               @Nullable List<ArchiveArrangement> arrangements,
                                @Nullable List<ArchiveBook> books) {
     }
 
@@ -340,7 +345,8 @@ public class AppsClient {
     public record SpexflixSubtitle(String language, String label, String url) {
     }
 
-    public record SpexflixPlayback(String masterUrl, @Nullable String thumbnailsUrl, @Nullable List<SpexflixSubtitle> subtitles,
+    public record SpexflixPlayback(String masterUrl, @Nullable String thumbnailsUrl,
+                                   @Nullable List<SpexflixSubtitle> subtitles,
                                    String expiresAt) {
     }
 
@@ -361,7 +367,8 @@ public class AppsClient {
     }
 
     public record DiscographyAlbum(UUID id, String title, @Nullable Integer year, String kindNameSv, String kindNameEn,
-                                   @Nullable String mediumNameSv, @Nullable String mediumNameEn, @Nullable String catalogueNumber,
+                                   @Nullable String mediumNameSv, @Nullable String mediumNameEn,
+                                   @Nullable String catalogueNumber,
                                    @Nullable String released, @Nullable String recorded, @Nullable String conductor,
                                    @Nullable UUID spexId, @Nullable String coverUrl, @Nullable String backCoverUrl,
                                    @Nullable List<DiscographyTrack> tracks) {

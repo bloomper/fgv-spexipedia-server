@@ -25,7 +25,9 @@ package nu.fgv.spexipedia.server.kind;
 public enum SectionContent {
     GROUP,
     CHARACTERS,
-    /** Images uploaded to Spexipedia, grouped by the section's own image kinds; admins add more image sections. */
+    /**
+     * Images uploaded to Spexipedia, grouped by the section's own image kinds; admins add more image sections.
+     */
     IMAGES,
     MANUSCRIPT,
     MUSIC,
@@ -35,13 +37,21 @@ public enum SectionContent {
     BOARD,
     TASKS,
     LINKS,
-    /** A video in Spexflix (spec 4.2.1). */
+    /**
+     * A video in Spexflix (spec 4.2.1).
+     */
     SPEXFLIX_VIDEO,
-    /** An album in Spexgram, or some of its items. */
+    /**
+     * An album in Spexgram, or some of its items.
+     */
     SPEXGRAM,
-    /** An album in Spexify. */
+    /**
+     * An album in Spexify.
+     */
     SPEXIFY_ALBUM,
-    /** A document in Spexarkivet. */
+    /**
+     * A document in Spexarkivet.
+     */
     ARCHIVE_DOCUMENT;
 
     /**

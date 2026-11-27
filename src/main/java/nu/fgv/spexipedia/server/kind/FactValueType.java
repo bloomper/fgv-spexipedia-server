@@ -24,6 +24,8 @@ package nu.fgv.spexipedia.server.kind;
  */
 public enum FactValueType {
     TEXT,
-    /** yyyy, yyyy-mm or yyyy-mm-dd */
+    /**
+     * yyyy, yyyy-mm or yyyy-mm-dd
+     */
     DATE
 }

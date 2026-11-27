@@ -23,14 +23,24 @@ package nu.fgv.spexipedia.server.kind;
  * @since 1.0
  */
 public enum KindType {
-    /** Kinds of numbers: song, overture, scene change … */
+    /**
+     * Kinds of numbers: song, overture, scene change …
+     */
     NUMBER,
-    /** Kinds of credits on numbers: lyrics, music, arrangement, choreography … */
+    /**
+     * Kinds of credits on numbers: lyrics, music, arrangement, choreography …
+     */
     CREDIT,
-    /** Image kinds, within a {@link KindUse}. */
+    /**
+     * Image kinds, within a {@link KindUse}.
+     */
     IMAGE,
-    /** Facts on spex pages: venue, number of performances … */
+    /**
+     * Facts on spex pages: venue, number of performances …
+     */
     FACT,
-    /** Sections of spex pages, each with a {@link SectionContent}; their order is the pages' default order. */
+    /**
+     * Sections of spex pages, each with a {@link SectionContent}; their order is the pages' default order.
+     */
     SECTION
 }

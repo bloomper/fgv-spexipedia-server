@@ -339,7 +339,9 @@ public abstract class AbstractIntegrationTest {
         WIREMOCK.resetAll();
     }
 
-    /** The spex, revivals, categories and tasks of V1_5__base_data.sql, which the tests' reset removes. */
+    /**
+     * The spex, revivals, categories and tasks of V1_5__base_data.sql, which the tests' reset removes.
+     */
     protected static final long SEEDED_SPEX = 153;
 
     /**

@@ -844,7 +844,7 @@ public class ContentService {
      */
     @Transactional
     public NumberDto importNumber(final @Nullable UUID existingId, final UUID spexId, final NumberInput input,
-                                 final @Nullable Integer position) {
+                                  final @Nullable Integer position) {
         callerService.current().requireEditor();
 
         final NumberDto dto = existingId == null ? createNumber(spexId, input) : updateNumber(existingId, input);
@@ -910,9 +910,12 @@ public class ContentService {
         }
 
         final Set<UUID> parents = switch (kind) {
-            case CHARACTER -> characterRepository.findBySpexOrderByPositionAsc(revival.getParent()).stream().map(SpexCharacter::getUuid).collect(Collectors.toSet());
-            case SCENE -> sceneRepository.findBySpexOrderByActAscPositionAsc(revival.getParent()).stream().map(Scene::getUuid).collect(Collectors.toSet());
-            case NUMBER -> numberRepository.findBySpexOrderByActAscPositionAsc(revival.getParent()).stream().map(SpexNumber::getUuid).collect(Collectors.toSet());
+            case CHARACTER ->
+                    characterRepository.findBySpexOrderByPositionAsc(revival.getParent()).stream().map(SpexCharacter::getUuid).collect(Collectors.toSet());
+            case SCENE ->
+                    sceneRepository.findBySpexOrderByActAscPositionAsc(revival.getParent()).stream().map(Scene::getUuid).collect(Collectors.toSet());
+            case NUMBER ->
+                    numberRepository.findBySpexOrderByActAscPositionAsc(revival.getParent()).stream().map(SpexNumber::getUuid).collect(Collectors.toSet());
         };
 
         for (final RevivalChange change : changes) {

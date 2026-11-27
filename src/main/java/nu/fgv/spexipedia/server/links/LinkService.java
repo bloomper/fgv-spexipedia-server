@@ -164,12 +164,16 @@ public class LinkService {
         }
     }
 
-    /** Whether a document of Spexarkivet is the spex' manuscript: of the kind named so, the archive's first kind. */
+    /**
+     * Whether a document of Spexarkivet is the spex' manuscript: of the kind named so, the archive's first kind.
+     */
     private static boolean manuscript(final AppsClient.ArchiveDocument document) {
         return document.kindNameSv() == null || "manus".equalsIgnoreCase(document.kindNameSv().strip());
     }
 
-    /** Whether the request asked for English; Swedish otherwise, as everywhere in Spexipedia. */
+    /**
+     * Whether the request asked for English; Swedish otherwise, as everywhere in Spexipedia.
+     */
     private static boolean english() {
         final org.springframework.context.i18n.LocaleContext context = org.springframework.context.i18n.LocaleContextHolder.getLocaleContext();
 

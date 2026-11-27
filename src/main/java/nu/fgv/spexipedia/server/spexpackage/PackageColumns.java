@@ -42,7 +42,9 @@ public final class PackageColumns {
     public static final String INSTRUCTIONS = "Instruktioner";
     public static final String LISTS = "Listor";
 
-    /** The sheets by their Swedish name, with the names they are recognised by: Swedish first, then English. */
+    /**
+     * The sheets by their Swedish name, with the names they are recognised by: Swedish first, then English.
+     */
     public static final Map<String, List<String>> SHEETS = ordered(
             SPEX, List.of(SPEX, "Spex"),
             CHARACTERS, List.of(CHARACTERS, "Characters"),
@@ -51,7 +53,9 @@ public final class PackageColumns {
             INSTRUCTIONS, List.of(INSTRUCTIONS, "Instructions"),
             LISTS, List.of(LISTS, "Lists"));
 
-    /** The rows of the Spex sheet, by field. */
+    /**
+     * The rows of the Spex sheet, by field.
+     */
     public static final Map<String, List<String>> SPEX_FIELDS = ordered(
             "title", List.of("Titel", "Title"),
             "year", List.of("År", "Year"),
@@ -98,21 +102,29 @@ public final class PackageColumns {
             "videos", List.of("Video", "Videos", "Videoinspelning"),
             "photos", List.of("Foton", "Photos"));
 
-    /** The rebus' subfolder for its solution. */
+    /**
+     * The rebus' subfolder for its solution.
+     */
     public static final List<String> SOLUTION = List.of("Lösning", "Solution");
 
-    /** Columns of the archive's spreadsheets that a package does not use. */
+    /**
+     * Columns of the archive's spreadsheets that a package does not use.
+     */
     public static final List<String> IGNORED = List.of("Tillstånd", "Övrigt (mapp)");
 
     private PackageColumns() {
     }
 
-    /** The name to write in the locale's language: the first for Swedish, the second for English. */
+    /**
+     * The name to write in the locale's language: the first for Swedish, the second for English.
+     */
     public static String name(final List<String> names, final Locale locale) {
         return Locale.ENGLISH.equals(Locales.supported(locale)) && names.size() > 1 ? names.get(1) : names.getFirst();
     }
 
-    /** The field the header names, or null. */
+    /**
+     * The field the header names, or null.
+     */
     public static String field(final Map<String, List<String>> fields, final String header) {
         final String wanted = KindService.normalize(header);
 

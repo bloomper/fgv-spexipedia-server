@@ -109,7 +109,7 @@ public class ContentMcpTools {
             description = "EDITOR: add characters to a spex as text, one per line: the name, optionally followed by ' – ' and a description. They are added after the existing ones; on a revival, as its own. Returns the characters on its page afterwards.",
             annotations = @McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false, openWorldHint = false))
     public McpToolSupport.ListResult<McpCharacter> pasteCharacters(@McpToolParam(description = SPEX_ID) final String spexId,
-                                                                    @McpToolParam(description = "One character per line") final String text) {
+                                                                   @McpToolParam(description = "One character per line") final String text) {
         return support.call(() -> new McpToolSupport.ListResult<>(characters(content.pasteCharacters(spex(spexId).id(), text))));
     }
 

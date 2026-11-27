@@ -47,7 +47,7 @@ class MarkdownRendererTest {
         final String html = renderer.render("""
                 [a](javascript&colon;alert(1)) [b](&#106;avascript:alert(1)) [c](JaVaScRiPt:alert(1)) [d](data:text/html,x)
                 [e][r] ![f](javascript:alert(1)) <javascript:alert(1)>
-
+                
                 [r]: javascript:alert(1)
                 """, _ -> null);
 

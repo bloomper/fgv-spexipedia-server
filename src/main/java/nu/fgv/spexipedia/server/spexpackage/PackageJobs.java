@@ -241,7 +241,9 @@ public class PackageJobs {
         });
     }
 
-    /** One other application's batch: checked, applied, deferred or unavailable. */
+    /**
+     * One other application's batch: checked, applied, deferred or unavailable.
+     */
     private AppReport other(final UUID id, final App app, final AppBatch batch, final Map<String, String> ids, final boolean onlyCheck, final boolean dryRun) {
         final String web = apps.webUrl(app);
 
@@ -294,7 +296,9 @@ public class PackageJobs {
         return input;
     }
 
-    /** The part with the placeholders filled in; a track without its number keeps going, any other record waits. */
+    /**
+     * The part with the placeholders filled in; a track without its number keeps going, any other record waits.
+     */
     @SuppressWarnings("unchecked")
     static Map<String, Object> resolve(final Map<String, Object> part, final Map<String, String> ids, final List<String> missing) {
         final Map<String, Object> out = new LinkedHashMap<>();
@@ -359,7 +363,9 @@ public class PackageJobs {
                 result.message() == null ? null : text(result.message()), result.warnings().stream().map(PackageJobs::text).toList());
     }
 
-    /** Spexipedia's own import texts are its message codes too. */
+    /**
+     * Spexipedia's own import texts are its message codes too.
+     */
     private static PackageText text(final ImportText text) {
         return new PackageText(text.code(), text.args());
     }
@@ -404,7 +410,9 @@ public class PackageJobs {
         });
     }
 
-    /** For the message column: arguments such as an exception's message are cut short to fit. */
+    /**
+     * For the message column: arguments such as an exception's message are cut short to fit.
+     */
     private static String encode(final PackageText text) {
         final String encoded = text.encode();
 

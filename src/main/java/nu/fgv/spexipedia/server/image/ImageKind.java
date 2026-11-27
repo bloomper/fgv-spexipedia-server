@@ -26,9 +26,13 @@ package nu.fgv.spexipedia.server.image;
 public enum ImageKind {
     POSTER,
     LOGO,
-    /** A character's images: sketches, make-up sketches, costume dolls (by the character image kinds). */
+    /**
+     * A character's images: sketches, make-up sketches, costume dolls (by the character image kinds).
+     */
     CHARACTER,
-    /** Images of a section of a spex page: an image section (scenography …) or the vest. */
+    /**
+     * Images of a section of a spex page: an image section (scenography …) or the vest.
+     */
     SECTION,
     REBUS,
     COVER,

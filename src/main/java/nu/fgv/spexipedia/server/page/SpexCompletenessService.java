@@ -42,17 +42,23 @@ import java.util.Map;
 @Service
 public class SpexCompletenessService {
 
-    /** A section of the spex's editing page. */
-    public enum Section { BASE, TEXTS, FACTS, MEDIA, CHARACTERS, SCENES, NUMBERS }
+    /**
+     * A section of the spex's editing page.
+     */
+    public enum Section {BASE, TEXTS, FACTS, MEDIA, CHARACTERS, SCENES, NUMBERS}
 
-    /** What the page can have. */
+    /**
+     * What the page can have.
+     */
     public enum Item {
         POSTER, PREMIERE, INTRODUCTION, SHORT_DESCRIPTION, DESCRIPTION, SYNOPSIS, VEST_DESCRIPTION, VEST_WORN_BY, FACTS,
         IMAGES, VEST, REBUS, REBUS_SOLUTION, GROUP_PHOTOS, BOARD_PHOTOS, CHARACTERS, CHARACTER_DESCRIPTIONS,
         CHARACTER_IMAGES, SCENES, SCENE_PLACES, NUMBERS, NUMBER_ORIGINALS, NUMBER_CREDITS, NUMBER_CHARACTERS
     }
 
-    /** One item, filled from 0 to 1. */
+    /**
+     * One item, filled from 0 to 1.
+     */
     public record ItemDto(Item item, double filled) {
     }
 
@@ -62,10 +68,14 @@ public class SpexCompletenessService {
     public record CompletenessDto(double share, List<SectionDto> sections) {
     }
 
-    /** A text that is more than blanks. */
+    /**
+     * A text that is more than blanks.
+     */
     private static final String FILLED = "(NULLIF(TRIM(%s), '') IS NOT NULL)";
 
-    /** An image that is set and not in the trash, as the pages show only those. */
+    /**
+     * An image that is set and not in the trash, as the pages show only those.
+     */
     private static final String IMAGE = "EXISTS (SELECT 1 FROM image i WHERE i.id = %s AND i.trashed_at IS NULL)";
 
     private final JdbcClient jdbc;
@@ -74,7 +84,9 @@ public class SpexCompletenessService {
         this.jdbc = jdbc;
     }
 
-    /** What is known of one spex, as the queries find it. */
+    /**
+     * What is known of one spex, as the queries find it.
+     */
     private static final class Counts {
         boolean revival;
         boolean poster;

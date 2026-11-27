@@ -98,7 +98,8 @@ public final class ImportRecords {
      */
     public record ImportNumber(String sourceKey, @Nullable UUID spexId, @Nullable String spexSourceKey,
                                @Nullable Integer act, @Nullable Integer position, String title, @Nullable String kind,
-                               @Nullable String originalTitle, @Nullable String originalArtist, @Nullable String fromWork,
+                               @Nullable String originalTitle, @Nullable String originalArtist,
+                               @Nullable String fromWork,
                                @Nullable String firstLine, @Nullable List<ImportCredit> credits,
                                @Nullable List<String> characters) {
     }

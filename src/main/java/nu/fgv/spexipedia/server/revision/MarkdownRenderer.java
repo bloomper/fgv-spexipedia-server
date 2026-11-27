@@ -57,7 +57,9 @@ public class MarkdownRenderer {
     private static final Pattern APP_REF = Pattern.compile(
             "(?i)(spexify|spexflix|spexgram|arkiv|spexarkivet):([a-z]+)/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})");
 
-    /** Where links to missing articles go: the new article page, with the title. */
+    /**
+     * Where links to missing articles go: the new article page, with the title.
+     */
     public static final String NEW_ARTICLE = "/articles/new?title=";
 
     private final Parser parser;
@@ -83,7 +85,9 @@ public class MarkdownRenderer {
      */
     public record AppRef(String app, String kind, java.util.UUID id) {
 
-        /** The reference in the link, or empty when the link is to an article. */
+        /**
+         * The reference in the link, or empty when the link is to an article.
+         */
         public static java.util.Optional<AppRef> parse(final String link) {
             final Matcher matcher = APP_REF.matcher(link.strip());
 

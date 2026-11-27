@@ -29,7 +29,8 @@ import java.util.UUID;
  * @since 1.0
  */
 public record SpexPageDto(long spexKey, UUID spexId, @Nullable String premiere,
-                          @Nullable String introduction, @Nullable String shortDescription, @Nullable String description, @Nullable String synopsis,
+                          @Nullable String introduction, @Nullable String shortDescription,
+                          @Nullable String description, @Nullable String synopsis,
                           @Nullable Long rebusKey, @Nullable Long rebusSolutionKey, @Nullable String vestDescription,
                           @Nullable CreditRef vestWornBy, boolean published, @Nullable Instant lastModifiedAt) {
 

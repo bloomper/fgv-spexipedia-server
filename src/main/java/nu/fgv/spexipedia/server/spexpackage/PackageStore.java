@@ -56,7 +56,9 @@ import java.util.zip.ZipFile;
 @Component
 public class PackageStore {
 
-    /** A file of the zip: its path in the zip, its SHA-256 and size. */
+    /**
+     * A file of the zip: its path in the zip, its SHA-256 and size.
+     */
     public record PackageFile(String path, String sha256, long size) {
 
         public String name() {

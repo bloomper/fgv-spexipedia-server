@@ -57,7 +57,9 @@ import static org.springframework.security.oauth2.client.web.client.RequestAttri
 @Component
 public class PackageApps {
 
-    /** The applications a package writes to besides Spexipedia, in the order they are applied. */
+    /**
+     * The applications a package writes to besides Spexipedia, in the order they are applied.
+     */
     public static final List<App> APPS = List.of(App.ARCHIVE, App.SPEXIFY, App.SPEXFLIX, App.SPEXGRAM);
 
     static final String BATCH = """
@@ -69,7 +71,9 @@ public class PackageApps {
                 }
             } }""";
 
-    /** What an import call gave. */
+    /**
+     * What an import call gave.
+     */
     public record BatchResult(List<PackageReport.Item> items) {
     }
 
@@ -106,7 +110,9 @@ public class PackageApps {
         return webUrls.get(app);
     }
 
-    /** Sends the file unless the application has it already. */
+    /**
+     * Sends the file unless the application has it already.
+     */
     public void upload(final App app, final String sha256, final Path file) {
         final String url = filesUrl(app) + sha256;
 
@@ -119,7 +125,9 @@ public class PackageApps {
         rest.put().uri(url).contentType(MediaType.APPLICATION_OCTET_STREAM).body(new FileSystemResource(file)).retrieve().toBodilessEntity();
     }
 
-    /** One call of the application's {@code importBatch}. */
+    /**
+     * One call of the application's {@code importBatch}.
+     */
     public BatchResult importBatch(final App app, final Map<String, Object> input, final boolean dryRun) {
         final HttpSyncGraphQlClient client = HttpSyncGraphQlClient.builder(rest).url(graphqlUrls.get(app)).build();
         final ClientGraphQlResponse response = client.document(BATCH).variable("input", input).variable("dryRun", dryRun).executeSync();

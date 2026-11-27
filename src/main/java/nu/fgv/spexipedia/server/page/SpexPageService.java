@@ -405,7 +405,8 @@ public class SpexPageService {
     }
 
     public record PageInput(@Nullable String premiere, @Nullable String introduction,
-                            @Nullable String shortDescription, @Nullable String description, @Nullable String synopsis, @Nullable String vestDescription,
+                            @Nullable String shortDescription, @Nullable String description, @Nullable String synopsis,
+                            @Nullable String vestDescription,
                             @Nullable CreditRef vestWornBy, @Nullable Map<String, UUID> baseRevisionIds) {
     }
 

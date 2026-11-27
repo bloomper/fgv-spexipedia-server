@@ -426,7 +426,7 @@ public class SampleDataImporter {
             return """
                     **%s** sattes upp av Chalmersspexet %s. Exempeldata: texten är påhittad, men visar hur en sida ser ut med *Markdown*, \
                     länkar till [[Spexets traditioner]] och till [andra spex](/spex).
-
+                    
                     Spexet minns för sin finalkör, som publiken krävde tre gånger, och för en kuliss som föll i fel ögonblick \
                     – se [[Anekdot: Kulissen som föll|anekdoten]]. Åäö fungerar.""".formatted(spex.title(), spex.year());
         }
@@ -435,7 +435,7 @@ public class SampleDataImporter {
             return """
                     ### Akt 1
                     Hovet samlas i tronsalen, där %s försöker hålla ordning på arvsföljden. Narren vet mer än han säger.
-
+                    
                     ### Akt 2
                     Intrigerna tätnar på krogen Gyldene Freden. Allt avgörs vid frukostbordet, och kärleken segrar – nästan.""".formatted(spex.title());
         }
@@ -469,7 +469,7 @@ public class SampleDataImporter {
                     } else if (i <= 3) {
                         contentService.setCharacterImages(character.id(), (i + index) % 2 == 0
                                 ? List.of(sketch(character, ImageKind.CHARACTER, DefaultKinds.SKETCH, "Skiss"),
-                                          sketch(character, ImageKind.CHARACTER, DefaultKinds.MAKEUP, "Sminkskiss"))
+                                sketch(character, ImageKind.CHARACTER, DefaultKinds.MAKEUP, "Sminkskiss"))
                                 : List.of(sketch(character, ImageKind.CHARACTER, DefaultKinds.SKETCH, "Skiss")));
                     }
                 }
@@ -513,11 +513,11 @@ public class SampleDataImporter {
                     credits.add(new ContentService.NumberCreditInput(DefaultKinds.CHOREOGRAPHY, null, "Kalle Koreograf", true));
                 }
                 contentService.createNumber(spex.id(), new ContentService.NumberInput(i < count / 2 ? 1 : 2, NUMBER_TITLES[i % NUMBER_TITLES.length],
-                        i == 0 ? DefaultKinds.OVERTURE : i == count - 1 ? DefaultKinds.FINALE : DefaultKinds.SONG,
-                        original[0], original[1], i % 5 == 1 ? "Mamma Mia!" : null,
-                        "Hör hur %s sjunger i natten".formatted(NUMBER_TITLES[i % NUMBER_TITLES.length].toLowerCase(Locale.ROOT)),
-                        credits,
-                        List.of(characters.get(i % characters.size()).id(), characters.get((i + 1) % characters.size()).id())),
+                                i == 0 ? DefaultKinds.OVERTURE : i == count - 1 ? DefaultKinds.FINALE : DefaultKinds.SONG,
+                                original[0], original[1], i % 5 == 1 ? "Mamma Mia!" : null,
+                                "Hör hur %s sjunger i natten".formatted(NUMBER_TITLES[i % NUMBER_TITLES.length].toLowerCase(Locale.ROOT)),
+                                credits,
+                                List.of(characters.get(i % characters.size()).id(), characters.get((i + 1) % characters.size()).id())),
                         uuid("number", spex.id().toString(), String.valueOf(i)));
             }
         }
@@ -549,8 +549,8 @@ public class SampleDataImporter {
             contentService.createCharacter(revival.id(), "Turisten", "Ny i nyuppsättningen: en vilsen turist från framtiden.",
                     uuid("character", revival.id().toString(), "0"));
             contentService.createNumber(revival.id(), new ContentService.NumberInput(2, "Turistens tango", DefaultKinds.SONG, "Euphoria", "Loreen",
-                    null, null, List.of(new ContentService.NumberCreditInput(DefaultKinds.LYRICS, spexare(0), null),
-                    new ContentService.NumberCreditInput(DefaultKinds.MUSIC, null, "Thomas G:son")), null),
+                            null, null, List.of(new ContentService.NumberCreditInput(DefaultKinds.LYRICS, spexare(0), null),
+                            new ContentService.NumberCreditInput(DefaultKinds.MUSIC, null, "Thomas G:son")), null),
                     uuid("number", revival.id().toString(), "0"));
             pageService.update(revival.id(), new SpexPageService.PageInput(null,
                     "Nyuppsättningen av Lasse-Maja, med en turist från framtiden.", null, null, null, null, null, null));
@@ -580,24 +580,24 @@ public class SampleDataImporter {
 
             update(traditions, """
                     Chalmersspexet har många traditioner. Den viktigaste är **tackkören**, som sjungs efter varje föreställning.
-
+                    
                     ## Översikt
-
+                    
                     | Tradition | Sedan |
                     |-----------|-------|
                     | Tackkören | 1948  |
                     | Västen    | 1960  |
-
+                    
                     Läs mer i underartiklarna nedan. Se även [[FGV]] och [[Spexets historia]].""", "Lade till en tabell");
             article("Tackkören", Visibility.PUBLIC, true, traditions, List.of(categories.get("Traditioner"), categories.get("Sånger")), """
                     Tackkören sjungs av hela ensemblen efter varje föreställning, med publiken stående.
-
+                    
                     ## Texten
-
+                    
                     Texten har ändrats några gånger genom åren, men refrängen är densamma sedan premiären 1948.
-
+                    
                     ## Se även
-
+                    
                     - [[Spexets traditioner]]
                     - [[Ouvertyren]]""");
             article("Ouvertyren", Visibility.PUBLIC, true, traditions, List.of(categories.get("Sånger")),
@@ -605,11 +605,11 @@ public class SampleDataImporter {
 
             final ArticleDto vest = article("Västen", Visibility.PUBLIC, true, traditions, List.of(categories.get("Västen")), """
                     Västen är spexets mest kända symbol. Varje spex har sin egen väst, som bärs av den som gjort spexet störst tjänst.
-
+                    
                     Se [[Västens färger]] och [[Västbärare]].""");
             article("Västens färger", Visibility.PUBLIC, true, vest, List.of(categories.get("Västen")), """
                     Varje väst har spexets egna färger. Ordningen går igen i affischen och i programmet.
-
+                    
                     | Decennium | Vanligaste färg |
                     |-----------|-----------------|
                     | 1960-talet | Röd |
@@ -627,9 +627,9 @@ public class SampleDataImporter {
                     List.of(categories.get("Organisationer")), "Spexet är inte ensamt. Här är föreningarna och grupperna runt omkring.");
             final ArticleDto fgv = article("FGV", Visibility.PUBLIC, true, organisations, List.of(categories.get("Organisationer")), """
                     Föreningen Gamla Västar, FGV, samlar alla som varit med i Chalmersspexet.
-
+                    
                     ## Verksamhet
-
+                    
                     FGV håller [[Spexarkivet]] och ordnar nyuppsättningar av gamla spex.""");
             article("FGV:s styrelse", Visibility.PUBLIC, true, fgv, List.of(categories.get("Organisationer")),
                     "Styrelsen väljs på årsmötet och består av ordförande, kassör, sekreterare och ledamöter.");

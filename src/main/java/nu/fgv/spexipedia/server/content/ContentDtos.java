@@ -41,7 +41,8 @@ public final class ContentDtos {
                            boolean intervalAfter) {
     }
 
-    public record NumberDto(long key, UUID id, long spexKey, int act, int position, String title, @Nullable Long kindKey,
+    public record NumberDto(long key, UUID id, long spexKey, int act, int position, String title,
+                            @Nullable Long kindKey,
                             @Nullable String originalTitle, @Nullable String originalArtist, @Nullable String fromWork,
                             @Nullable String firstLine, boolean retired) {
 
