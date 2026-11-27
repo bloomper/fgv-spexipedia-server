@@ -18,6 +18,7 @@ package nu.fgv.spexipedia.server.article;
 
 import java.util.LinkedHashMap;
 import java.util.ArrayList;
+
 import nu.fgv.spexipedia.server.util.StoredText;
 import nu.fgv.spexipedia.server.basedata.BaseDataService;
 import nu.fgv.spexipedia.server.redirect.RedirectService;
@@ -932,7 +933,8 @@ public class ArticleService {
         return true;
     }
 
-    public record ArticleInput(String title, @Nullable String body, Visibility visibility, @Nullable List<UUID> categoryIds,
+    public record ArticleInput(String title, @Nullable String body, Visibility visibility,
+                               @Nullable List<UUID> categoryIds,
                                @Nullable String comment, @Nullable UUID parentId) {
 
         public ArticleInput(final String title, final @Nullable String body, final Visibility visibility,

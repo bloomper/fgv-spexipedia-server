@@ -159,26 +159,29 @@ public class SearchService {
                             // A revival is found by the word in either language; the hit says it in the reader's (search)
                             join(row[1] == null ? null : revivalWords(), (String) row[3], markdown.plain((String) row[4]), markdown.plain((String) row[5])),
                             "/spex/" + part.slug(), part.visibility())));
-            case CHARACTER -> jdbc.sql("SELECT spex_id, name, description, retired FROM spex_character WHERE uuid = :id")
-                    .param("id", uuid)
-                    .query((rs, _) -> new Object[]{rs.getLong(1), rs.getString(2), rs.getString(3), rs.getBoolean(4)})
-                    .optional()
-                    .flatMap(row -> spexPart((Long) row[0]).map(part -> new Document(kind, id, (String) row[1], part.label(),
-                            markdown.plain((String) row[2]), "/spex/" + part.slug() + "#character-" + id,
-                            (Boolean) row[3] ? "HIDDEN" : part.visibility())));
-            case NUMBER -> jdbc.sql("SELECT spex_id, title, original_title, original_artist, retired FROM spex_number WHERE uuid = :id")
-                    .param("id", uuid)
-                    .query((rs, _) -> new Object[]{rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getBoolean(5)})
-                    .optional()
-                    .flatMap(row -> spexPart((Long) row[0]).map(part -> new Document(kind, id, (String) row[1],
-                            join(part.label(), row[2] == null ? null : row[2] + (row[3] == null ? "" : " (" + row[3] + ")")), null,
-                            "/spex/" + part.slug() + "#number-" + id, (Boolean) row[4] ? "HIDDEN" : part.visibility())));
-            case ARTICLE -> jdbc.sql("SELECT slug, title, body, visibility, published, trashed_at FROM article WHERE uuid = :id")
-                    .param("id", uuid)
-                    .query((rs, _) -> rs.getTimestamp(6) != null ? null : new Document(kind, id, rs.getString(2), null,
-                            markdown.plain(rs.getString(3)), "/articles/" + rs.getString(1),
-                            !rs.getBoolean(5) ? "HIDDEN" : "PUBLIC".equals(rs.getString(4)) ? "PUBLIC" : "MEMBERS"))
-                    .optional();
+            case CHARACTER ->
+                    jdbc.sql("SELECT spex_id, name, description, retired FROM spex_character WHERE uuid = :id")
+                            .param("id", uuid)
+                            .query((rs, _) -> new Object[]{rs.getLong(1), rs.getString(2), rs.getString(3), rs.getBoolean(4)})
+                            .optional()
+                            .flatMap(row -> spexPart((Long) row[0]).map(part -> new Document(kind, id, (String) row[1], part.label(),
+                                    markdown.plain((String) row[2]), "/spex/" + part.slug() + "#character-" + id,
+                                    (Boolean) row[3] ? "HIDDEN" : part.visibility())));
+            case NUMBER ->
+                    jdbc.sql("SELECT spex_id, title, original_title, original_artist, retired FROM spex_number WHERE uuid = :id")
+                            .param("id", uuid)
+                            .query((rs, _) -> new Object[]{rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getBoolean(5)})
+                            .optional()
+                            .flatMap(row -> spexPart((Long) row[0]).map(part -> new Document(kind, id, (String) row[1],
+                                    join(part.label(), row[2] == null ? null : row[2] + (row[3] == null ? "" : " (" + row[3] + ")")), null,
+                                    "/spex/" + part.slug() + "#number-" + id, (Boolean) row[4] ? "HIDDEN" : part.visibility())));
+            case ARTICLE ->
+                    jdbc.sql("SELECT slug, title, body, visibility, published, trashed_at FROM article WHERE uuid = :id")
+                            .param("id", uuid)
+                            .query((rs, _) -> rs.getTimestamp(6) != null ? null : new Document(kind, id, rs.getString(2), null,
+                                    markdown.plain(rs.getString(3)), "/articles/" + rs.getString(1),
+                                    !rs.getBoolean(5) ? "HIDDEN" : "PUBLIC".equals(rs.getString(4)) ? "PUBLIC" : "MEMBERS"))
+                            .optional();
         };
     }
 
@@ -252,7 +255,9 @@ public class SearchService {
         return revivalsSaid(hits, locale);
     }
 
-    /** A revival's hit says so, in the reader's language, before its category. */
+    /**
+     * A revival's hit says so, in the reader's language, before its category.
+     */
     private List<Hit> revivalsSaid(final List<Hit> hits, final Locale locale) {
         final List<String> spex = hits.stream().filter(hit -> hit.kind() == SearchKind.SPEX).map(hit -> hit.id().toString()).toList();
 

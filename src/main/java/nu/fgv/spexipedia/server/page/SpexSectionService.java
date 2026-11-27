@@ -77,11 +77,17 @@ public class SpexSectionService {
      * Where a page's order comes from.
      */
     public enum SectionOrder {
-        /** The section kinds' order. */
+        /**
+         * The section kinds' order.
+         */
         DEFAULT,
-        /** The spex' own list. */
+        /**
+         * The spex' own list.
+         */
         OWN,
-        /** A revival's original's list. */
+        /**
+         * A revival's original's list.
+         */
         ORIGINAL
     }
 

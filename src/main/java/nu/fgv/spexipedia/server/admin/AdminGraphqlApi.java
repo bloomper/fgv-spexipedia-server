@@ -17,6 +17,7 @@
 package nu.fgv.spexipedia.server.admin;
 
 import java.util.Locale;
+
 import nu.fgv.spexipedia.server.util.StoredText;
 import org.springframework.context.MessageSource;
 import nu.fgv.spexipedia.server.article.ArticleDtos.ArticleDto;
@@ -73,8 +74,8 @@ public class AdminGraphqlApi {
 
     @QueryMapping
     public AuditPageDto auditLog(@Argument final int page, @Argument final int size,
-                                        @Argument final @Nullable Map<String, Object> filter,
-                                        final Locale locale) {
+                                 @Argument final @Nullable Map<String, Object> filter,
+                                 final Locale locale) {
         final AuditFilter auditFilter = filter == null ? null : new AuditFilter((String) filter.get("entityType"),
                 (String) filter.get("action"), (String) filter.get("actorId"), (Instant) filter.get("from"),
                 (Instant) filter.get("to"), (String) filter.get("q"), (String) filter.get("entityId"));

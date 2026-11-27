@@ -35,7 +35,6 @@ import java.util.regex.Pattern;
  *
  * @param code the message code, from {@code package.*} or the import's own codes
  * @param args the arguments, e.g. a file's path; Swedish and English for a translated text
- *
  * @author Anders Jacobsson
  * @since 1.0
  */
@@ -57,23 +56,31 @@ public record PackageText(String code, List<String> args) {
         return new PackageText(PREFIX + code, Arrays.stream(args).map(String::valueOf).toList());
     }
 
-    /** Another application's text, as it gave it in Swedish and in English. */
+    /**
+     * Another application's text, as it gave it in Swedish and in English.
+     */
     public static PackageText translated(final String swedish, final String english) {
         return new PackageText(TRANSLATED, List.of(swedish, english));
     }
 
-    /** Only for text stored before texts were codes. */
+    /**
+     * Only for text stored before texts were codes.
+     */
     static PackageText literal(final String text) {
         return new PackageText(LITERAL, List.of(text));
     }
 
-    /** A report written before texts were codes held plain text. */
+    /**
+     * A report written before texts were codes held plain text.
+     */
     @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
     public static PackageText fromString(final String text) {
         return literal(text);
     }
 
-    /** The text in the locale's language, Swedish unless English was asked for. */
+    /**
+     * The text in the locale's language, Swedish unless English was asked for.
+     */
     public String in(final MessageSource messages, final @Nullable Locale locale) {
         if (LITERAL.equals(code)) {
             return args.isEmpty() ? "" : args.getFirst();
@@ -84,7 +91,9 @@ public record PackageText(String code, List<String> args) {
         return messages.getMessage(code, args.toArray(), code, Locales.supported(locale));
     }
 
-    /** For the package's message column: the code and its arguments, apart by a unit separator. */
+    /**
+     * For the package's message column: the code and its arguments, apart by a unit separator.
+     */
     public String encode() {
         final StringBuilder out = new StringBuilder(code);
 
@@ -92,7 +101,9 @@ public record PackageText(String code, List<String> args) {
         return out.toString();
     }
 
-    /** What {@link #encode} wrote; any other text is a literal. */
+    /**
+     * What {@link #encode} wrote; any other text is a literal.
+     */
     public static PackageText decode(final String stored) {
         final List<String> parts = List.of(stored.split(String.valueOf(SEPARATOR), -1));
 

@@ -213,7 +213,9 @@ public class MergeService {
         }
     }
 
-    /** The record for the audit log: its kind in the reader's language, and its name. */
+    /**
+     * The record for the audit log: its kind in the reader's language, and its name.
+     */
     private StoredText label(final BaseDataKind kind, final long key) {
         return StoredText.of("audit.baseData.kind." + kind.name(), switch (kind) {
             case SPEX -> baseData.requireSpexByKey(key).label();

@@ -49,7 +49,9 @@ public class FeedGraphqlApi {
         this.messages = messages;
     }
 
-    /** Why the latest notification failed, in the reader's language. */
+    /**
+     * Why the latest notification failed, in the reader's language.
+     */
     @SchemaMapping(typeName = "SyncConsumer", field = "lastError")
     public @Nullable String lastError(final SyncConsumerService.SyncConsumerDto consumer, final Locale locale) {
         return consumer.lastError() == null ? null : StoredText.decode(consumer.lastError()).in(messages, locale);

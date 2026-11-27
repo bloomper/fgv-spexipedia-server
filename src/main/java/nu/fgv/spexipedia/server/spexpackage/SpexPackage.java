@@ -63,30 +63,42 @@ public class SpexPackage extends AbstractAuditable {
     @Column(name = "zip_file_name")
     private @Nullable String zipFileName;
 
-    /** The zip's size, as announced before its parts arrive; null for a package without a zip. */
+    /**
+     * The zip's size, as announced before its parts arrive; null for a package without a zip.
+     */
     @Column(name = "zip_size")
     private @Nullable Long zipSize;
 
     @Column(name = "zip_received", nullable = false)
     private long zipReceived;
 
-    /** The spex the package created or added to, once known. */
+    /**
+     * The spex the package created or added to, once known.
+     */
     @Column(name = "spex_id", length = 36)
     private @Nullable UUID spexId;
 
-    /** The preview, as JSON ({@link PackageReport}). */
+    /**
+     * The preview, as JSON ({@link PackageReport}).
+     */
     @Column(name = "preview", columnDefinition = "MEDIUMTEXT")
     private @Nullable String preview;
 
-    /** What applying it gave, as JSON ({@link PackageReport}). */
+    /**
+     * What applying it gave, as JSON ({@link PackageReport}).
+     */
     @Column(name = "results", columnDefinition = "MEDIUMTEXT")
     private @Nullable String results;
 
-    /** 0–100 while a preview or an apply runs. */
+    /**
+     * 0–100 while a preview or an apply runs.
+     */
     @Column(name = "progress", nullable = false)
     private int progress;
 
-    /** What runs now, or why it failed. */
+    /**
+     * What runs now, or why it failed.
+     */
     @Column(name = "message", length = 1000)
     private @Nullable String message;
 
@@ -99,7 +111,9 @@ public class SpexPackage extends AbstractAuditable {
     @Column(name = "applied_at")
     private @Nullable Instant appliedAt;
 
-    /** Whether the whole zip has arrived (or there is none). */
+    /**
+     * Whether the whole zip has arrived (or there is none).
+     */
     public boolean zipComplete() {
         return zipSize == null || zipReceived >= zipSize;
     }

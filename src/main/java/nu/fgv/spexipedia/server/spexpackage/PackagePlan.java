@@ -53,7 +53,9 @@ import java.util.regex.Pattern;
 public final class PackagePlan {
 
     public static final String SPEX = "{{spex}}";
-    /** The original spex: Spexarkivet files a revival's documents under it. */
+    /**
+     * The original spex: Spexarkivet files a revival's documents under it.
+     */
     public static final String ORIGINAL = "{{original}}";
 
     private static final Pattern LEADING = Pattern.compile("^\\s*(\\d{1,3})\\b[\\s.\\-_)]*(.*)$");
@@ -67,13 +69,16 @@ public final class PackagePlan {
      * One application's records: lists in the order they are sent; {@code parents} are the lists the others refer
      * to, sent again with every part when the records are more than one call takes.
      */
-    public record AppBatch(Map<String, List<Map<String, Object>>> lists, Set<String> parents, Map<String, PackageFile> files) {
+    public record AppBatch(Map<String, List<Map<String, Object>>> lists, Set<String> parents,
+                           Map<String, PackageFile> files) {
 
         public int records() {
             return lists.values().stream().mapToInt(List::size).sum();
         }
 
-        /** The calls to make: each at most {@code max} records, the parents in every one. */
+        /**
+         * The calls to make: each at most {@code max} records, the parents in every one.
+         */
         public List<Map<String, Object>> parts(final int max) {
             final Map<String, Object> base = new LinkedHashMap<>();
             final List<Map.Entry<String, Map<String, Object>>> children = new ArrayList<>();
@@ -307,7 +312,9 @@ public final class PackagePlan {
             return numbers;
         }
 
-        /** The number a folder or file names: by its leading number (the position) or its title. */
+        /**
+         * The number a folder or file names: by its leading number (the position) or its title.
+         */
         private Optional<String> numberFor(final String name) {
             final Matcher m = LEADING.matcher(name);
             final String title = KindService.normalize(m.matches() ? m.group(2) : name);
@@ -330,7 +337,9 @@ public final class PackagePlan {
             return Optional.empty();
         }
 
-        /** Spexipedia's own images of the page and the characters. */
+        /**
+         * Spexipedia's own images of the page and the characters.
+         */
         private final class PageFiles {
 
             @Nullable FileRef poster;
@@ -509,7 +518,9 @@ public final class PackagePlan {
                     || m.matches() && m.group(2).isBlank() && c.position() != null && c.position() == Integer.parseInt(m.group(1))).findFirst();
         }
 
-        /** An application's lists while they are filled. */
+        /**
+         * An application's lists while they are filled.
+         */
         private final class AppLists {
 
             final Map<String, List<Map<String, Object>>> lists = new LinkedHashMap<>();
@@ -550,7 +561,9 @@ public final class PackagePlan {
         return (List<Map<String, Object>>) version.get("files");
     }
 
-    /** A record without its null values. */
+    /**
+     * A record without its null values.
+     */
     private static Map<String, Object> record(final Object... pairs) {
         final Map<String, Object> map = new LinkedHashMap<>();
 

@@ -70,7 +70,9 @@ public final class PackageTemplate {
         return new PackageTemplate(messages, locale).write(categories, kinds, imageKinds);
     }
 
-    /** The file name to offer, in the locale's language. */
+    /**
+     * The file name to offer, in the locale's language.
+     */
     public static String fileName(final MessageSource messages, final Locale locale) {
         return messages.getMessage("package.template.fileName", null, Locales.supported(locale));
     }

@@ -251,7 +251,8 @@ public class SpexMcpTools {
         }
     }
 
-    public record McpScene(UUID id, int act, int position, String title, @Nullable String place, boolean intervalAfter) {
+    public record McpScene(UUID id, int act, int position, String title, @Nullable String place,
+                           boolean intervalAfter) {
 
         static McpScene of(final SceneDto scene) {
             return new McpScene(scene.id(), scene.act(), scene.position(), scene.title(), scene.place(), scene.intervalAfter());
@@ -313,7 +314,8 @@ public class SpexMcpTools {
         }
     }
 
-    public record McpSpexCategory(UUID id, String name, String firstYear, @Nullable String description, boolean retired) {
+    public record McpSpexCategory(UUID id, String name, String firstYear, @Nullable String description,
+                                  boolean retired) {
 
         static McpSpexCategory of(final SpexCategoryDto category) {
             return new McpSpexCategory(category.id(), category.name(), category.firstYear(), category.description(), category.retired());

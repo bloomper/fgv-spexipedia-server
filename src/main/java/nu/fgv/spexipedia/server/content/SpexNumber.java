@@ -69,7 +69,9 @@ public class SpexNumber extends AbstractAuditable {
     @Column(name = "title", nullable = false)
     private String title;
 
-    /** A number kind kept by admins (spec 4.6). */
+    /**
+     * A number kind kept by admins (spec 4.6).
+     */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "kind_id")
     private @Nullable Kind kind;
@@ -80,7 +82,9 @@ public class SpexNumber extends AbstractAuditable {
     @Column(name = "original_artist")
     private @Nullable String originalArtist;
 
-    /** Where the original song is from, e.g. a musical or a film. */
+    /**
+     * Where the original song is from, e.g. a musical or a film.
+     */
     @Column(name = "from_work")
     private @Nullable String fromWork;
 

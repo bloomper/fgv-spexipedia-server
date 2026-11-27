@@ -88,7 +88,9 @@ public class PackageService {
         this.clock = clock;
     }
 
-    /** The template, made from the kinds and categories as they are now. EDITOR. */
+    /**
+     * The template, made from the kinds and categories as they are now. EDITOR.
+     */
     @Transactional(readOnly = true)
     public byte[] template(final Locale locale) throws IOException {
         callerService.current().requireEditor();
@@ -96,7 +98,9 @@ public class PackageService {
                 use -> kinds.kinds(KindType.IMAGE, use, false), messages, locale);
     }
 
-    /** The template's file name in the locale's language. */
+    /**
+     * The template's file name in the locale's language.
+     */
     public String templateFileName(final Locale locale) {
         return PackageTemplate.fileName(messages, locale);
     }
@@ -137,7 +141,9 @@ public class PackageService {
         return pkg;
     }
 
-    /** A part of the zip, at the offset where the parts so far end; returns how much has arrived. EDITOR. */
+    /**
+     * A part of the zip, at the offset where the parts so far end; returns how much has arrived. EDITOR.
+     */
     @Transactional
     public long appendZip(final UUID id, final long offset, final InputStream content) throws IOException {
         callerService.current().requireEditor();
@@ -154,7 +160,9 @@ public class PackageService {
         return received;
     }
 
-    /** How much of the zip has arrived, to resume an upload. EDITOR. */
+    /**
+     * How much of the zip has arrived, to resume an upload. EDITOR.
+     */
     @Transactional(readOnly = true)
     public long zipReceived(final UUID id) throws IOException {
         callerService.current().requireEditor();
@@ -174,13 +182,17 @@ public class PackageService {
         return repository.findByUuid(id).orElse(null);
     }
 
-    /** Starts the preview: dry runs in every application. EDITOR. */
+    /**
+     * Starts the preview: dry runs in every application. EDITOR.
+     */
     @Transactional
     public SpexPackage preview(final UUID id) {
         return start(id, PackageState.PREVIEWING, false);
     }
 
-    /** Starts applying it: Spexipedia first, then the others. Again after a failure. EDITOR. */
+    /**
+     * Starts applying it: Spexipedia first, then the others. Again after a failure. EDITOR.
+     */
     @Transactional
     public SpexPackage apply(final UUID id) {
         return start(id, PackageState.APPLYING, true);
@@ -204,7 +216,9 @@ public class PackageService {
         return json == null ? new PackageReport(List.of(), List.of(), List.of()) : jsonMapper.readValue(json, PackageReport.class);
     }
 
-    /** Deletes the packages applied longer ago than {@code keepPackages}, with their files. */
+    /**
+     * Deletes the packages applied longer ago than {@code keepPackages}, with their files.
+     */
     @Transactional
     public void cleanUp() {
         for (final SpexPackage pkg : repository.findByAppliedAtBefore(clock.instant().minus(properties.imports().keepPackages()))) {
@@ -214,7 +228,9 @@ public class PackageService {
         }
     }
 
-    /** A preview or apply that a restart interrupted has failed; it can be started again. */
+    /**
+     * A preview or apply that a restart interrupted has failed; it can be started again.
+     */
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
     public void failInterrupted() {

@@ -606,7 +606,9 @@ public class KindService {
                             @Nullable String subtitleSv, @Nullable String subtitleEn) {
     }
 
-    /** A kind's name for the audit log, in the reader's language. */
+    /**
+     * A kind's name for the audit log, in the reader's language.
+     */
     private static StoredText name(final Kind kind) {
         return StoredText.of("audit.name", kind.getNameSv(), kind.getNameEn());
     }

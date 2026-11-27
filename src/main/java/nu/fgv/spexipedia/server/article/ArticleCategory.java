@@ -63,7 +63,9 @@ public class ArticleCategory extends AbstractAuditable {
     @Column(name = "description")
     private @Nullable String description;
 
-    /** The categories this one belongs to, as in the MediaWiki (spec 4.5). */
+    /**
+     * The categories this one belongs to, as in the MediaWiki (spec 4.5).
+     */
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "article_category_parent", joinColumns = @JoinColumn(name = "category_id"),
             inverseJoinColumns = @JoinColumn(name = "parent_id"))

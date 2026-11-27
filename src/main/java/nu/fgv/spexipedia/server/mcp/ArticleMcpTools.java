@@ -214,7 +214,8 @@ public class ArticleMcpTools {
     public record McpArticle(McpArticleRef article, @Nullable String body, @Nullable UUID revisionId) {
     }
 
-    public record McpArticleCategory(UUID id, String slug, String name, @Nullable String description, int articleCount) {
+    public record McpArticleCategory(UUID id, String slug, String name, @Nullable String description,
+                                     int articleCount) {
 
         static McpArticleCategory of(final ArticleCategoryDto category) {
             return new McpArticleCategory(category.id(), category.slug(), category.name(), category.description(), category.articleCount());
@@ -230,7 +231,8 @@ public class ArticleMcpTools {
      * @param authorName for authors only
      */
     public record McpRevision(UUID id, RevisionTarget target, UUID targetId, String targetTitle, @Nullable String field,
-                              @Nullable String comment, boolean hidden, @Nullable String authorName, Instant createdAt) {
+                              @Nullable String comment, boolean hidden, @Nullable String authorName,
+                              Instant createdAt) {
 
         static McpRevision of(final RevisionDto revision, final MessageSource messages) {
             return new McpRevision(revision.id(), revision.target(), revision.targetId(), revision.targetTitle(), revision.field(),

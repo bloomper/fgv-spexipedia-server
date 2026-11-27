@@ -48,7 +48,9 @@ import java.util.Optional;
  */
 public final class PackageSheets {
 
-    /** What the spreadsheet holds. {@code facts} are by fact kind name; {@code credits} by credit kind name. */
+    /**
+     * What the spreadsheet holds. {@code facts} are by fact kind name; {@code credits} by credit kind name.
+     */
     public record Content(Map<String, String> spex, Map<String, String> facts, List<CharacterRow> characters,
                           List<SceneRow> scenes, List<NumberRow> numbers, List<PackageText> warnings) {
 
@@ -64,10 +66,12 @@ public final class PackageSheets {
     public record CharacterRow(int row, String name, @Nullable String description) {
     }
 
-    public record SceneRow(int row, @Nullable Integer act, String title, @Nullable String place, boolean intervalAfter) {
+    public record SceneRow(int row, @Nullable Integer act, String title, @Nullable String place,
+                           boolean intervalAfter) {
     }
 
-    public record NumberRow(int row, @Nullable Integer act, @Nullable Integer position, String title, @Nullable String kind,
+    public record NumberRow(int row, @Nullable Integer act, @Nullable Integer position, String title,
+                            @Nullable String kind,
                             Map<String, String> fields, Map<String, List<String>> credits, List<String> characters) {
     }
 
@@ -211,7 +215,9 @@ public final class PackageSheets {
         return numbers;
     }
 
-    /** "Anna, Pelle och Lisa" as three names; "-" and "?" as none. */
+    /**
+     * "Anna, Pelle och Lisa" as three names; "-" and "?" as none.
+     */
     static List<String> names(final @Nullable String cell) {
         if (cell == null || cell.isBlank()) {
             return List.of();
@@ -220,7 +226,9 @@ public final class PackageSheets {
                 .map(String::strip).filter(name -> !name.isEmpty() && !name.matches("[-?]+")).toList();
     }
 
-    /** The sheet by any of its names (PackageColumns.SHEETS), or null. */
+    /**
+     * The sheet by any of its names (PackageColumns.SHEETS), or null.
+     */
     private static @Nullable Sheet sheet(final Workbook workbook, final String sheet) {
         final List<String> names = PackageColumns.SHEETS.get(sheet).stream().map(KindService::normalize).toList();
 
@@ -232,7 +240,9 @@ public final class PackageSheets {
         return null;
     }
 
-    /** The sheet's name as the file has it, for warnings. */
+    /**
+     * The sheet's name as the file has it, for warnings.
+     */
     private static String sheetName(final Workbook workbook, final String sheet) {
         final Sheet found = sheet(workbook, sheet);
 
@@ -282,7 +292,9 @@ public final class PackageSheets {
         return text == null || text.isBlank() ? null : text.strip();
     }
 
-    /** A sheet with a header row: each row by the field its column names; headers that name nothing. */
+    /**
+     * A sheet with a header row: each row by the field its column names; headers that name nothing.
+     */
     private record Table(List<Map<String, String>> rows, List<String> unknown) {
 
         static Table of(final List<List<String>> rows, final Map<String, List<String>> columns) {

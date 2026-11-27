@@ -63,7 +63,8 @@ public final class LinkDtos {
      * Spexify for users with access there.
      */
     public record RecordDto(UUID id, String title, @Nullable Integer year, String kindNameSv, String kindNameEn,
-                            @Nullable String mediumNameSv, @Nullable String mediumNameEn, @Nullable String catalogueNumber,
+                            @Nullable String mediumNameSv, @Nullable String mediumNameEn,
+                            @Nullable String catalogueNumber,
                             @Nullable String released, @Nullable String recorded, @Nullable String conductor,
                             @Nullable UUID spexId, @Nullable String coverUrl, @Nullable String backCoverUrl,
                             @Nullable String url, List<RecordTrackDto> tracks) {
@@ -75,7 +76,8 @@ public final class LinkDtos {
      * record (spec 4.2.1), for the same users.
      */
     public record RecordTrackDto(UUID id, @Nullable String side, int discNumber, int position, String title,
-                                 @Nullable UUID numberId, boolean hasAudio, @Nullable String url, @Nullable String audioUrl) {
+                                 @Nullable UUID numberId, boolean hasAudio, @Nullable String url,
+                                 @Nullable String audioUrl) {
     }
 
     /**
@@ -124,7 +126,8 @@ public final class LinkDtos {
      * for users with access there.
      */
     public record NumberBookDto(UUID id, String title, @Nullable Integer volume, @Nullable String publishedYear,
-                                String kindNameSv, String kindNameEn, int position, boolean textOnly, @Nullable String url) {
+                                String kindNameSv, String kindNameEn, int position, boolean textOnly,
+                                @Nullable String url) {
     }
 
     /**

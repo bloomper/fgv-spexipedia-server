@@ -61,12 +61,16 @@ public class Article extends AbstractAuditable {
     @Column(name = "slug", nullable = false)
     private String slug;
 
-    /** The parent in the tree of articles (spec 4.5); null at the top. */
+    /**
+     * The parent in the tree of articles (spec 4.5); null at the top.
+     */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
     private @Nullable Article parent;
 
-    /** The order among the parent's children. */
+    /**
+     * The order among the parent's children.
+     */
     @Column(name = "position", nullable = false)
     private int position;
 

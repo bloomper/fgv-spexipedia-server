@@ -95,7 +95,9 @@ public class PackageGraphqlApi {
         return pkg.getSpexId() == null ? null : baseData.spexByIds(List.of(pkg.getSpexId())).get(pkg.getSpexId());
     }
 
-    /** Progress or why it failed, in the reader's language. */
+    /**
+     * Progress or why it failed, in the reader's language.
+     */
     @SchemaMapping(typeName = "SpexPackage", field = "message")
     public @Nullable String message(final SpexPackage pkg, final Locale locale) {
         return pkg.getMessage() == null ? null : PackageText.decode(pkg.getMessage()).in(messages, locale);

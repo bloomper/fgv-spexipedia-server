@@ -58,11 +58,15 @@ public class Kind extends AbstractAuditable {
     @Column(name = "type", nullable = false, updatable = false)
     private KindType type;
 
-    /** The use of an image kind as its name; empty for the other types. */
+    /**
+     * The use of an image kind as its name; empty for the other types.
+     */
     @Column(name = "use_for", nullable = false, updatable = false)
     private String useFor = "";
 
-    /** For an image kind of use SECTION: the key of the image section it belongs to. */
+    /**
+     * For an image kind of use SECTION: the key of the image section it belongs to.
+     */
     @Column(name = "section_id", updatable = false)
     private @Nullable Long sectionKey;
 
@@ -70,7 +74,9 @@ public class Kind extends AbstractAuditable {
     @Column(name = "value_type")
     private @Nullable FactValueType valueType;
 
-    /** For a section kind: what the section shows. */
+    /**
+     * For a section kind: what the section shows.
+     */
     @Enumerated(EnumType.STRING)
     @Column(name = "content", updatable = false)
     private @Nullable SectionContent content;
@@ -81,14 +87,18 @@ public class Kind extends AbstractAuditable {
     @Column(name = "name_en", nullable = false)
     private String nameEn;
 
-    /** For a section kind: the line under its heading. */
+    /**
+     * For a section kind: the line under its heading.
+     */
     @Column(name = "subtitle_sv")
     private @Nullable String subtitleSv;
 
     @Column(name = "subtitle_en")
     private @Nullable String subtitleEn;
 
-    /** One per line. */
+    /**
+     * One per line.
+     */
     @Column(name = "aliases", nullable = false)
     private String aliases = "";
 

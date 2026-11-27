@@ -56,7 +56,8 @@ public final class BaseDataDtos {
         }
     }
 
-    public record TaskCategoryDto(long key, UUID id, String name, boolean actorPresent, boolean instruments, boolean retired) {
+    public record TaskCategoryDto(long key, UUID id, String name, boolean actorPresent, boolean instruments,
+                                  boolean retired) {
     }
 
     public record TaskDto(long key, UUID id, String name, long categoryKey, boolean board, boolean retired) {
